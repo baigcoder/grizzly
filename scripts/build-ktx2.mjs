@@ -4,10 +4,13 @@
  *
  *   node scripts/build-ktx2.mjs            # all flavors
  *   node scripts/build-ktx2.mjs peach      # one flavor
+ *   node scripts/build-ktx2.mjs --lite     # only the phone 2k level (all flavors)
  *
  * Input  (from scripts/build-labels.mjs): public/textures/grizzly/<slug>.webp, <slug>-surface.png, <slug>-normal.png
  * Output: public/textures/grizzly/ktx2/<slug>-{1k,2k,4k}.ktx2  albedo (sRGB): 1k = ETC1S (small, for the ring),
  *                                                              2k/4k = UASTC (sharp, for the focused can)
+ *         public/textures/grizzly/ktx2/<slug>-2k-lite.ktx2     2k ETC1S for phones: the focused can at full 2k
+ *                                                              sharpness for about a third of the UASTC download
  *         public/textures/grizzly/ktx2/<slug>-surface.ktx2     G roughness / B metalness, 2k UASTC (linear)
  *         public/textures/grizzly/ktx2/<slug>-normal.ktx2      emboss normal map, 2k UASTC (normal mode)
  * Sizes are multiples of 4 (block-compression requirement) and images are pre-flipped,
@@ -21,7 +24,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const data = JSON.parse(await readFile(resolve(root, 'src/data/grizzly.json'), 'utf8'));
-const only = process.argv[2];
+const liteOnly = process.argv.includes('--lite');
+const only = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
 const dir = resolve(root, 'public/textures/grizzly');
 const out = resolve(dir, 'ktx2');
 await mkdir(out, { recursive: true });
@@ -46,6 +50,8 @@ for (const flavor of data.flavors) {
   if (only && flavor.slug !== only) continue;
   const albedo = resolve(dir, `${flavor.slug}.webp`);
   const base = { isSetKTX2SRGBTransferFunc: true, isPerceptual: true };
+  await encode(albedo, resolve(out, `${flavor.slug}-2k-lite.ktx2`), 2048, 1600, { ...base, isUASTC: false, qualityLevel: 255, compressionLevel: 4 });
+  if (liteOnly) continue;
   await encode(albedo, resolve(out, `${flavor.slug}-1k.ktx2`), 1024, 800, { ...base, isUASTC: false, qualityLevel: 230, compressionLevel: 4 });
   await encode(albedo, resolve(out, `${flavor.slug}-2k.ktx2`), 2048, 1600, { ...base, isUASTC: true, uastcLDRQualityLevel: 2, enableRDO: true, rdoQualityLevel: 1, needSupercompression: true });
   await encode(albedo, resolve(out, `${flavor.slug}-4k.ktx2`), 4096, 3072, { ...base, isUASTC: true, uastcLDRQualityLevel: 2, enableRDO: true, rdoQualityLevel: 1.5, needSupercompression: true });

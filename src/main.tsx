@@ -25,6 +25,7 @@ import './styles/fx.css';
 import './styles/shop-page.css';
 // Liquid glass surface language, loaded last so it only restyles surfaces.
 import './styles/glass.css';
+import './styles/pages.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

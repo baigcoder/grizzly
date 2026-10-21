@@ -1,0 +1,199 @@
+/* ============================================================
+   PLAIN PAGES: one backdrop for shop, mix, bag, checkout, stores, privacy and the halal story.
+   A clean night studio instead of the ridge still: near-black with a soft light falling from above, a faint
+   flavor-coloured glow pooled on the floor and a thin horizon of light, so nothing busy sits behind forms or copy.
+   The halal story takes the dawn gold of the home page's Zamzam chapter, with a faint carved lattice high in the
+   frame. Pure CSS over the 3D canvas (the scene stops drawing on these pages); decorative and hidden from assistive
+   tech. Loaded after glass.css.
+   ============================================================ */
+
+.page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-canvas);
+  pointer-events: none;
+  background:
+    radial-gradient(70% 55% at 50% -12%, var(--color-white-a08), transparent 70%),
+    radial-gradient(85% 42% at 50% 112%, color-mix(in oklab, var(--color-accent) 30%, transparent), transparent 72%),
+    radial-gradient(40% 30% at 92% 18%, color-mix(in oklab, var(--color-accent) 10%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--color-page-top) 0%, var(--color-page-mid) 58%, var(--color-page-floor) 100%);
+}
+
+/* the horizon: a thin, soft line of light low in the frame */
+.page-backdrop::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 22%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-accent) 45%, var(--color-white) 10%), transparent);
+  opacity: 0.35;
+  filter: blur(0.5px);
+}
+
+/* Halal and Zamzam: first light in gold over still water, and the mashrabiya lattice (eight-point stars) up top */
+.page-backdrop[data-variant='halal'] {
+  background:
+    radial-gradient(75% 50% at 50% -10%, color-mix(in oklab, var(--color-zamzam-gold-light) 14%, transparent), transparent 70%),
+    radial-gradient(90% 38% at 50% 104%, color-mix(in oklab, var(--color-zamzam-gold) 30%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--color-page-top) 0%, var(--color-zamzam-night) 55%, var(--color-zamzam-water) 100%);
+}
+
+.page-backdrop[data-variant='halal']::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 45%;
+  background-image: var(--image-mashrabiya);
+  background-size: 4.5rem 4.5rem;
+  opacity: 0.09;
+  mask-image: linear-gradient(180deg, var(--color-black) 0%, transparent 100%);
+}
+
+.page-backdrop[data-variant='halal']::after {
+  background: linear-gradient(90deg, transparent, var(--color-zamzam-gold), transparent);
+  opacity: 0.4;
+}
+
+/* Plain pages hide the 3D canvas and the old ridge still behind this backdrop. */
+body:has(.page-backdrop) .fallback-stage {
+  display: none;
+}
+
+/* ---------- Halal and Zamzam story ---------- */
+.story--halal {
+  --color-accent: var(--color-zamzam-gold);
+}
+
+.story__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-2xl);
+}
+
+.story--halal .story__seal {
+  margin: 0;
+  justify-items: center;
+}
+
+/* the title shares the hero with the seal: two lines at most, never under it */
+.story--halal .story__title {
+  font-size: clamp(var(--size-3), 6.2vw, var(--size-6));
+  margin-bottom: var(--space-md);
+}
+
+.story--halal .story__seal .halal-seal {
+  width: clamp(9rem, 18vw, 15rem);
+}
+
+.story__script {
+  margin-bottom: var(--space-xs);
+  text-align: left; /* in line with the title (right-to-left text would otherwise align right) */
+  font-family: 'Amiri', 'Traditional Arabic', 'Geeza Pro', serif;
+  font-weight: 700;
+  font-size: var(--font-size-3xl);
+  line-height: 1.3;
+  background: linear-gradient(100deg, var(--color-zamzam-gold-deep), var(--color-zamzam-gold) 45%, var(--color-zamzam-gold-light) 55%, var(--color-zamzam-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.story--halal .story__lead {
+  margin-bottom: 0;
+}
+
+.story--halal .story-block {
+  border-color: color-mix(in oklab, var(--color-zamzam-gold) 22%, var(--color-line-subtle));
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--color-zamzam-gold) 7%, transparent), transparent 60%),
+    var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.story--halal .story-block__title {
+  color: var(--color-text-primary);
+}
+
+.story--halal .story-block__title svg,
+.story--halal .trust-badge__icon {
+  color: var(--color-zamzam-gold);
+}
+
+.story-block__text + .story-block__text {
+  margin-top: var(--space-xs);
+}
+
+.story__note {
+  margin-top: var(--space-2xl);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 767px) {
+  .story__hero {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+
+  /* the seal sits above the heading on phones, small, centred in its rings, never over the title */
+  .story--halal .story__seal {
+    order: -1;
+    justify-items: center;
+  }
+
+  .story--halal .story__seal .halal-seal {
+    width: min(var(--size-seal), 34vw);
+  }
+
+  .story__script {
+    font-size: var(--font-size-2xl);
+  }
+}
+
+/* ---------- Shop cards ---------- */
+/* The call to action reads as one line with an arrow (on phones it broke into "VIEW AND ADD TO / BAG"). */
+.shop-card__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  white-space: nowrap;
+}
+
+.shop-card__cta::after {
+  content: '→';
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.shop-card:hover .shop-card__cta::after,
+.shop-card:focus-visible .shop-card__cta::after {
+  transform: translateX(var(--space-2xs));
+}
+
+@media (max-width: 767px) {
+  .shop-card__cta {
+    font-size: var(--font-size-sm);
+    letter-spacing: 0.08em;
+  }
+
+  /* the can stands inside the card with a little air, not cut by its edge */
+  .shop-card {
+    padding-left: var(--space-sm);
+  }
+}
+
+/* the seal in dawn gold on the halal story (its fine ticks a quieter gold) */
+.story--halal .halal-seal__line {
+  stroke: var(--color-zamzam-gold);
+}
+
+.story--halal .halal-seal__line--fine {
+  stroke: color-mix(in oklab, var(--color-zamzam-gold) 55%, transparent);
+}
+
+.story--halal .halal-seal__latin {
+  fill: var(--color-zamzam-gold-light);
+}

@@ -6,7 +6,7 @@ import { createFlatNormalTexture, createNeutralSurfaceTexture, createPlaceholder
 /**
  * Label artwork streaming. Each flavor has GPU-compressed (KTX2/Basis) levels of detail:
  *   0 = 1k  (ETC1S, ~120 KB)  every can, from the first frame
- *   1 = 2k  (UASTC, ~1.2 MB)  the focused can and its neighbours
+ *   1 = 2k  (UASTC, ~1.2 MB)  the focused can and its neighbours; phones take the 2k ETC1S level (~340 KB)
  *   2 = 4k  (UASTC)           only the can being looked at up close (high tier)
  * plus a 2k surface map (roughness/metalness) and a 2k emboss normal map.
  * Compressed textures stay compressed in GPU memory (≈ 17 MB for a 4k label with mips,
@@ -43,6 +43,8 @@ export class LabelTextures {
   public onChange: ((flavorIndex: number) => void) | null = null;
   /** Highest level this device may use (mobile stays at 2k). */
   public maxLod = 2;
+  /** Phones: the 2k level comes as ETC1S ("2k-lite", about a quarter of the UASTC download, same 2k sharpness). */
+  public phoneLevels = false;
   /** Low-power cans have no normal map, so their emboss maps are never downloaded. */
   public loadNormals = true;
 
@@ -71,7 +73,7 @@ export class LabelTextures {
     const pending = this.requested.get(key);
     if (pending) return pending;
     const slug = FLAVORS[index].id;
-    const size = ['1k', '2k', '4k'][target];
+    const size = ['1k', this.phoneLevels ? '2k-lite' : '2k', '4k'][target];
     const promise = this.loadTexture(`${BASE}/ktx2/${slug}-${size}.ktx2`, `${BASE}/${slug}.webp`, true)
       .then((texture) => {
         if (this.disposed) return texture.dispose();

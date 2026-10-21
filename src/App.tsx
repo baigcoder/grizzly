@@ -216,6 +216,7 @@ export const App: React.FC = () => {
 
     let cancelled = false;
     let readyFrame = 0;
+    let readyTimer = 0;
     let teardown: () => void = () => {};
     const startRoute = parseCurrentRoute();
     const productFlavor = startRoute.type === 'PRODUCT' ? FLAVORS.find((flavor) => flavor.id === startRoute.slug)?.id : undefined;
@@ -253,12 +254,17 @@ export const App: React.FC = () => {
           const heading = Math.round(sm.carousel.target / sm.carousel.spacing);
           if (index === ((heading % FLAVORS.length) + FLAVORS.length) % FLAVORS.length) setActiveIndex(index);
         });
+        const markReady = () => {
+          window.clearTimeout(readyTimer);
+          performance.mark('grizzly:scene-first-frames');
+          setSceneUp(true);
+          setIsReady(true);
+        };
+        // ready after two drawn frames, or after 1.5 s at the latest: a browser that holds frames back (a tab
+        // opened behind another) must never leave the loader up
+        readyTimer = window.setTimeout(markReady, 1500);
         readyFrame = requestAnimationFrame(() => {
-          readyFrame = requestAnimationFrame(() => {
-            performance.mark('grizzly:scene-first-frames');
-            setSceneUp(true);
-            setIsReady(true);
-          });
+          readyFrame = requestAnimationFrame(markReady);
         });
         teardown = () => {
           unsubscribe();
@@ -274,6 +280,7 @@ export const App: React.FC = () => {
     return () => {
       cancelled = true;
       cancelAnimationFrame(readyFrame);
+      window.clearTimeout(readyTimer);
       teardown();
     };
   }, [sceneWanted, loaderMode]);
@@ -509,6 +516,10 @@ export const App: React.FC = () => {
         />
       ) : (
         <FallbackStage activeIndex={activeIndex} showCan={!sceneWanted ? false : true} />
+      )}
+      {/* plain pages: a calm studio backdrop over the canvas (the halal story in dawn gold) */}
+      {!isHome && route.type !== 'PRODUCT' && (
+        <div className="page-backdrop" data-variant={route.type === 'HALAL' ? 'halal' : undefined} aria-hidden="true" />
       )}
 
 

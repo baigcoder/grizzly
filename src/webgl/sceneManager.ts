@@ -428,6 +428,7 @@ export class SceneManager {
     this.labels = new LabelTextures(this.renderer);
     this.labels.maxLod = this.isLowPower || this.dataSaver ? 1 : 2;
     this.labels.loadNormals = !this.isLowPower;
+    this.labels.phoneLevels = this.isLowPower;
     this.labels.onChange = (flavorIndex) => this.applyLabelMaps(flavorIndex);
 
     for (let i = 0; i < CAN_COUNT; i += 1) {
@@ -488,19 +489,17 @@ export class SceneManager {
     this.lastStreamKey = key;
     const count = FLAVORS.length;
     void this.labels.ensureSurface(focusFlavor);
-    // Phones show the hero can small: their 1k level is enough there, and 2k comes with the close-ups.
-    // The very first sharp label (≈1.3 MB) waits for an idle moment after the first frames, so it never competes with
+    // Every device gets the focused can's 2k label (phones the light ETC1S one: their 1k level looked soft on a 2-3x
+    // screen). The very first sharp label (≈1.3 MB, 340 KB on phones) waits for an idle moment after the first frames, so it never competes with
     // the 1k labels, the transcoder and the page itself on a first visit; later flavors load at once.
-    if (closeUp || !this.isLowPower) {
-      const sharpen = () => void this.labels.ensureAlbedo(focusFlavor, 1);
-      if (this.firstSharpLabel) {
-        this.firstSharpLabel = false;
-        const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number };
-        if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(sharpen, { timeout: 2500 });
-        else window.setTimeout(sharpen, 1200);
-      } else {
-        sharpen();
-      }
+    const sharpen = () => void this.labels.ensureAlbedo(focusFlavor, 1);
+    if (this.firstSharpLabel) {
+      this.firstSharpLabel = false;
+      const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number };
+      if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(sharpen, { timeout: 2500 });
+      else window.setTimeout(sharpen, 1200);
+    } else {
+      sharpen();
     }
     [1, count - 1].forEach((step) => void this.labels.ensureSurface((focusFlavor + step) % count));
     if (closeUp && this.wantsDetail4k()) void this.labels.ensureAlbedo(focusFlavor, 2);
@@ -686,8 +685,10 @@ export class SceneManager {
       this.labels.loadNormals = false;
     }
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    // HIGH renders up to 2x for crisp labels; the frame-rate governor steps down on slow GPUs
-    const cap = level === 'LOW' ? 1 : level === 'MEDIUM' ? 1.25 : 2;
+    // HIGH renders up to 2x for crisp labels; MEDIUM up to 2x on phone-sized screens (375×812 at 2x is fewer pixels
+    // than a laptop at 1.25x, and at 1.25x a 3x phone showed every can soft) and 1.5x on larger ones. The frame-rate
+    // governor steps down on slow GPUs.
+    const cap = level === 'LOW' ? 1 : level === 'MEDIUM' ? (window.innerWidth < 768 ? 2 : 1.5) : 2;
     this.setPixelRatio(Math.min(dpr, cap));
     this.applyQuality(level);
   }
@@ -989,6 +990,8 @@ export class SceneManager {
     this.productViewTurn = { value: 0, target: 0 };
     this.previewIndex = -1;
     void this.labels.ensureSurface(this.activeProductIndex);
+    // the small level first (preloaded by the page, ~120 KB): the can wears its label at once, then sharpens
+    void this.labels.ensureAlbedo(this.activeProductIndex, 0);
     void this.labels.ensureAlbedo(this.activeProductIndex, 1);
     if (this.wantsDetail4k()) void this.labels.ensureAlbedo(this.activeProductIndex, 2);
 
@@ -1193,16 +1196,16 @@ export class SceneManager {
   public animate = (now: number) => {
     this.reqId = requestAnimationFrame(this.animate);
     if (!this.isRunning || this.contextLost) return;
-    // Plain pages (shop, bag, checkout, ...) only use the scene as a backdrop: a calmer rate saves battery and
-    // leaves the main thread to the page (30 fps; 15 with reduced motion).
+    // Plain pages (shop, bag, checkout, ...) cover the canvas with their own CSS backdrop (styles/pages.css): the
+    // scene draws nothing there, which leaves the GPU, the battery and the main thread to the page. It picks up
+    // again on the next frame after the route returns to the home story or a product.
     if (this.routeMode === 'PAGE') {
-      if (now - this.lastPageFrameAt < (this.reducedMotion ? 66 : 33)) return;
-      this.lastPageFrameAt = now;
+      this.lastTime = now;
+      return;
     }
     // At rest (no scroll, pointer, drag or spin for 2.5 s, the camera settled on its pose) the scene only breathes:
     // 30 fps is plenty and halves the GPU work while someone is just looking. Any input restores full rate at once.
     this.idleThrottled =
-      this.routeMode !== 'PAGE' &&
       now - this.lastActivityAt > 2500 &&
       this.productSpin === 0 &&
       Math.abs(this.targetTimelineProgress - this.currentTimelineProgress) < 0.0005;
