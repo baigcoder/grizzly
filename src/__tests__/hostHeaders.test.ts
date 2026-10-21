@@ -42,9 +42,9 @@ describe('host headers', () => {
     expect(vercelRules()).toEqual(netlifyRules());
   });
 
-  it('allows WebGL texture transcoding (wasm) and nothing from other origins', () => {
+  it('allows the KTX2 transcoder (eval and wasm in its worker) and nothing from other origins', () => {
     const csp = netlifyRules()['/*']['Content-Security-Policy'];
-    expect(csp).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(csp).toContain("script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval';");
     expect(csp).toContain("default-src 'self'");
   });
 });

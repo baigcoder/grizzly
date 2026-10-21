@@ -7,6 +7,11 @@
 # line below and loads the site under it, so a host-config change that drifts from this file is the only thing
 # that can break WebGL; keep them in step.
 #
+# script-src allows 'unsafe-eval' on purpose: the Basis (KTX2) label transcoder is Emscripten code that builds
+# functions from strings in its worker, which inherits this policy. Without it the compressed labels never decode
+# and every flavor falls back to a 4k image (about 5x the download and GPU memory). Scripts still load only from
+# this origin, with no inline scripts.
+#
 # Not set here on purpose:
 #   Strict-Transport-Security  add it at the host once HTTPS is live on the final domain
 #                              (max-age=31536000; includeSubDomains), it cannot be undone quickly.
@@ -18,7 +23,7 @@
   X-Frame-Options: DENY
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # Pages: always revalidate, so a new deploy shows up at once.
 /

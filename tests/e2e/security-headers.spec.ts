@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
  * other headers to every response, then checks the site still works under them: WebGL renders, KTX2 textures
  * decode in their workers, fonts load, the shop runs, and the browser reports no policy violation.
  */
-const headersFile = readFileSync('public/_headers', 'utf8');
+const headersFile = readFileSync('public/_headers', 'utf8').replace(/\r\n/g, '\n'); // CRLF checkouts on Windows
 const globalBlock = headersFile.split(/\n\/\*\n/)[1].split(/\n\n/)[0];
 const headers: Record<string, string> = {};
 for (const line of globalBlock.split('\n')) {
@@ -24,7 +24,11 @@ test('_headers defines the expected security headers', () => {
   expect(csp).toContain("object-src 'none'");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp, 'no wildcard sources').not.toMatch(/\*/);
-  expect(csp, 'no unsafe-eval').not.toContain("'unsafe-eval'");
+  // Scripts only from this origin. 'unsafe-eval' is there for one reason: the Basis (KTX2) transcoder is Emscripten
+  // code that builds functions from strings in its worker, which inherits this policy. Without it the compressed
+  // labels never decode (src/webgl/labelTextures.ts then falls back to the full-size images). No inline scripts.
+  expect(csp).toContain("script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval';");
+  expect(csp, 'no inline scripts').not.toMatch(/script-src[^;]*'unsafe-inline'/);
 });
 
 async function underHeaders(page: Page) {
@@ -55,14 +59,20 @@ test('under the CSP: home renders WebGL, decodes KTX2 textures, loads fonts, wit
   });
   await page.goto('/');
   await expect(page.getByRole('progressbar', { name: 'Loading Grizzly Energy' })).toBeHidden({ timeout: 60_000 });
-  // The scene is up: a WebGL context exists and the 1k labels loaded through the KTX2 worker.
+  // The scene is up: a WebGL context exists and every flavor's 1k label decoded through the KTX2 worker into a
+  // GPU-compressed texture (counting textures was not enough: the dark placeholders count too).
   await expect.poll(() => page.evaluate(() => !!(window as unknown as { __GRIZZLY_SCENE__?: unknown }).__GRIZZLY_SCENE__), { timeout: 30_000 }).toBe(true);
   await expect
     .poll(
-      () => page.evaluate(() => (window as unknown as { __GRIZZLY_SCENE__: { renderer: { info: { memory: { textures: number } } } } }).__GRIZZLY_SCENE__.renderer.info.memory.textures),
+      () =>
+        page.evaluate(() => {
+          type Maps = { lod: number; albedo: { isCompressedTexture?: boolean } };
+          const labels = (window as unknown as { __GRIZZLY_SCENE__: { labels: { maps: Maps[] } } }).__GRIZZLY_SCENE__.labels;
+          return labels.maps.every((maps) => maps.lod >= 0 && maps.albedo.isCompressedTexture === true);
+        }),
       { timeout: 30_000 }
     )
-    .toBeGreaterThan(6);
+    .toBe(true);
   expect(await page.evaluate(() => document.fonts.check("italic 900 20px 'Libre Franklin'"))).toBe(true);
   expect(violations, 'CSP violations').toEqual([]);
   expect(failedRequests, 'failed requests').toEqual([]);
