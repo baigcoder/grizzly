@@ -11,11 +11,24 @@ import { createFlatNormalTexture, createNeutralSurfaceTexture, createPlaceholder
  * plus a 2k surface map (roughness/metalness) and a 2k emboss normal map.
  * Compressed textures stay compressed in GPU memory (≈ 17 MB for a 4k label with mips,
  * against 70 MB uncompressed) and are transcoded in workers, not on the main thread.
- * If a .ktx2 file fails to load, the original WebP/PNG is used instead.
+ * If a .ktx2 file fails to load, the original WebP/PNG is used instead. The Basis transcoder is Emscripten code that
+ * builds functions from strings, so a Content-Security-Policy without 'unsafe-eval' (vercel.json, public/_headers)
+ * blocks it in its worker and the load never settles: when string evaluation is blocked here (the worker inherits
+ * the page's policy) KTX2 is skipped from the start, and a stalled KTX2 load gives up after a few seconds.
  */
 export type LabelMaps = { albedo: THREE.Texture; surface: THREE.Texture; normal: THREE.Texture; lod: number; surfaceReady: boolean };
 
 const BASE = '/textures/grizzly';
+const KTX2_TIMEOUT_MS = 6000;
+
+/** False when the page's Content-Security-Policy blocks building functions from strings (no 'unsafe-eval'). */
+function canEvaluateStrings() {
+  try {
+    return new Function('return true')() === true;
+  } catch {
+    return false;
+  }
+}
 
 export class LabelTextures {
   private readonly loader: KTX2Loader;
@@ -24,6 +37,8 @@ export class LabelTextures {
   private readonly requested = new Map<string, Promise<void>>();
   private readonly anisotropy: number;
   private disposed = false;
+  /** KTX2 transcoding works here; set false for good once it is blocked or stalls, so later loads skip it. */
+  private ktx2 = canEvaluateStrings();
   /** Called with the flavor index whenever one of its maps is replaced. */
   public onChange: ((flavorIndex: number) => void) | null = null;
   /** Highest level this device may use (mobile stays at 2k). */
@@ -119,7 +134,8 @@ export class LabelTextures {
   private async loadTexture(ktxUrl: string, fallbackUrl: string, srgb: boolean): Promise<THREE.Texture> {
     let texture: THREE.Texture;
     try {
-      texture = await this.loader.loadAsync(ktxUrl);
+      if (!this.ktx2) throw new Error('KTX2 transcoding unavailable');
+      texture = await this.loadKtx2(ktxUrl);
     } catch {
       texture = await this.fallbackLoader.loadAsync(fallbackUrl);
       texture.generateMipmaps = true;
@@ -129,6 +145,30 @@ export class LabelTextures {
     texture.wrapS = THREE.RepeatWrapping;
     texture.anisotropy = this.anisotropy;
     return texture;
+  }
+
+  /** A KTX2 load that settles: rejects if the transcoder has not answered within KTX2_TIMEOUT_MS. */
+  private loadKtx2(url: string): Promise<THREE.Texture> {
+    return new Promise((resolve, reject) => {
+      let timedOut = false;
+      const timer = window.setTimeout(() => {
+        timedOut = true;
+        this.ktx2 = false;
+        reject(new Error(`KTX2 timed out: ${url}`));
+      }, KTX2_TIMEOUT_MS);
+      this.loader.loadAsync(url).then(
+        (texture) => {
+          window.clearTimeout(timer);
+          // the fallback image has taken its place already
+          if (timedOut) texture.dispose();
+          else resolve(texture);
+        },
+        (error: unknown) => {
+          window.clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
   }
 
   dispose() {
