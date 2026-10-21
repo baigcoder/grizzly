@@ -321,3 +321,42 @@ body:has(.page-backdrop) .fallback-stage {
     gap: var(--space-2xs);
   }
 }
+
+/* ---------- Product page: Try another flavor, on phones ---------- */
+/* Three columns of ~110 px could not hold a can drawn ~190 px wide: every card cropped its can and pushed the name
+   out of view. Phones get a swipeable row of whole cards: the full can, then its name and price. */
+@media (max-width: 767px) {
+  .pdp-section--related .related {
+    display: flex;
+    gap: var(--space-sm);
+    margin-inline: calc(-1 * var(--space-md));
+    padding: var(--space-2xs) var(--space-md) var(--space-sm);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--space-md);
+    scrollbar-width: none;
+  }
+
+  .pdp-section--related .related > li {
+    flex: 0 0 44vw;
+    max-width: 12rem;
+    scroll-snap-align: start;
+  }
+
+  .pdp-section--related .related__card {
+    height: 100%;
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .pdp-section--related .related__card img {
+    width: auto;
+    height: clamp(9rem, 42vw, 12rem);
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .pdp-section--related .related__name {
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-tight);
+  }
+}
