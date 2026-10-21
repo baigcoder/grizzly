@@ -8,7 +8,7 @@
  * Output (per flavor, same 2048×1603 UV layout as before):
  *   public/textures/grizzly/<slug>.webp          flat albedo (no baked shading)
  *   public/textures/grizzly/<slug>-surface.png   G = roughness, B = metalness (glTF convention)
- *   public/textures/grizzly/<slug>-front.png     front panel only, for review
+ *   assets/label-front/<slug>-front.png          front panel only (build input for bear/social; not deployed)
  * plus src/styles/flavor-tokens.css (one accent token per flavor).
  *
  * Front panel: cropped from the flavor's flat artwork when data.front is set
@@ -27,6 +27,8 @@ const fontCss = await localFontCss();
 const data = JSON.parse(await readFile(resolve(root, 'src/data/grizzly.json'), 'utf8'));
 const only = process.argv[2];
 const outDir = resolve(root, 'public/textures/grizzly');
+const frontDir = resolve(root, 'assets/label-front');
+await mkdir(frontDir, { recursive: true });
 await mkdir(outDir, { recursive: true });
 
 // ---------- flavor tokens (single source: grizzly.json) ----------
@@ -80,7 +82,8 @@ for (const flavor of data.flavors) {
   const decode = (url) => Buffer.from(url.split(',')[1], 'base64');
   await writeFile(resolve(outDir, `${flavor.slug}.webp`), decode(result.albedo));
   await writeFile(resolve(outDir, `${flavor.slug}-surface.png`), decode(result.surface));
-  await writeFile(resolve(outDir, `${flavor.slug}-front.png`), decode(result.front));
+  // the flat front is a build input for the bear and social images, not a runtime asset: kept out of public/
+  await writeFile(resolve(frontDir, `${flavor.slug}-front.png`), decode(result.front));
   await writeFile(resolve(outDir, `${flavor.slug}-normal.png`), decode(result.normal));
   console.log(`✓ ${flavor.slug}${flavor.front ? '' : '  (temporary type-only front: awaiting flat artwork)'}`);
 }

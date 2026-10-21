@@ -12,8 +12,11 @@ export function prefersReducedMotion(): boolean {
  * flick glides and slows like a physical page. A light snap only settles a page
  * that comes to rest very near a chapter start, after a pause, so it never grabs
  * the scroll mid-gesture. Disabled under prefers-reduced-motion.
+ *
+ * `wrapAtEnd`: when a downward scroll reaches the very bottom of the page (the home loop segment, which renders the same
+ * frame as the hero), the page wraps to the top, as in the reference. Only with Lenis (never under reduced motion).
  */
-export function useSmoothScroll(enabled: boolean, snapSelector?: string) {
+export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtEnd = false) {
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
@@ -44,6 +47,17 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string) {
         });
         snap.addElements(Array.from(document.querySelectorAll<HTMLElement>(snapSelector)), { align: 'start' });
       }
+      if (wrapAtEnd) {
+        let wrapping = false;
+        lenis.on('scroll', (instance: Lenis) => {
+          if (wrapping || instance.direction !== 1 || instance.limit <= 0 || instance.scroll < instance.limit - 2) return;
+          wrapping = true;
+          instance.scrollTo(0, { immediate: true, force: true });
+          requestAnimationFrame(() => {
+            wrapping = false;
+          });
+        });
+      }
       cleanup = () => {
         cancelAnimationFrame(frame);
         snap?.destroy();
@@ -55,7 +69,7 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string) {
       cancelled = true;
       cleanup();
     };
-  }, [enabled, snapSelector]);
+  }, [enabled, snapSelector, wrapAtEnd]);
 
   /** Scrolls to an element, smoothly when Lenis is active. */
   const scrollToElement = (element: HTMLElement) => {

@@ -22,7 +22,6 @@ const loops = (page: Page) =>
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('grizzly_notice_v1', '1');
-    window.sessionStorage.setItem('grizzly_opened_v1', '1');
   });
 });
 

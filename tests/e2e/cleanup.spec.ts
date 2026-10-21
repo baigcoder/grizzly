@@ -18,13 +18,12 @@ test('route cycles do not leak canvases, geometries or textures', async ({ page 
   test.setTimeout(240_000);
   await page.addInitScript(() => {
     window.localStorage.setItem('grizzly_notice_v1', '1');
-    window.sessionStorage.setItem('grizzly_opened_v1', '1');
   });
   await page.goto('/');
   await ready(page);
 
   const cycle = async () => {
-    await page.getByRole('region', { name: 'Flavors' }).getByRole('link', { name: /View details and order/ }).click();
+    await page.locator('#profile').getByRole('link', { name: /View details and order/ }).click();
     await expect(page).toHaveURL(/\/products\//);
     await page.waitForTimeout(1500);
     await page.goBack();

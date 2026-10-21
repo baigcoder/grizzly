@@ -10,6 +10,8 @@ import '@fontsource/geist-mono/latin-300.css';
 import '@fontsource/geist-mono/latin-400.css';
 import '@fontsource/libre-franklin/latin-700-italic.css';
 import '@fontsource/libre-franklin/latin-900-italic.css';
+// Arabic calligraphy for the Zamzam chapter: unicode-range limited, so it only downloads when Arabic text shows
+import '@fontsource/amiri/arabic-700.css';
 import './styles/base.css';
 import './styles/chrome.css';
 import './styles/loader.css';

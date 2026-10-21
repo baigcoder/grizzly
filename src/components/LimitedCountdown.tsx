@@ -9,8 +9,8 @@ const UNITS: Array<[label: string, ms: number]> = [
 ];
 
 /**
- * Limited edition timer. Until the end date is confirmed (TODO in grizzly.json)
- * it says the date is to be announced instead of counting to an invented time.
+ * Limited edition timer. Until the end date is confirmed (TODO in grizzly.json) it shows nothing, rather than a
+ * placeholder or a count to an invented time.
  */
 export const LimitedCountdown: React.FC<{ slug: string; compact?: boolean }> = ({ slug, compact = false }) => {
   const endsAt = isTodo(LIMITED_EDITION.endsAt) ? null : Date.parse(LIMITED_EDITION.endsAt);
@@ -25,10 +25,11 @@ export const LimitedCountdown: React.FC<{ slug: string; compact?: boolean }> = (
 
   if (slug !== LIMITED_EDITION.slug) return null;
 
+  // no public "to be announced": the timer appears once the end date is confirmed
+  if (!valid) return null;
+
   let body: React.ReactNode;
-  if (!valid) {
-    body = <span className="countdown__tba">Limited run: end date to be announced</span>;
-  } else if (endsAt! <= now) {
+  if (endsAt! <= now) {
     body = <span className="countdown__tba">This limited edition has ended</span>;
   } else {
     let left = endsAt! - now;

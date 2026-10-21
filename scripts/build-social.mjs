@@ -20,7 +20,7 @@ await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
 for (const flavor of data.flavors) {
-  const front = await readFile(resolve(root, `public/textures/grizzly/${flavor.slug}-front.png`));
+  const front = await readFile(resolve(root, `assets/label-front/${flavor.slug}-front.png`));
   await page.setContent(`<!doctype html><html><head>
   ${fontCss}
   <style>
@@ -46,7 +46,7 @@ for (const flavor of data.flavors) {
 
 const poster = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
 for (const flavor of data.flavors) {
-  const front = await readFile(resolve(root, `public/textures/grizzly/${flavor.slug}-front.png`));
+  const front = await readFile(resolve(root, `assets/label-front/${flavor.slug}-front.png`));
   await poster.setContent(`<!doctype html><html><head>
   ${fontCss}
   <style>

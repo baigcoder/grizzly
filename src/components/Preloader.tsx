@@ -1,27 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BRAND } from '../data/brand';
+import { BrandMark } from './BrandMark';
 
 interface PreloaderProps {
   isReady: boolean;
   onDone: () => void;
   /** Fires when the loader starts to fade: the moment the scene's intro begins. */
   onLeave?: () => void;
-  /** Shortest time the loader stays (the opening needs about three seconds). */
+  /** Shortest time the loader stays, so the count reads as a moment rather than a flash. */
   minDurationMs: number;
-  /** True when the 3D opening plays behind the loader: the overlay is then see-through. */
-  showStage: boolean;
 }
 
 /**
- * Black screen. While the scene's opening plays behind it (a can cracking open, mist rolling out),
- * the wordmark forms in brushed silver as progress completes, with a hairline bar and a zero-padded
- * percentage. On exit the wordmark lifts away and the scene carries on. Fill is a CSS variable.
+ * As in the reference: a black screen, the brand mark in the centre filling with white from the bottom as
+ * progress completes, and a widely spaced percentage below it. On exit the overlay fades and the hero cans rise
+ * into the ring. Fill is a CSS variable. Any key or tap skips the minimum wait.
  *
  * Lifecycle, mirrored on html[data-loader] for tests and styling:
  *   (no attribute) = boot, before this runs  →  loading  →  ready (scene is up, minimum time not yet met)
  *   →  exit (wordmark lifting away)  →  complete (unmounted).  Routes that never get a loader read "none".
  */
-export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, minDurationMs, showStage }) => {
+export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, minDurationMs }) => {
   const [percent, setPercent] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'leaving' | 'done'>('loading');
   const startedAt = useRef(performance.now());
@@ -87,7 +86,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, 
     root.dataset.loader = phase === 'loading' ? (isReady ? 'ready' : 'loading') : phase === 'leaving' ? 'exit' : 'complete';
   }, [phase, isReady]);
 
-  // Tell the page a loader is up so the hero chrome stays hidden behind the see-through opening.
+  // Tell the page a loader is up so the hero chrome stays hidden until it leaves.
   useEffect(() => {
     if (phase !== 'loading') return;
     document.documentElement.dataset.loading = 'true';
@@ -101,7 +100,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, 
   const fill = percent / 100;
   return (
     <div
-      className={`loader ${phase === 'leaving' ? 'is-leaving' : ''} ${showStage ? 'loader--stage' : ''} ${showStage && isReady ? 'is-staged' : ''}`}
+      className={`loader ${phase === 'leaving' ? 'is-leaving' : ''}`}
       style={{ '--loader-fill': fill } as React.CSSProperties}
       role="progressbar"
       aria-label={`Loading ${BRAND.name}`}
@@ -109,28 +108,12 @@ export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, 
       aria-valuemax={100}
       aria-valuenow={percent}
     >
-      {/* First paint: the night stage, darkened, so the screen is never empty while the 3D loads.
-          No still can here: it would sit on the wordmark; the 3D opening brings the can. */}
-      <span className={`loader__still ${showStage && isReady ? 'is-hidden' : ''}`} aria-hidden="true" />
-      <span className="loader__glow" aria-hidden="true" />
-      {showStage && <span className="loader__skip">Press any key or tap to skip</span>}
       <div className="loader__stage" aria-hidden="true">
-        <span className="loader__word">
-          <span className="loader__word-base">{BRAND.wordmark[0]}</span>
-          <span className="loader__word-fill">{BRAND.wordmark[0]}</span>
-          <span className="loader__word-edge" />
+        <span className="loader__mark">
+          <BrandMark className="loader__mark-base" />
+          <BrandMark className="loader__mark-fill" />
         </span>
-        <span className="loader__sub">
-          <span className="loader__sub-base">{BRAND.wordmark[1]}</span>
-          <span className="loader__sub-fill">{BRAND.wordmark[1]}</span>
-        </span>
-        <span className="loader__bar">
-          <span className="loader__bar-fill" />
-        </span>
-        <span className="loader__meta">
-          <span className="loader__tagline">{BRAND.tagline}</span>
-          <span className="loader__percent">{String(percent).padStart(3, '0')}<span className="loader__percent-sign">%</span></span>
-        </span>
+        <span className="loader__percent">{percent}%</span>
       </div>
     </div>
   );

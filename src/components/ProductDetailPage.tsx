@@ -26,6 +26,12 @@ interface ProductDetailPageProps {
   slug: string;
   onNavigate: (url: string) => void;
   onRotate: (deltaX: number, deltaY: number) => void;
+  /** Release speed of a drag (px per ms): the can keeps spinning and slows down. */
+  onFling: (velocityX: number) => void;
+  /** Hover / focus on a flavor swatch previews that label on the 3D can (null restores). */
+  onPreviewFlavor: (slug: string | null) => void;
+  /** The chosen pack's can count: the 3D scene shows that many cans in a tray behind the hero can. */
+  onPackChange: (count: number) => void;
   onView: (view: 'FRONT' | 'BACK') => void;
   onHighlightBenefit: (index: number) => void;
   isWebglAvailable: boolean;
@@ -40,31 +46,46 @@ const ADD_LABEL: Record<AddState, string> = {
   error: 'Add to bag',
 };
 
-export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNavigate, onRotate, onView, onHighlightBenefit, isWebglAvailable }) => {
+export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNavigate, onRotate, onFling, onPreviewFlavor, onPackChange, onView, onHighlightBenefit, isWebglAvailable }) => {
   const product = getProductBySlug(slug);
   const { addItem, persistent } = useCart();
   const [packId, setPackId] = useState<PackOption['id']>('pack-6');
   const [quantity, setQuantity] = useState(1);
   const [addState, setAddState] = useState<AddState>('idle');
   const [message, setMessage] = useState('');
-  const [view, setView] = useState<'FRONT' | 'BACK'>('FRONT');
   const [hotspot, setHotspot] = useState(-1);
   const [infoOpen, setInfoOpen] = useState(false);
   const [shareState, setShareState] = useState<ShareOutcome | 'working' | 'idle'>('idle');
   const timers = useRef<number[]>([]);
   const addButtonRef = useRef<HTMLButtonElement>(null);
-  // The sticky buy bar shows once the main Add to bag button has scrolled up out of view.
+  // The sticky buy bar shows only once the main Add to bag button has scrolled up out of view, so it never covers
+  // the pack sizes and price it repeats. Read from the button's position on every scroll (an IntersectionObserver
+  // missed a jump from below the button straight back to the top, which left the bar over the buy box).
   const [showBuyBar, setShowBuyBar] = useState(false);
   useEffect(() => {
     const button = addButtonRef.current;
-    if (!button || typeof IntersectionObserver === 'undefined') return;
-    // Wide screens: the bar appears once Add to bag has scrolled up out of view. Phones: Add to bag sits
-    // below the first screen, so the bar is there from the start until the main button scrolls into view.
-    const phone = window.matchMedia('(max-width: 767px)');
-    const observer = new IntersectionObserver(([entry]) => setShowBuyBar(!entry.isIntersecting && (phone.matches || entry.boundingClientRect.top < 0)));
-    observer.observe(button);
-    return () => observer.disconnect();
+    if (!button) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      setShowBuyBar(button.getBoundingClientRect().bottom < 0);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, [slug]);
+  // The can turns to its back label (nutrition and facts) while the facts section is on screen, and back to the
+  // front above it. A manual Front / Back choice or a drag still works in between.
+  const factsRef = useRef<HTMLElement>(null);
+  const autoViewRef = useRef<'FRONT' | 'BACK'>('FRONT');
   const packGroupId = useId();
 
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
@@ -75,12 +96,35 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
     setQuantity(1);
     setAddState('idle');
     setMessage('');
-    setView('FRONT');
     setHotspot(-1);
     onHighlightBenefit(-1);
   }, [slug, onHighlightBenefit]);
 
   useEffect(() => () => onHighlightBenefit(-1), [onHighlightBenefit]);
+
+  // the 3D scene shows the chosen pack (the selected option's can count); back to a single can when the page closes
+  const chosenCount = product?.packOptions.find((option) => option.id === packId)?.count ?? 1;
+  useEffect(() => {
+    onPackChange(chosenCount);
+  }, [chosenCount, onPackChange]);
+  useEffect(() => () => onPackChange(1), [onPackChange]);
+
+  useEffect(() => {
+    const facts = factsRef.current;
+    if (!facts || typeof IntersectionObserver === 'undefined') return;
+    autoViewRef.current = 'FRONT';
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const next = entry.isIntersecting ? 'BACK' : entry.boundingClientRect.top > 0 ? 'FRONT' : autoViewRef.current;
+        if (next === autoViewRef.current) return;
+        autoViewRef.current = next;
+        onView(next);
+      },
+      { threshold: 0.25 }
+    );
+    observer.observe(facts);
+    return () => observer.disconnect();
+  }, [slug, onView]);
 
   if (!product) {
     return (
@@ -123,22 +167,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
     );
   };
 
-  const turn = (next: 'FRONT' | 'BACK') => {
-    setView(next);
-    onView(next);
-    if (next === 'FRONT') {
-      setHotspot(-1);
-      onHighlightBenefit(-1);
-    }
-  };
-
   const openHotspot = (index: number) => {
     const next = hotspot === index ? -1 : index;
     setHotspot(next);
-    if (next >= 0) {
-      setView('BACK');
-      onView('BACK');
-    }
+    onView(next >= 0 ? 'BACK' : 'FRONT');
     onHighlightBenefit(next);
   };
 
@@ -146,8 +178,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
     <article className="pdp" data-accent={product.accentToken} aria-labelledby="pdp-title">
       <section className="pdp-hero">
         {isWebglAvailable ? (
-          <DragStage onRotate={onRotate} label={`${product.name} can`}>
-            <div className="pdp-hotspots" role="group" aria-label="What’s on the label">
+          <DragStage onRotate={onRotate} onFling={onFling} label={`${product.name} can`}>
+            <div className={`pdp-hotspots ${chosenCount > 1 && hotspot < 0 ? 'is-pack' : ''}`} role="group" aria-label="What’s on the label">
               {BENEFITS.map((benefit, index) => (
                 <button
                   key={benefit.id}
@@ -171,11 +203,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
                 </>
               )}
             </div>
-            <div className="pdp-stage__controls" role="group" aria-label="Turn the can">
-              <button type="button" className={`chip ${view === 'FRONT' ? 'is-selected' : ''}`} aria-pressed={view === 'FRONT'} onClick={() => turn('FRONT')}>Front</button>
-              <button type="button" className={`chip ${view === 'BACK' ? 'is-selected' : ''}`} aria-pressed={view === 'BACK'} onClick={() => turn('BACK')}>Back label</button>
-            </div>
-            <p className="pdp-stage__hint" id="drag-hint">Drag to turn 360°, or use the arrow keys</p>
+            <p className="pdp-stage__hint" id="drag-hint">
+              <svg viewBox="0 0 24 12" aria-hidden="true"><path d="M3 6h18M7 2 3 6l4 4M17 2l4 4-4 4" /></svg>
+              <span className="pdp-stage__hint-pointer">Drag to turn</span>
+              <span className="pdp-stage__hint-touch">Swipe to turn</span>
+            </p>
           </DragStage>
         ) : (
           <div className="pdp-stage pdp-stage--static">
@@ -194,6 +226,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
           <LimitedCountdown slug={product.slug} />
           <p className="pdp-panel__tagline">{product.tagline}</p>
 
+          <p className="flavor-swatches__label" aria-hidden="true">
+            Flavor <span className="flavor-swatches__name">{product.name}</span>
+          </p>
           <nav className="flavor-swatches" aria-label="Switch flavor">
             {PRODUCTS.map((item) => (
               <a
@@ -204,6 +239,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
                 aria-label={item.name}
                 aria-current={item.slug === product.slug ? 'page' : undefined}
                 title={item.name}
+                onPointerEnter={(event) => event.pointerType === 'mouse' && onPreviewFlavor(item.slug)}
+                onPointerLeave={(event) => event.pointerType === 'mouse' && onPreviewFlavor(null)}
+                onFocus={() => onPreviewFlavor(item.slug)}
+                onBlur={() => onPreviewFlavor(null)}
                 onClick={(event) => {
                   event.preventDefault();
                   if (item.slug !== product.slug) onNavigate(`/products/${item.slug}`);
@@ -302,18 +341,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
           </div>
 
           <ul className="pdp-facts">
-            <li>{product.leadTime}</li>
+            {!/to be confirmed/i.test(product.leadTime) && <li>{product.leadTime}</li>}
             <li>{product.origin}</li>
             <li>{product.volume}</li>
+            <li>Cash on delivery</li>
           </ul>
         </div>
       </section>
 
-      <section className="pdp-section" aria-labelledby="facts-title">
+      <section ref={factsRef} className="pdp-section" aria-labelledby="facts-title">
         <h2 id="facts-title" className="pdp-section__title display">{product.name} facts</h2>
         <dl className="facts">
-          {productFacts(product).map((fact) => (
-            <div key={fact.label} className={`facts__row ${fact.confirmed ? '' : 'is-pending'}`}>
+          {/* only confirmed facts are public (unconfirmed rows read "To be confirmed") */}
+          {productFacts(product).filter((fact) => fact.confirmed).map((fact) => (
+            <div key={fact.label} className="facts__row">
               <dt>{fact.label}</dt>
               <dd>{fact.value}</dd>
             </div>
@@ -321,36 +362,42 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
         </dl>
       </section>
 
-      <section className="pdp-section" aria-labelledby="trust-title">
-        <h2 id="trust-title" className="pdp-section__title display">Delivery, returns and help</h2>
-        <div className="trust-grid">
-          <div className="trust-card">
-            <h3>Delivery</h3>
-            <p>{publicText(POLICIES.delivery, 'Delivery areas, times and fees will be published here soon.')}</p>
+      {/* Delivery, returns and help appears once any of it is published (payment is listed under the buy box) */}
+      {(!POLICIES.delivery.includes('TODO') || !POLICIES.returns.includes('TODO') || !isTodo(BRAND.contactEmail)) && (
+        <section className="pdp-section" aria-labelledby="trust-title">
+          <h2 id="trust-title" className="pdp-section__title display">Delivery, returns and help</h2>
+          {/* only settled policies are shown: unpublished ones stay out of view instead of reading "coming soon" */}
+          <div className="trust-grid">
+            {!POLICIES.delivery.includes('TODO') && (
+              <div className="trust-card">
+                <h3>Delivery</h3>
+                <p>{POLICIES.delivery}</p>
+              </div>
+            )}
+            {!POLICIES.returns.includes('TODO') && (
+              <div className="trust-card">
+                <h3>Returns</h3>
+                <p>{POLICIES.returns}</p>
+              </div>
+            )}
+            <div className="trust-card">
+              <h3>Payment</h3>
+              <p>Cash on delivery.</p>
+            </div>
+            {!isTodo(BRAND.contactEmail) && (
+              <div className="trust-card">
+                <h3>Contact</h3>
+                <p>{BRAND.contactEmail}</p>
+              </div>
+            )}
           </div>
-          <div className="trust-card">
-            <h3>Returns</h3>
-            <p>{publicText(POLICIES.returns, 'Our returns policy will be published here soon.')}</p>
-          </div>
-          <div className="trust-card">
-            <h3>Payment</h3>
-            <p>Cash on delivery. Card payment is coming soon.</p>
-          </div>
-          <div className="trust-card">
-            <h3>Contact</h3>
-            <p>{isTodo(BRAND.contactEmail) ? 'Customer service contact details will be published here soon.' : BRAND.contactEmail}</p>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="pdp-section" aria-labelledby="reviews-title">
-        <h2 id="reviews-title" className="pdp-section__title display">Reviews</h2>
-        {REVIEWS.length === 0 ? (
-          <div className="reviews-empty">
-            <p className="reviews-empty__title">No reviews yet.</p>
-            <p className="reviews-empty__text">Reviews will appear here once customers have tried {product.name}.</p>
-          </div>
-        ) : (
+      {/* reviews appear with the first review (an empty "no reviews yet" block undersold the product) */}
+      {REVIEWS.length > 0 && (
+        <section className="pdp-section" aria-labelledby="reviews-title">
+          <h2 id="reviews-title" className="pdp-section__title display">Reviews</h2>
           <ul className="reviews">
             {REVIEWS.map((review) => (
               <li key={review.author} className="review">
@@ -360,10 +407,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      )}
 
-      <section className="pdp-section" aria-labelledby="related-title">
+      <section className="pdp-section pdp-section--related" aria-labelledby="related-title">
         <h2 id="related-title" className="pdp-section__title display">Try another flavor</h2>
         <ul className="related">
           {related.map((item) => (
@@ -371,6 +418,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
               <a
                 className="related__card"
                 href={`/products/${item.slug}`}
+                onPointerMove={tiltCard}
+                onPointerLeave={resetCard}
                 onClick={(event) => {
                   event.preventDefault();
                   onNavigate(`/products/${item.slug}`);
@@ -427,12 +476,50 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
   );
 };
 
-/** Left half of the product hero: drag (pointer or touch) turns the can a full 360°. */
-const DragStage: React.FC<{ onRotate: (dx: number, dy: number) => void; label: string; children: React.ReactNode }> = ({ onRotate, label, children }) => {
-  const last = useRef<{ id: number; x: number; y: number } | null>(null);
+/**
+ * Related cards lean toward the pointer (a few degrees) with a sheen that follows it: CSS variables only, set on the
+ * card itself, so nothing re-renders. Mouse and pen only; touch and reduced motion keep the flat card (see shop.css).
+ */
+function tiltCard(event: React.PointerEvent<HTMLAnchorElement>) {
+  if (event.pointerType === 'touch') return;
+  const card = event.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const x = (event.clientX - rect.left) / rect.width;
+  const y = (event.clientY - rect.top) / rect.height;
+  card.style.setProperty('--tilt-x', `${((0.5 - y) * 8).toFixed(2)}deg`);
+  card.style.setProperty('--tilt-y', `${((x - 0.5) * 10).toFixed(2)}deg`);
+  card.style.setProperty('--sheen-x', `${(x * 100).toFixed(1)}%`);
+  card.style.setProperty('--sheen-y', `${(y * 100).toFixed(1)}%`);
+}
+
+function resetCard(event: React.PointerEvent<HTMLAnchorElement>) {
+  const card = event.currentTarget;
+  card.style.removeProperty('--tilt-x');
+  card.style.removeProperty('--tilt-y');
+}
+
+/**
+ * Left half of the product hero: the can is the control. Drag (mouse) or swipe (touch) turns it a full 360°, and a
+ * quick release keeps it spinning until it slows to a stop. Horizontal swipes turn the can while vertical ones still
+ * scroll the page (touch-action: pan-y). The hint fades after the first turn.
+ */
+const DragStage: React.FC<{
+  onRotate: (dx: number, dy: number) => void;
+  onFling: (velocityX: number) => void;
+  label: string;
+  children: React.ReactNode;
+}> = ({ onRotate, onFling, label, children }) => {
+  const last = useRef<{ id: number; x: number; y: number; t: number; vx: number } | null>(null);
+  const [used, setUsed] = useState(false);
+  const end = () => {
+    const drag = last.current;
+    last.current = null;
+    // only a release that was still moving flings (a drag that stopped before letting go just stays put)
+    if (drag && performance.now() - drag.t < 80) onFling(drag.vx);
+  };
   return (
     <div
-      className="pdp-stage"
+      className={`pdp-stage ${used ? 'is-used' : ''}`}
       role="group"
       aria-label={label}
       aria-describedby="drag-hint"
@@ -441,21 +528,27 @@ const DragStage: React.FC<{ onRotate: (dx: number, dy: number) => void; label: s
         const step = { ArrowLeft: [-40, 0], ArrowRight: [40, 0], ArrowUp: [0, -30], ArrowDown: [0, 30] }[event.key];
         if (!step) return;
         event.preventDefault();
+        setUsed(true);
         onRotate(step[0], step[1]);
       }}
       onPointerDown={(event) => {
         if ((event.target as HTMLElement).closest('button')) return;
-        last.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        last.current = { id: event.pointerId, x: event.clientX, y: event.clientY, t: performance.now(), vx: 0 };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
-        if (!last.current || last.current.id !== event.pointerId) return;
-        onRotate(event.clientX - last.current.x, event.clientY - last.current.y);
-        last.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        const drag = last.current;
+        if (!drag || drag.id !== event.pointerId) return;
+        const now = performance.now();
+        const dx = event.clientX - drag.x;
+        const dt = Math.max(1, now - drag.t);
+        // smoothed release speed, so one jittery last sample never decides the fling
+        drag.vx = drag.vx * 0.6 + (dx / dt) * 0.4;
+        onRotate(dx, event.clientY - drag.y);
+        if (!used && Math.abs(dx) > 2) setUsed(true);
+        last.current = { ...drag, x: event.clientX, y: event.clientY, t: now };
       }}
-      onPointerUp={() => {
-        last.current = null;
-      }}
+      onPointerUp={end}
       onPointerCancel={() => {
         last.current = null;
       }}

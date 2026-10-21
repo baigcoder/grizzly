@@ -41,10 +41,13 @@ export const NewsletterFooter: React.FC = () => {
         <p className="newsletter__intro">
           Join the pack and be the first to hear about Grizzly Energy news and new flavors.
         </p>
-        <p className="newsletter__offer">
-          <span className="newsletter__offer-badge">Subscriber offer</span>
-          {isTodo(NEWSLETTER_OFFER) ? 'Details coming soon.' : NEWSLETTER_OFFER}
-        </p>
+        {/* the offer line appears once there is a real offer (no public "coming soon") */}
+        {!isTodo(NEWSLETTER_OFFER) && (
+          <p className="newsletter__offer">
+            <span className="newsletter__offer-badge">Subscriber offer</span>
+            {NEWSLETTER_OFFER}
+          </p>
+        )}
 
         <form className="newsletter__form" onSubmit={handleSubmit} noValidate>
           <div className={`field ${status === 'error' ? 'is-invalid' : ''}`}>

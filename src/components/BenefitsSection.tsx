@@ -19,7 +19,12 @@ interface BenefitsSectionProps {
  */
 export const BenefitsSection: React.FC<BenefitsSectionProps> = ({ activeChapter, showRail, onNavigateChapter }) => (
   <>
-    <nav className={`benefit-rail ${showRail ? 'is-visible' : ''}`} aria-label="Benefits" aria-hidden={!showRail}>
+    <nav
+      className={`benefit-rail ${showRail ? 'is-visible' : ''}`}
+      aria-label="Benefits"
+      aria-hidden={!showRail}
+      style={{ '--rail-progress': activeChapter < 0 ? 0 : activeChapter / (BENEFITS.length - 1) } as React.CSSProperties}
+    >
       <ol className="benefit-rail__list">
         {BENEFITS.map((benefit, index) => (
           <li key={benefit.id}>
@@ -45,7 +50,7 @@ export const BenefitsSection: React.FC<BenefitsSectionProps> = ({ activeChapter,
       <section
         key={benefit.id}
         id={benefit.id}
-        className={`home-section benefit ${activeChapter === index ? 'is-active' : ''}`}
+        className={`home-section benefit benefit--${benefit.iconType} ${activeChapter === index ? 'is-active' : ''}`}
         aria-labelledby={`${benefit.id}-title`}
       >
         <div className="section-copy">
@@ -57,6 +62,17 @@ export const BenefitsSection: React.FC<BenefitsSectionProps> = ({ activeChapter,
             </svg>
             <BenefitIcon type={benefit.iconType} size={34} className="hex-emblem__icon" />
           </span>
+          {/* Zamzam in Arabic calligraphy beside the emblem: decorative (the title says it), rendered from the chapter
+              before so the Arabic font has arrived by the time it is written in. */}
+          {benefit.iconType === 'zamzam' && activeChapter >= index - 1 && (
+            <span className="zamzam-script" lang="ar" dir="rtl" aria-hidden="true">
+              زمزم
+            </span>
+          )}
+          <p className="benefit-count" aria-hidden="true">
+            <span className="benefit-count__now">{String(index + 1).padStart(2, '0')}</span>
+            <span className="benefit-count__of">/ {String(BENEFITS.length).padStart(2, '0')}</span>
+          </p>
           <p className="replaced-tag">
             <span className="replaced-tag__box" aria-hidden="true">
               <BenefitIcon type={benefit.iconType} size={14} />

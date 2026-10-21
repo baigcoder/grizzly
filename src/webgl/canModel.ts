@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAN, LID_Y, TAB_PIVOT, getCanGeometry } from './canGeometry';
-import { CANVAS_BLACK, SCENE_COLOR } from './palette';
+import { SCENE_COLOR } from './palette';
 
 /**
  * Grizzly can asset and material pipeline.
@@ -8,7 +8,7 @@ import { CANVAS_BLACK, SCENE_COLOR } from './palette';
  * 1. Geometry is modelled in code (canGeometry.ts): shell, neck/seam/lid, tab, domed base.
  * 2. Body material: satin black lacquer over metal with a clear coat; the label surface
  *    map (G roughness, B metalness) turns the wordmark into brushed silver, and the
- *    normal map embosses it. Condensation and the benefit spotlight are shader extensions.
+ *    normal map embosses it. The benefit spotlight is a shader extension.
  * 3. Ends: machined aluminium.
  * Label textures arrive asynchronously (labelTextures.ts); until then a neutral dark
  * placeholder is shown, never another brand's artwork.
@@ -35,84 +35,40 @@ export const createFlatNormalTexture = (): THREE.Texture => createSolidTexture(1
 export const createNeutralSurfaceTexture = (): THREE.Texture => createSolidTexture(255, 110, 90, false);
 
 /**
- * Condensation: one tileable 512² map shared by every can. RG = normal XY of
- * the droplets, B = droplet mask (glossier, slightly brighter: cheap refraction),
- * A unused. Round beads plus a few running drops with trails.
+ * Machined rings for the can ends: a thin strip of roughness values along the lathe profile (uv.y runs along the
+ * profile, so every row is one concentric ring of the lid or base). Polished bands alternate with slightly duller
+ * tooling marks, so the ends mirror the studio in crisp rings instead of one uniform white band. Generated once.
  */
-let cachedDropTexture: THREE.Texture | null = null;
-/**
- * Condensation shared by every can: bead strength, and a clock for the drops that gather and run
- * down the label (real time; frozen for reduced motion by not advancing uDropTime).
- */
-export const condensation = { uDropStrength: { value: 0.6 }, uDropTime: { value: 0 } };
+let cachedRingTexture: THREE.Texture | null = null;
 
-function getDropTexture(): THREE.Texture {
-  if (cachedDropTexture) return cachedDropTexture;
-  const size = 512;
-  const height = document.createElement('canvas');
-  height.width = size;
-  height.height = size;
-  const h = height.getContext('2d');
-  if (h) {
-    h.fillStyle = CANVAS_BLACK;
-    h.fillRect(0, 0, size, size);
-    let seed = 7;
-    const rand = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    const bead = (x: number, y: number, r: number) => {
-      // draw wrapped so the map tiles seamlessly
-      for (const ox of [-size, 0, size]) {
-        for (const oy of [-size, 0, size]) {
-          const g = h.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
-          g.addColorStop(0, 'rgba(255,255,255,1)');
-          g.addColorStop(0.6, 'rgba(200,200,200,0.85)');
-          g.addColorStop(1, 'rgba(0,0,0,0)');
-          h.fillStyle = g;
-          h.beginPath();
-          h.arc(x + ox, y + oy, r, 0, Math.PI * 2);
-          h.fill();
-        }
-      }
-    };
-    for (let i = 0; i < 900; i++) bead(rand() * size, rand() * size, 0.8 + rand() * 2.2);
-    for (let i = 0; i < 140; i++) bead(rand() * size, rand() * size, 3 + rand() * 4.5);
-    // running drops: a bead with a thin tapering trail above it
-    for (let i = 0; i < 7; i++) {
-      const x = rand() * size;
-      const y = rand() * size;
-      const length = 40 + rand() * 90;
-      for (let t = 0; t < length; t += 1.5) bead(x + Math.sin(t * 0.05) * 1.5, y - t, 1.2 + (1 - t / length) * 1.6);
-      bead(x, y, 5.5);
+function getRingTexture(): THREE.Texture {
+  if (cachedRingTexture) return cachedRingTexture;
+  const rows = 256;
+  const data = new Uint8Array(4 * rows * 4);
+  let seed = 23;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  for (let y = 0; y < rows; y += 1) {
+    // fine tooling marks over a few broader polished / satin bands
+    const band = 0.5 + 0.5 * Math.sin(y * 0.21);
+    const value = Math.round(255 * (0.45 + 0.35 * band * (0.7 + 0.3 * rand()) + 0.2 * rand() * (y % 3 === 0 ? 1 : 0)));
+    for (let x = 0; x < 4; x += 1) {
+      const k = (y * 4 + x) * 4;
+      data[k] = value;
+      data[k + 1] = value; // G: roughness
+      data[k + 2] = value;
+      data[k + 3] = 255;
     }
   }
-  const src = h?.getImageData(0, 0, size, size).data;
-  const out = document.createElement('canvas');
-  out.width = size;
-  out.height = size;
-  const o = out.getContext('2d');
-  if (o && src) {
-    const img = o.createImageData(size, size);
-    const at = (x: number, y: number) => src[((((y + size) % size) * size) + ((x + size) % size)) * 4] / 255;
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = (at(x + 1, y) - at(x - 1, y)) * 3;
-        const dy = (at(x, y + 1) - at(x, y - 1)) * 3;
-        const k = (y * size + x) * 4;
-        img.data[k] = Math.round((0.5 - dx * 0.5) * 255);
-        img.data[k + 1] = Math.round((0.5 + dy * 0.5) * 255);
-        img.data[k + 2] = Math.round(at(x, y) * 255);
-        img.data[k + 3] = 255;
-      }
-    }
-    o.putImageData(img, 0, 0);
-  }
-  const texture = new THREE.CanvasTexture(out);
+  const texture = new THREE.DataTexture(data, 4, rows, THREE.RGBAFormat);
   texture.colorSpace = THREE.NoColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  cachedDropTexture = texture;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  cachedRingTexture = texture;
   return texture;
 }
 
@@ -169,13 +125,6 @@ export interface CanSurfaceUniforms {
   /** Thin fresnel rim in the can's own flavor accent. */
   uRimColor: { value: THREE.Color };
   uRimStrength: { value: number };
-  uDropMap: { value: THREE.Texture };
-  uDropStrength: { value: number };
-  uDropTime: { value: number };
-  /** 0..1: frost spreads up the label from the base (FrostMelt). */
-  uFrost: { value: number };
-  /** 0..1: extra wetness while the frost melts into drops. */
-  uWet: { value: number };
 }
 
 /**
@@ -194,11 +143,6 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
     uBrushMap: { value: getBrushTexture() },
     uRimColor: { value: new THREE.Color(1, 1, 1) },
     uRimStrength: { value: 0 },
-    uDropMap: { value: getDropTexture() },
-    uDropStrength: condensation.uDropStrength,
-    uDropTime: condensation.uDropTime,
-    uFrost: { value: 0 },
-    uWet: { value: 0 },
   };
   material.userData.surface = uniforms;
   material.customProgramCacheKey = () => 'gz-can-surface';
@@ -216,16 +160,6 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         uniform sampler2D uBrushMap;
         uniform vec3 uRimColor;
         uniform float uRimStrength;
-        uniform sampler2D uDropMap;
-        uniform float uDropStrength;
-        uniform float uDropTime;
-        uniform float uFrost;
-        uniform float uWet;
-        float gzFrost = 0.0;
-        float gzH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-        float gzN(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(gzH(i), gzH(i + vec2(1.0, 0.0)), f.x), mix(gzH(i + vec2(0.0, 1.0)), gzH(i + vec2(1.0, 1.0)), f.x), f.y); }
-        vec3 gzDrop = vec3(0.5, 0.5, 0.0);
-        float gzDropK = 0.0;
         float gzMetal = 0.0;
         float gzBrush = 0.5;
         float gzRect(vec2 p, vec4 r, float soft) {
@@ -245,43 +179,6 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
             gzMetal = smoothstep(0.42, 0.78, min(gzInk.r, min(gzInk.g, gzInk.b)));
           #endif
           gzBrush = texture2D(uBrushMap, vMapUv * vec2(3.0, 2.4)).r;
-          {
-            // The same 512² bead map sampled twice, at two scales and offsets, so its tile never lines up, and
-            // thinned by a slow patchy mask: real condensation gathers in uneven clusters, it is never a even film.
-            vec3 gzDropA = texture2D(uDropMap, vMapUv * vec2(5.0, 4.0)).rgb;
-            vec3 gzDropB = texture2D(uDropMap, vMapUv * vec2(3.3, 2.7) + vec2(0.37, 0.61)).rgb;
-            float gzPatch = mix(0.35, 1.0, smoothstep(0.25, 0.75, gzN(vMapUv * vec2(9.0, 6.0) + 3.0)));
-            gzDrop = vec3(mix(gzDropA.rg, gzDropB.rg, 0.5), max(gzDropA.b, gzDropB.b * 0.75) * gzPatch);
-          }
-          {
-            // Running drops: in a few of 28 lanes round the can a bead slides down, wobbling, and
-            // leaves a thinning wet trail (smoother, clearer) behind it. Then the lane rests.
-            float gzLanes = 28.0;
-            float gzLx = vMapUv.x * gzLanes;
-            float gzLane = floor(gzLx);
-            float gzSeed = gzH(vec2(gzLane, 3.7));
-            float gzSpeed = 0.035 + 0.05 * gzSeed;
-            float gzCycle = uDropTime * gzSpeed + gzSeed * 9.0;
-            float gzRunOn = step(0.62, gzH(vec2(gzLane, floor(gzCycle))));
-            float gzHead = 1.05 - fract(gzCycle) * 1.25;       // v of the bead, top to bottom
-            float gzWobble = sin(vMapUv.y * 38.0 + gzSeed * 20.0) * 0.08 + sin(vMapUv.y * 91.0 + gzSeed * 5.0) * 0.03;
-            float gzDx = fract(gzLx) - 0.5 - gzWobble;
-            float gzD = vMapUv.y - gzHead;                       // > 0: above the bead (the trail)
-            float gzTrail = smoothstep(0.32, 0.0, gzD) * step(0.0, gzD) * smoothstep(0.07, 0.0, abs(gzDx) * (1.2 + gzD * 3.0));
-            float gzBead = exp(-(gzDx * gzDx * 180.0 + gzD * gzD * 9000.0));
-            float gzRun = gzRunOn * max(gzTrail * 0.85, gzBead);
-            // the running water clears the beads it passes through, and bends the normal sideways
-            gzDrop.b = max(gzDrop.b * (1.0 - gzTrail * gzRunOn), gzRun);
-            gzDrop.rg = mix(gzDrop.rg, vec2(0.5 - gzDx * 3.0, 0.5 + gzD * 2.0 * gzBead), gzRun);
-          }
-          // small, dim background cans get fewer beads: at that size they only read as grain
-          gzDropK = uDropStrength * mix(0.15, 1.0, uFocus * uFocus);
-          // melting frost leaves the can running wet
-          gzDropK = max(gzDropK, uWet);
-          // while a benefit block is being lit, the beads back off so its text stays crisp
-          gzDropK *= 1.0 - 0.55 * uLabelDim;
-          // droplets lift the colour a touch (light bending through water)
-          diffuseColor.rgb += diffuseColor.rgb * gzDrop.b * 0.18 * gzDropK;
           float gzLum = dot(gzInk, vec3(0.2126, 0.7152, 0.0722));
           #ifdef USE_METALNESSMAP
             vec3 deepInk = gzInk; // printed artwork keeps its own colour
@@ -293,17 +190,6 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           // Benefit spotlight: the rest of the label drops to ~25%, the active block stays at full brightness.
           float gzSpot = gzRect(vMapUv, uGlowRect, 0.008) * step(0.001, uGlowStrength);
           diffuseColor.rgb *= mix(1.0, 0.1, uLabelDim * (1.0 - gzSpot)) * (1.0 + 0.7 * uLabelDim * gzSpot);
-          if (uFrost > 0.001) {
-            // Frost: a crystalline white film that creeps up from the base along a ragged, noisy front, with fine
-            // sparkling grain; the label shows through where it is thin.
-            float gzFrostN = 0.5 * gzN(vMapUv * vec2(38.0, 26.0)) + 0.3 * gzN(vMapUv * vec2(120.0, 84.0)) + 0.2 * gzN(vMapUv * vec2(8.0, 6.0));
-            // (lighter than before: it covered the whole label white; now it creeps up the lower part in patches)
-            // a soft, broad front (a hard edge read as peeling paint) and a fine, low-contrast crystal grain
-            gzFrost = smoothstep(0.0, 0.45, uFrost * 1.05 - vMapUv.y * 0.75 - gzFrostN * 0.35);
-            float gzCrystal = gzN(vMapUv * vec2(420.0, 300.0));
-            vec3 gzIce = vec3(0.82, 0.89, 0.96) * (0.85 + 0.2 * gzCrystal);
-            diffuseColor.rgb = mix(diffuseColor.rgb, gzIce, gzFrost * 0.32);
-          }
         #endif
         // out-of-focus cans fall to near-black silhouettes; their chrome ends and edges stay lit
         diffuseColor.rgb *= mix(0.07, 1.0, uFocus * uFocus);
@@ -316,8 +202,6 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         '#include <roughnessmap_fragment>',
         `#ifdef USE_ROUGHNESSMAP
           float roughnessFactor = roughness * texture2D(roughnessMap, vRoughnessMapUv).g * (0.85 + 0.3 * gzBrush);
-          roughnessFactor = mix(roughnessFactor, 0.06, gzDrop.b * gzDropK);
-          roughnessFactor = mix(roughnessFactor, 0.6, gzFrost);
         #else
           float roughnessFactor = roughness * mix(0.46, 0.2, gzMetal) * (0.82 + 0.36 * gzBrush);
         #endif`
@@ -325,17 +209,9 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
       .replace(
         '#include <metalnessmap_fragment>',
         `#ifdef USE_METALNESSMAP
-          float metalnessFactor = metalness * texture2D(metalnessMap, vMetalnessMapUv).b * (1.0 - 0.75 * gzFrost);
+          float metalnessFactor = metalness * texture2D(metalnessMap, vMetalnessMapUv).b;
         #else
           float metalnessFactor = metalness * mix(0.72, 1.0, gzMetal);
-        #endif`
-      )
-      .replace(
-        '#include <normal_fragment_maps>',
-        `#include <normal_fragment_maps>
-        #ifdef USE_NORMALMAP_TANGENTSPACE
-          vec2 dropXY = (gzDrop.rg * 2.0 - 1.0) * gzDropK;
-          normal = normalize(normal + tbn[0] * dropXY.x + tbn[1] * dropXY.y);
         #endif`
       )
       .replace(
@@ -369,7 +245,7 @@ export function createCanMaterials(
   normal: THREE.Texture | null = null
 ): { bodyMat: THREE.Material; aluminumMat: THREE.Material } {
   // Satin black body, brushed silver only where the surface map says so;
-  // the normal map embosses the wordmark (condensation is added in the shader).
+  // the normal map embosses the wordmark.
   const surfaceMaps = {
     ...(surface ? { metalnessMap: surface, roughnessMap: surface } : {}),
     ...(normal ? { normalMap: normal, normalScale: new THREE.Vector2(0.8, 0.8) } : {}),
@@ -390,24 +266,32 @@ export function createCanMaterials(
         anisotropy: 0.3,
         anisotropyRotation: 0,
         // printed cans are varnished: a crisp clear coat gives the long vertical studio highlight
-        clearcoat: 0.55,
-        clearcoatRoughness: 0.2, // a glossy varnish: one clean streak down the key side
+        clearcoat: 1,
+        clearcoatRoughness: 0.08, // a glossy varnish: one crisp streak down the key side, as in the reference
         envMapIntensity: 1,
       });
   applyCanSurfaceShader(bodyMat);
 
+  // Polished, machined aluminium: crisp reflections of the dark studio with thin bright rings (the ring map varies
+  // the polish along the profile). At roughness 0.38 with a strong anisotropic smear the softbox spread into one
+  // uniform white band, and the lid and base read as plastic.
   const aluminumMat = isLowPower
     ? new THREE.MeshStandardMaterial({
         color: SCENE_COLOR.lid,
         metalness: 1,
-        roughness: 0.24,
+        roughness: 0.4,
+        roughnessMap: getRingTexture(),
+        envMapIntensity: 0.6,
       })
     : new THREE.MeshPhysicalMaterial({
         color: SCENE_COLOR.base,
         metalness: 1,
-        roughness: 0.34, // machined lid: crisp rings, a hotspot that never clips to white
-        anisotropy: 0.35,
-        envMapIntensity: 0.62,
+        // × the ring map (0.45–1): about 0.19–0.42 across the rings. A touch of satin so the rim light and the
+        // overhead softbox give the neck and lid a soft sheen, not a white glare.
+        roughness: 0.42,
+        roughnessMap: getRingTexture(),
+        anisotropy: 0.08,
+        envMapIntensity: 0.6,
       });
   return { bodyMat, aluminumMat };
 }
@@ -417,7 +301,7 @@ function getBaseMaterial(aluminum: THREE.Material): THREE.Material {
   let base = baseMaterials.get(aluminum);
   if (!base) {
     base = aluminum.clone();
-    (base as THREE.MeshStandardMaterial).roughness = 0.42;
+    (base as THREE.MeshStandardMaterial).roughness = 0.46;
     (base as THREE.MeshStandardMaterial).color.setHex(SCENE_COLOR.baseRim);
     baseMaterials.set(aluminum, base);
   }
@@ -437,17 +321,31 @@ export function setCanFocus(can: THREE.Object3D, focus: number) {
     const surface = material.userData.surface as CanSurfaceUniforms | undefined;
     if (surface) {
       surface.uFocus.value = focus;
-      material.envMapIntensity = 0.45 + 0.55 * focus;
-      // a faint coloured rim separates side cans from the night; the featured can gets almost none (no outline glow)
-      surface.uRimStrength.value = 0.45 - 0.37 * focus + boost;
+      // side cans lose their gloss with their light (bright streaks on a dark label read as glass tubes, not cans)
+      const lit = focus * focus;
+      material.envMapIntensity = 0.12 + 0.88 * lit;
+      // only a whisper of edge separation on dark side cans, none on lit ones (at 0.45 the flavor-coloured fresnel
+      // read as a glow round every can in the ring and the line-up)
+      surface.uRimStrength.value = 0.1 * (1 - focus) + boost;
       const physical = material as THREE.MeshPhysicalMaterial;
-      if (physical.isMeshPhysicalMaterial) physical.clearcoat = 0.55 * (0.45 + 0.55 * focus); // never 0: avoids a shader recompile
+      if (physical.isMeshPhysicalMaterial) {
+        physical.clearcoat = 0.06 + 0.94 * lit; // never 0: avoids a shader recompile
+        // side cans' varnish goes soft, so the key strip reads as a gentle sheen, not a sharp white line
+        physical.clearcoatRoughness = 0.08 + 0.32 * (1 - focus);
+      }
     } else if (material.color) {
       // machined aluminium: dim it with the label, relative to its authored colour and reflectance
-      const base = (material.userData.base ??= { color: material.color.clone(), env: material.envMapIntensity }) as { color: THREE.Color; env: number };
-      // the machined ends drop to a dark metal grey on side cans, as in the reference (never blown white)
-      material.color.copy(base.color).multiplyScalar(0.4 + 0.6 * focus);
-      material.envMapIntensity = base.env * (0.3 + 0.7 * focus);
+      const base = (material.userData.base ??= { color: material.color.clone(), env: material.envMapIntensity, roughness: material.roughness }) as {
+        color: THREE.Color;
+        env: number;
+        roughness: number;
+      };
+      // the machined ends drop to a dark, satin metal grey on side cans, as in the reference (never blown white or
+      // glinting): darker, and rougher so their rims stop catching crisp highlights
+      const lit = focus * focus;
+      material.color.copy(base.color).multiplyScalar(0.16 + 0.84 * lit);
+      material.envMapIntensity = base.env * (0.1 + 0.9 * lit);
+      material.roughness = base.roughness + 0.3 * (1 - focus);
     }
   });
 }
@@ -457,7 +355,7 @@ export function setCanLidExposure(can: THREE.Object3D, exposure: number) {
   ['Top', 'Tab'].forEach((name) => {
     const material = (can.getObjectByName(name) as THREE.Mesh | undefined)?.material as THREE.MeshStandardMaterial | undefined;
     if (!material) return;
-    const base = (material.userData.base ??= { color: material.color.clone(), env: material.envMapIntensity }) as { color: THREE.Color; env: number };
+    const base = (material.userData.base ??= { color: material.color.clone(), env: material.envMapIntensity, roughness: material.roughness }) as { env: number };
     material.envMapIntensity = base.env * exposure;
   });
 }

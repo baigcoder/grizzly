@@ -334,7 +334,11 @@ const BACKDROP_FRAGMENT = /* glsl */ `
       vec2 pq = (uv - vec2(uGlowPos.x, bandY + 0.02)) * vec2(asp * 0.55, 2.4);
       float pool = exp(-dot(pq, pq) * 3.0);
       sCol += vec3(0.86, 0.9, 1.0) * (0.035 * cone + 0.07 * pool) * uGlow;
-      sCol += accent * (0.075 * exp(-dot(sq, sq) * 5.0) + 0.06 * exp(-dot(sq, sq) * 22.0)) * uGlow;
+      // The flavor colour stays off the wall (a broad halo here tinted the whole upper frame): only a tight breath right
+      // behind the can, and a coloured pool at the foot of the frame under the title, as in the reference.
+      sCol += accent * 0.03 * exp(-dot(sq, sq) * 22.0) * uGlow;
+      vec2 fg = (uv - vec2(0.5, -0.04)) * vec2(asp * 0.85, 3.4);
+      sCol += accent * 0.15 * exp(-dot(fg, fg) * 1.8) * uGlow;
       sCol += vec3(0.012, 0.016, 0.026) * smoothstep(0.35, 1.0, uv.y);
       // a gentle vignette keeps the eye on the centre of the wall
       vec2 vq = (uv - 0.5) * vec2(1.0, 1.25);
@@ -358,9 +362,7 @@ const BACKDROP_FRAGMENT = /* glsl */ `
       field *= 0.96 + 0.08 * haze;
       // as in the reference: the field falls to near-black toward the top of the frame
       field = mix(field, deep, smoothstep(0.42, 0.95, uv.y) * 0.92);
-      // a whisper of the range, in a darker shade of the field, so it is still the wild
-      float ridge = 0.32 + 0.05 * sin(uv.x * asp * 3.1 + 1.3) + 0.03 * sin(uv.x * asp * 7.7);
-      field *= mix(1.0, 0.82, smoothstep(ridge + 0.006, ridge - 0.006, uv.y) * 0.6);
+      // (the darker mountain-ridge band that ran across the field is gone: the reference field is one smooth gradient)
       col = mix(col, field, uField);
       skyVis *= 1.0 - uField;
     }

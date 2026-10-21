@@ -1,7 +1,8 @@
 /* ============================================================
-   LOADER — the wordmark forms in brushed silver, left to right, as
-   progress completes; ENERGY in the flavor accent, hairline bar +
-   zero-padded percent. Exit: the overlay fades, the scene carries on.
+   LOADER — as in the reference: a black screen, the brand mark in the
+   centre filling with white from the bottom as progress completes (a
+   soft gradient edge leads the fill), and a widely spaced percentage
+   below it. Nothing else. Exit: the overlay fades and the cans rise.
    --loader-fill is 0..1 (set from React).
    ============================================================ */
 
@@ -11,14 +12,8 @@
   z-index: var(--z-loader);
   display: grid;
   place-items: center;
-  overflow: hidden;
   background: var(--color-surface-base);
   transition: opacity var(--motion-slow) var(--ease-out);
-}
-
-/* The 3D opening plays behind the loader: the overlay only carries the wordmark and the percentage. */
-.loader--stage {
-  background: transparent;
 }
 
 .loader.is-leaving {
@@ -26,227 +21,69 @@
   pointer-events: none;
 }
 
-/* A clean product studio from the first paint (hidden once the 3D opening can play): deep black, a soft pool of the
-   flavor's colour behind the wordmark and a faint lit floor under the bar. It used to be a still of the night stage,
-   whose mountain ridgelines ran straight through the letters. */
-.loader__still {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 46% 34% at 50% 44%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 72%),
-    radial-gradient(ellipse 70% 22% at 50% 66%, var(--color-white-a08), transparent 70%),
-    radial-gradient(ellipse at 50% 45%, transparent 35%, var(--color-vignette) 90%),
-    var(--color-surface-base);
-  transition: opacity var(--motion-slow) var(--ease-out);
-}
-
-.loader__still.is-hidden {
-  opacity: 0;
-}
-
-/* Accent glow that rises and brightens with the fill. */
-.loader__glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: var(--layout-loader-word-max);
-  aspect-ratio: 2 / 1;
-  border-radius: var(--radius-round);
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--color-accent) 40%, transparent), transparent);
-  opacity: calc(0.15 + var(--loader-fill) * 0.55);
-  filter: blur(var(--blur-glow));
-  transform: translate(-50%, calc(-20% - var(--loader-fill) * 20%));
-  animation: loader-breathe var(--motion-cloud) var(--ease-in-out) infinite alternate;
-  transition: opacity var(--motion-fast) var(--ease-out);
-}
-
 .loader__stage {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: var(--space-sm);
-  width: min(var(--layout-loader-word-max), calc(100vw - var(--layout-gutter) * 2));
-  transition:
-    transform var(--motion-slow) var(--ease-in-out),
-    opacity var(--motion-fast) var(--ease-out),
-    filter var(--motion-slow) var(--ease-out);
-}
-
-.loader__word {
-  position: relative;
-  display: block;
-  font-family: var(--font-family-display);
-  font-weight: var(--font-weight-display);
-  font-style: italic;
-  font-size: var(--font-size-giant);
-  line-height: var(--line-height-giant);
-  letter-spacing: var(--letter-spacing-display);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* Frosted ice: the whole word is legible from the first frame, silver forms over it. */
-.loader__word-base,
-.loader__word-fill {
-  /* room for the italic overhang, so the last letter's corner is never clipped */
-  padding-inline: var(--space-italic-lead) var(--space-italic-overhang);
-}
-
-.loader__word-base {
-  display: block;
-  /* legible from the first frame (it read as an empty screen at a low fill) */
-  color: var(--color-white-a12);
-  -webkit-text-stroke: var(--border-hairline) var(--color-white-a30);
-}
-
-/* Brushed silver, forming left to right out of the mist: a feathered mask follows the fill. */
-.loader__word-fill {
-  position: absolute;
-  inset: 0;
-  background: var(--texture-brushed), var(--gradient-brushed-silver);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-mask-image: linear-gradient(100deg, var(--color-white) calc(var(--loader-fill) * 125% - 25%), transparent calc(var(--loader-fill) * 125%));
-  mask-image: linear-gradient(100deg, var(--color-white) calc(var(--loader-fill) * 125% - 25%), transparent calc(var(--loader-fill) * 125%));
-  filter: blur(calc((1 - var(--loader-fill)) * var(--blur-forming)));
-}
-
-/* The forming edge: a thin cold light riding the front of the sweep. */
-.loader__word-edge {
-  /* A full-width box that never moves: the light line is drawn at the fill position by a gradient (paint only).
-     It used to slide with `left`, which counted as layout shift and cost CLS on every page with a loader. */
-  position: absolute;
-  top: calc(var(--space-sm) * -1);
-  bottom: calc(var(--space-sm) * -1);
-  left: 0;
-  width: 100%;
-  background: linear-gradient(
-    to right,
-    transparent calc(var(--loader-fill) * 100% - var(--border-hairline)),
-    var(--color-silver-100) calc(var(--loader-fill) * 100% - var(--border-hairline)),
-    var(--color-silver-100) calc(var(--loader-fill) * 100%),
-    transparent calc(var(--loader-fill) * 100%)
-  );
-  mask-image: linear-gradient(to bottom, transparent, var(--color-black), transparent);
-  filter: drop-shadow(0 0 var(--space-xs) var(--color-accent));
-  opacity: calc(1 - var(--loader-fill) * var(--loader-fill));
-  pointer-events: none;
-}
-
-.loader__sub {
-  position: relative;
-  display: block;
-  margin-top: calc(var(--space-sm) * -1);
-  font-family: var(--font-family-display);
-  font-weight: var(--font-weight-display);
-  font-style: italic;
-  font-size: var(--font-size-3xl);
-  line-height: 1;
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
-  white-space: nowrap;
-  /* the tracking adds trailing space; pull it back so the word centres */
-  margin-right: calc(var(--letter-spacing-label) * -1);
-}
-
-.loader__sub-base {
-  display: block;
-  color: transparent;
-  -webkit-text-stroke: var(--border-hairline) color-mix(in oklab, var(--color-accent) 70%, transparent);
-}
-
-/* ENERGY fills with the flavor colour just behind the silver sweep. */
-.loader__sub-fill {
-  position: absolute;
-  inset: 0;
-  color: var(--color-accent);
-  text-shadow: var(--shadow-accent-glow);
-  -webkit-mask-image: linear-gradient(100deg, var(--color-white) calc(var(--loader-fill) * 140% - 40%), transparent calc(var(--loader-fill) * 140% - 15%));
-  mask-image: linear-gradient(100deg, var(--color-white) calc(var(--loader-fill) * 140% - 40%), transparent calc(var(--loader-fill) * 140% - 15%));
-}
-
-.loader__bar {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: var(--border-hairline);
-  margin-top: var(--space-2xl);
-  background: var(--color-white-a12);
-  overflow: hidden;
-}
-
-.loader__bar-fill {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, var(--color-white-a50), var(--color-text-primary));
-  transform-origin: left center;
-  transform: scaleX(var(--loader-fill));
-}
-
-.loader__meta {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  width: 100%;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-md);
-  text-transform: uppercase;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3xl);
+  transition: transform var(--motion-slow) var(--ease-out), opacity var(--motion-slow) var(--ease-out);
 }
 
-.loader__tagline {
-  letter-spacing: var(--letter-spacing-label);
+/* Two copies of the mark: a faint base and the white fill, revealed bottom-up. */
+.loader__mark {
+  position: relative;
+  font-size: var(--size-15);
+}
+
+.loader__mark .brand-mark__top {
+  font-size: clamp(var(--size-3), 8vw, 6.5rem);
+}
+
+.loader__mark .brand-mark__bottom {
+  font-size: clamp(var(--size-15), 3.6vw, 2.9rem);
+  margin-left: 0.9em;
+}
+
+.loader__mark-base .brand-mark__top,
+.loader__mark-base .brand-mark__bottom {
+  color: var(--color-white-a08);
+}
+
+.loader__mark-fill {
+  position: absolute;
+  inset: 0;
+  /* the fill rises from the base; a little headroom so 0% is fully hidden and 100% fully shown */
+  clip-path: inset(calc((1 - var(--loader-fill)) * 104% - 2%) -10% -10% -10%);
+  /* soft grey edge at the top of the fill, white below it */
+  -webkit-mask-image: linear-gradient(to top, #000 calc(var(--loader-fill) * 100% - 12%), rgb(0 0 0 / 0.35) calc(var(--loader-fill) * 100% + 2%));
+  mask-image: linear-gradient(to top, #000 calc(var(--loader-fill) * 100% - 12%), rgb(0 0 0 / 0.35) calc(var(--loader-fill) * 100% + 2%));
+}
+
+.loader__mark-fill .brand-mark__top,
+.loader__mark-fill .brand-mark__bottom {
+  color: var(--color-text-primary);
 }
 
 .loader__percent {
+  padding-left: 0.6em; /* balances the trailing letter-spacing so the digits sit on the axis */
   color: var(--color-text-primary);
   font-family: var(--font-family-mono);
+  font-size: var(--font-size-md);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.6em;
 }
 
-.loader__percent-sign {
-  color: var(--color-text-muted);
-}
-
-/* Exit: the panels part, the wordmark lifts toward the viewer and dissolves. */
 .loader.is-leaving .loader__stage {
-  transform: scale(1.08);
+  transform: translateY(calc(-1 * var(--space-md)));
   opacity: 0;
-  filter: blur(var(--space-xs));
-}
-
-.loader.is-leaving .loader__glow {
-  opacity: 0;
-}
-
-@keyframes loader-breathe {
-  from { scale: 0.92; }
-  to { scale: 1.06; }
-}
-
-@media (max-width: 767px) {
-  .loader__word {
-    /* fits inside the side gutters with the italic overhang room */
-    font-size: min(var(--font-size-4xl), 15vw);
-  }
-
-  .loader__sub {
-    font-size: var(--font-size-2xl);
-    margin-top: 0;
-  }
-
-  .loader__tagline {
-    letter-spacing: normal;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loader__glow { animation: none; }
   .loader__stage { transition: opacity var(--motion-fast) linear; }
-  .loader.is-leaving .loader__stage { transform: none; filter: none; }
+  .loader.is-leaving .loader__stage { transform: none; }
 }
 
-/* The opening owns the screen: header, hero HUD and frame marks wait until the loader leaves. */
+/* The loader owns the screen: header, hero HUD and frame marks wait until it leaves. */
 html[data-loading='true'] .site-header,
 html[data-loading='true'] .hero__hud,
 html[data-loading='true'] .hero-arrow,
@@ -260,26 +97,4 @@ html[data-loading='true'] .site-frame {
 .hero-arrow,
 .site-frame {
   transition: opacity var(--motion-slow) var(--ease-out);
-}
-
-/* Centred until the 3D opening is on screen; then the lockup lifts to make room for the lid below. */
-.loader--stage.is-staged .loader__stage {
-  transform: translateY(-17vh);
-}
-
-.loader--stage.is-staged.is-leaving .loader__stage {
-  transform: translateY(-17vh) scale(1.06);
-}
-
-.loader__skip {
-  position: absolute;
-  bottom: var(--space-lg);
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--color-text-muted);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-sm);
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
-  white-space: nowrap;
 }

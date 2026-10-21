@@ -14,7 +14,6 @@ const live = (page: Page) => page.evaluate(() => (window as unknown as { __live:
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem('grizzly_notice_v1', '1');
-    window.sessionStorage.setItem('grizzly_opened_v1', '1');
     const live = new Map<string, Set<unknown>>();
     const name = (target: unknown) => (target === window ? 'window' : target === document ? 'document' : null);
     const add = EventTarget.prototype.addEventListener;
@@ -44,7 +43,7 @@ test('route cycles leave no extra window/document listeners; plain pages hold no
   await ready(page);
 
   const cycle = async () => {
-    await page.getByRole('region', { name: 'Flavors' }).getByRole('link', { name: /View details and order/ }).click();
+    await page.locator('#profile').getByRole('link', { name: /View details and order/ }).click();
     await expect(page).toHaveURL(/\/products\//);
     await page.waitForTimeout(1500);
     await page.goBack();

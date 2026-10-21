@@ -58,6 +58,11 @@
   --color-accent-deep: var(--color-flavor-blue-deep);
   --color-accent-next: var(--color-flavor-amber);
 
+  /* Zamzam chapter: dawn gold over the water (the chapter's accent, its calligraphy and the rosette). */
+  --color-zamzam-gold: #d9b36c;
+  --color-zamzam-gold-light: #f6e3b4;
+  --color-zamzam-gold-deep: #a97c3a;
+
   /* Fruit illustration colours */
   --color-fruit-leaf: var(--color-leaf-500);
   --color-fruit-rind: var(--color-rind-600);
@@ -218,9 +223,9 @@
   --layout-tick-bottom: 8rem;
   --layout-hint-bottom: 12rem;
   --layout-loader-word-max: 64rem;   /* loader wordmark width cap */
-  --layout-arrow-offset: 15rem;      /* hero arrows from the centre line, either side of the flavor name */
+  --layout-arrow-offset: 8rem;       /* hero arrows from the centre line, either side of the centre can (as in the reference) */
   --layout-header-scrim: 8.5rem;     /* dark fade behind the header over close-up chapters */
-  --layout-arrow-top: 76%;           /* hero arrows ride the flavor-name row, clear of the cans */
+  --layout-arrow-top: 47%;           /* hero arrows at the centre can's mid-height */
   --layout-slider-width: 37.5rem;
   --layout-letters-inset: 8.2rem;
   --layout-footer-max: 50rem;
@@ -321,7 +326,6 @@
   --carton-tilt: 34deg;
   --spec-leader: 4.5rem; /* spec callout leader line, label to can */
   --spec-dot: 0.4rem;
-  --cine-bar-height: 11vh;
 
   /* Liquid glass (glass.css): every panel floating over the scene */
   --glass-fill: color-mix(in oklab, var(--color-surface-panel) 58%, transparent);
@@ -334,7 +338,7 @@
   --glass-blur: 28px;
   --glass-saturate: 1.6;
   --motion-glass: 520ms;
-  --ease-glass: cubic-bezier(0.22, 1, 0.36, 1); /* cinema bars at full close: a 2.39:1 frame on a 16:9 screen */ /* the pack carton seen from above at an angle */
+  --ease-glass: cubic-bezier(0.22, 1, 0.36, 1); /* the pack carton seen from above at an angle */
   --carton-depth: 0.6rem; /* how deep each can well is */
   --size-hotspot: 2.25rem;
   --layout-checkout-max: 72rem;

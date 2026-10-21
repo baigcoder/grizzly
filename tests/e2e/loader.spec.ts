@@ -60,7 +60,7 @@ test('navigating between routes never brings the loader back or doubles the canv
   test.setTimeout(120_000);
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-loader', 'complete', { timeout: 40_000 });
-  await page.getByRole('region', { name: 'Flavors' }).getByRole('link', { name: /View details and order/ }).click();
+  await page.locator('#profile').getByRole('link', { name: /View details and order/ }).click();
   await expect(page).toHaveURL(/\/products\//);
   await expect(page.locator('.loader')).toHaveCount(0);
   await page.goBack();

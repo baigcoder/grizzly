@@ -70,25 +70,19 @@ export class GhostText implements SceneMoment {
     ctx.font = "italic 900 330px 'Libre Franklin', 'Arial Black', sans-serif";
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
-    // Cold silver outline over a faint fill that fades into the mist toward each line's base:
-    // the words stand in the night behind the can instead of sitting on it as a flat slab.
+    // As in the reference: soft, solid, translucent letters (no outline), lighter at the top, with a gentle glow
+    // around them, so the can stands in front of a luminous wall of type.
+    ctx.shadowColor = 'rgba(255,255,255,0.35)';
+    ctx.shadowBlur = 48;
     lines.forEach((line, i) => {
       const measured = ctx.measureText(line).width;
       const x = i === 0 ? 40 : Math.min(width - measured - 40, 40 + 220);
       const baseline = 300 + i * lineHeight;
       const fill = ctx.createLinearGradient(0, baseline - 260, 0, baseline + 10);
-      fill.addColorStop(0, 'rgba(225,236,255,0.42)');
-      fill.addColorStop(0.65, 'rgba(160,185,225,0.12)');
-      fill.addColorStop(1, 'rgba(120,150,200,0)');
+      fill.addColorStop(0, 'rgba(245,247,255,0.62)');
+      fill.addColorStop(1, 'rgba(225,232,250,0.38)');
       ctx.fillStyle = fill;
       ctx.fillText(line, x, baseline);
-      const edge = ctx.createLinearGradient(0, baseline - 260, 0, baseline + 10);
-      edge.addColorStop(0, 'rgba(240,246,255,0.95)');
-      edge.addColorStop(1, 'rgba(150,175,215,0.25)');
-      ctx.strokeStyle = edge;
-      ctx.lineWidth = 3;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(line, x, baseline);
     });
     this.aspect = canvas.width / canvas.height;
     this.texture = new THREE.CanvasTexture(canvas);
@@ -101,9 +95,10 @@ export class GhostText implements SceneMoment {
     const p = scene.sectionPosition;
     // visible while the argument section (position 6) is on screen
     const reveal = THREE.MathUtils.smoothstep(p, 5.35, 5.95);
-    const leave = 1 - THREE.MathUtils.smoothstep(p, 6.3, 6.85);
-    // thin outline + faint fill: reads quieter than the old solid letters; a little stronger on phones, where the can covers more of it
-    const opacity = (scene.camera.aspect < 0.8 ? 0.8 : 0.55) * leave;
+    // gone before the line-up drops in (it showed through the arriving row)
+    const leave = 1 - THREE.MathUtils.smoothstep(p, 6.15, 6.5);
+    // soft solid letters (the reference's translucent wall of type); a little stronger on phones, where the can covers more
+    const opacity = (scene.camera.aspect < 0.8 ? 0.75 : 0.6) * leave;
     this.mesh.visible = !!this.texture && reveal > 0.001 && opacity > 0.002;
     if (!this.mesh.visible) return;
     const z = -4.5;

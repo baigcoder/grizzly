@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 /**
@@ -14,7 +13,7 @@ const FinishShader = {
   uniforms: {
     tDiffuse: { value: null as THREE.Texture | null },
     uTime: { value: 0 },
-    uGrain: { value: 0.035 },
+    uGrain: { value: 0 }, // off: animated grain crawled over the dark labels as lighting noise (the 1/255 dither stays)
     uVignette: { value: 0.55 },
     uAberration: { value: 0.0 }, // off: it softened label edges toward the frame corners
     // A light product grade: inks a touch richer and blacks a touch deeper, so labels pop instead of reading washed out.
@@ -112,62 +111,18 @@ const FocusShader = {
     }`,
 };
 
-/**
- * Anamorphic streaks: the hottest highlights on the metal (lid rims, the specular line down the can) throw a thin,
- * cool horizontal flare, as through a cinema lens. A one-pass, 32-tap horizontal gather of a soft bright-pass, run on
- * the linear HDR target so only real highlights (well above the lit label) streak.
- */
-const AnamorphicShader = {
-  uniforms: {
-    tDiffuse: { value: null as THREE.Texture | null },
-    uTexelX: { value: 1 / 1920 },
-    uStrength: { value: 0.16 },
-    uThreshold: { value: 1.7 }, // only true specular hot spots (rims at 1.15 joined up into lines across the ring)
-  },
-  vertexShader: /* glsl */ `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }`,
-  fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse;
-    uniform float uTexelX;
-    uniform float uStrength;
-    uniform float uThreshold;
-    varying vec2 vUv;
-    vec3 bright(vec2 uv) {
-      vec3 c = texture2D(tDiffuse, uv).rgb;
-      float l = max(c.r, max(c.g, c.b));
-      return c * smoothstep(uThreshold, uThreshold * 2.2, l);
-    }
-    void main() {
-      vec4 base = texture2D(tDiffuse, vUv);
-      vec3 streak = vec3(0.0);
-      for (int i = 1; i <= 16; i++) {
-        float d = float(i) * 2.5;                   // close, even taps: a continuous streak (sparse taps drew dots)
-        float w = exp(-float(i) * 0.18);
-        streak += (bright(vUv + vec2(d * uTexelX, 0.0)) + bright(vUv - vec2(d * uTexelX, 0.0))) * w;
-      }
-      // a cool blue cast, as an anamorphic coating gives
-      vec3 tint = vec3(0.55, 0.78, 1.0);
-      gl_FragColor = vec4(base.rgb + streak * tint * uStrength * 0.12, base.a);
-    }`,
-};
-
 export type PostTier = 'HIGH' | 'MEDIUM';
 
 export class PostFx {
   readonly composer: EffectComposer;
-  readonly bloom: UnrealBloomPass | null;
   private readonly finish: ShaderPass;
   private readonly focus: ShaderPass | null;
-  private readonly anamorphic: ShaderPass | null;
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, pixelRatio: number, tier: PostTier) {
     const target = new THREE.WebGLRenderTarget(width * pixelRatio, height * pixelRatio, {
       type: THREE.HalfFloatType,
-      samples: tier === 'HIGH' ? 4 : 0,
+      // MSAA on every post tier: without it the can silhouettes and label edges stair-step (read as cheap cans)
+      samples: 4,
     });
     this.composer = new EffectComposer(renderer, target);
     this.composer.setPixelRatio(pixelRatio);
@@ -179,16 +134,7 @@ export class PostFx {
       this.composer.addPass(this.focus);
       this.setFocusSize(width, height);
     }
-    // Highlight-only bloom: the threshold sits above the lit label and lacquer, so only
-    // specular glints, the rim light and the glow blocks bleed.
-    // threshold well above the lit lid and label: only true specular glints bloom, so no halo round the can
-    this.bloom = tier === 'HIGH' ? new UnrealBloomPass(new THREE.Vector2(width, height), 0.24, 0.35, 1.7) : null;
-    this.anamorphic = tier === 'HIGH' ? new ShaderPass(AnamorphicShader) : null;
-    if (this.anamorphic) {
-      this.composer.addPass(this.anamorphic);
-      this.anamorphic.uniforms.uTexelX.value = 1 / Math.max(width, 1);
-    }
-    if (this.bloom) this.composer.addPass(this.bloom);
+    // No bloom: on the polished ends it blew single-pixel highlights up into soft white squares (lighting noise).
     this.composer.addPass(new OutputPass());
     this.finish = new ShaderPass(FinishShader);
     this.composer.addPass(this.finish);
@@ -200,7 +146,6 @@ export class PostFx {
   }
 
   private setFocusSize(width: number, height: number) {
-    if (this.anamorphic) this.anamorphic.uniforms.uTexelX.value = 1 / Math.max(width, 1);
     if (!this.focus) return;
     this.focus.uniforms.uAspect.value = width / Math.max(height, 1);
     this.focus.uniforms.uTexel.value.set(1 / Math.max(width, 1), 1 / Math.max(height, 1));

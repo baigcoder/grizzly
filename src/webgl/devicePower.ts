@@ -23,8 +23,8 @@ export interface DeviceSignals {
 
 /**
  * Starting render tier. The frame-rate governor in the scene can still step down from here, never up.
- *   HIGH    full materials, bloom, floor reflections, highest practical textures
- *   MEDIUM  good materials and textures, no bloom, lighter stage (phones, mid-range laptops, reduced motion)
+ *   HIGH    full materials, lens focus, floor reflections, highest practical textures
+ *   MEDIUM  good materials and textures, no lens focus, lighter stage (phones, mid-range laptops, reduced motion)
  *   LOW     stable and cheap: no post-processing or reflections (data saver, 2 GB or less memory, 2 cores or fewer)
  * Unknown signals never push a device down: only a known weakness does.
  */

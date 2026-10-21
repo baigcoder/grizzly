@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 test('hero link opens the product page for the selected flavor', async ({ page }) => {
   await page.goto('/');
   await waitForLoader(page);
-  await page.getByRole('region', { name: 'Flavors' }).getByRole('link', { name: 'View details and order Blue Raspberry' }).click();
+  await page.locator('#profile').getByRole('link', { name: 'View details and order Blue Raspberry' }).click();
   await expect(page).toHaveURL(/\/products\/blue-raspberry$/);
   await expect(page.getByRole('heading', { level: 1, name: 'BLUE RASPBERRY' })).toBeVisible();
   await expect(page.getByText('Placeholder price')).toBeVisible();
@@ -136,13 +136,14 @@ test('store page shows the coming-soon state while no stores are confirmed', asy
   await expect(page.getByLabel('City or shop name')).toBeDisabled();
 });
 
-test('limited edition shows an unannounced end date instead of an invented countdown', async ({ page }) => {
+test('limited edition shows its badge but no countdown until the end date is confirmed', async ({ page }) => {
   await page.goto('/products/blackout-berry');
   await waitForLoader(page);
-  await expect(page.getByText('end date to be announced')).toBeVisible();
+  await expect(page.getByText('Limited edition', { exact: true })).toBeVisible();
+  await expect(page.locator('.countdown')).toHaveCount(0);
   await page.goto('/products/peach');
   await waitForLoader(page);
-  await expect(page.getByText('end date to be announced')).toBeHidden();
+  await expect(page.getByText('Limited edition', { exact: true })).toBeHidden();
 });
 
 test('storage notice appears once and stays dismissed', async ({ page }) => {

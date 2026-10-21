@@ -1012,7 +1012,6 @@ select.field__input--plain option {
 
 [dir='rtl'] .pdp-hotspots,
 [dir='rtl'] .hotspot-panel,
-[dir='rtl'] .pdp-stage__controls,
 [dir='rtl'] .pdp-stage__hint {
   left: auto;
   right: var(--layout-text-inset);

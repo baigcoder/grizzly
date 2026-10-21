@@ -307,44 +307,6 @@
 
 /* Hero hints would sit right under the bar: they come back once the notice is dismissed. */
 html[data-notice] .hero__scroll-hint,
-html[data-notice] .hero__turn-hint {
-  visibility: hidden;
-}
-
-/* ---------- Cinema bars ----------
-   Two black bars that close in from the top and bottom edges while the visitor scrolls fast (a 2.39:1 frame for a
-   moment), and pull back at rest. --cine (0..1) is written on this element by the scene loop; transform only. */
-.cine-bars {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--z-chrome) - 1);
-  pointer-events: none;
-}
-
-.cine-bars__bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: var(--cine-bar-height);
-  background: var(--color-surface-base);
-  transform: scaleY(var(--cine, 0));
-  will-change: transform;
-}
-
-.cine-bars__bar--top {
-  top: 0;
-  transform-origin: top;
-}
-
-.cine-bars__bar--bottom {
-  bottom: 0;
-  transform-origin: bottom;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cine-bars { display: none; }
-}
-
 /* The end of every page stays reachable above the bar. */
 html[data-notice] body {
   padding-bottom: var(--notice-h, 0px);
@@ -458,8 +420,9 @@ body:has(.loader) .cursor-ring {
   }
 }
 
-/* Laptop widths: label hotspots shrink to icon buttons so they clear the can. */
-@media (max-width: 1599px) {
+/* Narrow laptops: label hotspots shrink to icon buttons so they clear the can (from 1200 px the can sits clear of
+   the labelled hotspots, which read as controls instead of an unlabelled icon rail). */
+@media (max-width: 1199px) {
   .hotspot {
     padding: 0 var(--space-3xs);
   }
@@ -474,16 +437,23 @@ body:has(.loader) .cursor-ring {
   }
 }
 
-/* Narrow product page: view buttons sit under the can, hotspots clear the header. */
+/* A pack on the stage (6, 12 or 24 cans): the hotspots fold to their dots so the pack has the room. Opening one
+   brings the single can back, labels and all. */
+.pdp-hotspots.is-pack .hotspot {
+  padding: 0 var(--space-3xs);
+}
+
+.pdp-hotspots.is-pack .hotspot__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Narrow product page: hotspots clear the header. */
 @media (max-width: 1023px) {
-  .pdp-stage {
-    margin-bottom: calc(var(--control-size) + var(--space-md));
-  }
-
-  .pdp-stage__controls {
-    bottom: calc((var(--control-size) + var(--space-xs)) * -1);
-  }
-
   .pdp-hotspots {
     top: var(--layout-header-height);
   }

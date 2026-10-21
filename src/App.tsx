@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { FLAVORS } from './data/flavors';
 import { getProductBySlug } from './data/products';
 import { applyHead } from './seo/applyHead';
@@ -6,6 +6,8 @@ import type { SceneManager } from './webgl/sceneManager';
 import { Preloader } from './components/Preloader';
 import { SiteHeader } from './components/SiteHeader';
 import { MenuDrawer } from './components/MenuDrawer';
+import { ChapterRail } from './components/ChapterRail';
+import { DebugHud } from './components/DebugHud';
 import { SiteFrame } from './components/SiteFrame';
 import { SCENE_SEQUENCE } from './webgl/sceneStates';
 import { StageBackdrop } from './components/StageBackdrop';
@@ -20,27 +22,43 @@ import { NewsletterFooter, SiteFooter } from './components/NewsletterFooter';
 import { FallbackStage } from './components/FallbackStage';
 import { ProductDetailPage } from './components/ProductDetailPage';
 import { CartDrawer } from './components/CartDrawer';
-import { CartPage } from './components/CartPage';
-import { CheckoutPage } from './components/CheckoutPage';
-import { PackBuilder } from './components/PackBuilder';
-import { ShopPage } from './components/ShopPage';
-import { HalalPage } from './components/HalalPage';
 import { NotFoundPage } from './components/NotFoundPage';
 import { FlavorFinder } from './components/FlavorFinder';
-import { StoreLocator } from './components/StoreLocator';
-import { PrivacyPage } from './components/PrivacyPage';
 import { PointerFX } from './components/PointerFX';
-import { SpecCallouts } from './components/SpecCallouts';
 import { CookieNotice } from './components/CookieNotice';
 import type { MenuItem } from './components/MenuDrawer';
 import { useCart } from './store/cart';
 import { useSmoothScroll, prefersReducedMotion } from './hooks/useSmoothScroll';
 import { useHomeScroll } from './hooks/useHomeScroll';
 import { useCanKeys } from './hooks/useCanKeys';
-import { OPENING_MIN_SECONDS, openingShouldPlay } from './webgl/moments/openingConfig';
 import { isLowPowerDevice, pickQuality, readDeviceSignals } from './webgl/devicePower';
 
-const MIN_LOADER_MS = 900;
+// Secondary routes load on demand (their own chunks), so the home story's first download stays small.
+const CartPage = lazy(() => import('./components/CartPage').then((m) => ({ default: m.CartPage })));
+const CheckoutPage = lazy(() => import('./components/CheckoutPage').then((m) => ({ default: m.CheckoutPage })));
+const ShopPage = lazy(() => import('./components/ShopPage').then((m) => ({ default: m.ShopPage })));
+const PackBuilder = lazy(() => import('./components/PackBuilder').then((m) => ({ default: m.PackBuilder })));
+const HalalPage = lazy(() => import('./components/HalalPage').then((m) => ({ default: m.HalalPage })));
+const PrivacyPage = lazy(() => import('./components/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const StoreLocator = lazy(() => import('./components/StoreLocator').then((m) => ({ default: m.StoreLocator })));
+
+/**
+ * Starts a download the 3D scene will make anyway, while the loader is up and the scene chunk is still arriving (the
+ * texture transcoder and the first label used to wait until the scene was built). Same request mode as three's
+ * loaders (fetch, same-origin credentials), so the browser reuses the preloaded response.
+ */
+function preloadForScene(href: string) {
+  if (document.head.querySelector(`link[rel="preload"][href="${href}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'preload';
+  link.as = 'fetch';
+  link.crossOrigin = 'anonymous';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+/** Home loader minimum: long enough for the mark to fill as a moment (the reference counts up visibly). */
+const MIN_LOADER_MS = 1600;
 
 /** Resolves after the browser has painted a frame (or after a short timeout in a hidden tab). */
 const afterNextPaint = () =>
@@ -119,9 +137,9 @@ export const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneManagerRef = useRef<SceneManager | null>(null);
 
-  // The opening (a can cracking open under the loader) plays once per session, on the home route only.
-  const [playOpening] = useState(() => typeof window !== 'undefined' && parseCurrentRoute().type === 'HOME' && !prefersReducedMotion() && openingShouldPlay());
   const [isReady, setIsReady] = useState(false);
+  // ?debug=1: frame-rate readout for checks on real devices
+  const [showDebugHud] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1');
   const [route, setRoute] = useState<AppRoute>(parseCurrentRoute);
   const [loaderMode] = useState<LoaderMode>(() => (typeof window === 'undefined' ? 'none' : loaderModeFor(parseCurrentRoute())));
   useEffect(() => {
@@ -138,7 +156,7 @@ export const App: React.FC = () => {
 
   const { isOpen: isCartOpen, toggleCart } = useCart();
   const isHome = route.type === 'HOME';
-  const { scrollToElement } = useSmoothScroll(isHome && isReady, '.home > .home-section:not(.faq)');
+  const { scrollToElement } = useSmoothScroll(isHome && isReady, '.home > .home-section:not(.faq)', isHome && webGlAvailable);
   const { scene, chapter, sectionIndex } = useHomeScroll(isHome, sceneManagerRef);
   useCanKeys(isHome ? 'HOME' : route.type === 'PRODUCT' ? 'PRODUCT' : 'OTHER', sceneManagerRef);
 
@@ -199,6 +217,10 @@ export const App: React.FC = () => {
     let cancelled = false;
     let readyFrame = 0;
     let teardown: () => void = () => {};
+    const startRoute = parseCurrentRoute();
+    const productFlavor = startRoute.type === 'PRODUCT' ? FLAVORS.find((flavor) => flavor.id === startRoute.slug)?.id : undefined;
+    const firstFlavor = productFlavor ?? FLAVORS[initialFlavorIndexRef.current % FLAVORS.length].id;
+    ['/basis/basis_transcoder.js', '/basis/basis_transcoder.wasm', `/textures/grizzly/ktx2/${firstFlavor}-1k.ktx2`].forEach(preloadForScene);
     performance.mark('grizzly:scene-import-start');
     import('./webgl/sceneManager')
       .then(async ({ SceneManager }) => {
@@ -222,8 +244,9 @@ export const App: React.FC = () => {
         const initial = parseCurrentRoute();
         sm.setRoute(sceneRoute(initial), initial.type === 'PRODUCT' ? initial.slug : undefined);
         sm.setInitialFlavor(initialFlavorIndexRef.current);
+        sm.setProductPack(packCountRef.current);
         // The cans are only held back for the loader's cinematic; a scene created later has no loader to release them.
-        if (initial.type === 'HOME' && loaderMode === 'cinematic') sm.armIntro(playOpening);
+        if (initial.type === 'HOME' && loaderMode === 'cinematic') sm.armIntro();
         // While the ring travels to a chosen flavor it passes the ones in between: those are not selections, so only
         // the flavor the ring is heading for becomes active (the slider announces the choice at once, not on arrival).
         const unsubscribe = sm.carousel.onChanged(({ index }) => {
@@ -253,7 +276,7 @@ export const App: React.FC = () => {
       cancelAnimationFrame(readyFrame);
       teardown();
     };
-  }, [playOpening, sceneWanted, loaderMode]);
+  }, [sceneWanted, loaderMode]);
 
   // Flavor drives the colour tokens ([data-flavor]) and a shareable hash.
   useEffect(() => {
@@ -279,9 +302,14 @@ export const App: React.FC = () => {
       frame = requestAnimationFrame(() => {
         const sm = sceneManagerRef.current;
         sm?.setProductScroll(window.scrollY / window.innerHeight);
-        // Last ~0.8 screens of the page: the pinned can (and its DOM controls) lift away from the footer.
-        const remaining = (document.documentElement.scrollHeight - window.scrollY - window.innerHeight) / window.innerHeight;
-        const exit = Math.min(1, Math.max(0, 1 - remaining / 0.8));
+        // The pinned can (and its hotspots and hint) lift away as the full-width related flavors arrive: from their
+        // top entering the screen until it is 40% up (it used to wait for the page's last 0.8 screens, so the can sat
+        // over the related cards). Falls back to the page end when there is no related section.
+        const related = document.querySelector('.pdp-section--related');
+        const height = window.innerHeight;
+        const exit = related
+          ? Math.min(1, Math.max(0, (height - related.getBoundingClientRect().top) / (height * 0.6)))
+          : Math.min(1, Math.max(0, 1 - (document.documentElement.scrollHeight - window.scrollY - height) / height / 0.8));
         sm?.setProductExit(exit);
         document.documentElement.style.setProperty('--pdp-exit', exit.toFixed(3));
         document.documentElement.toggleAttribute('data-pdp-end', exit > 0.35);
@@ -438,6 +466,13 @@ export const App: React.FC = () => {
   );
 
   const handlePreloaderDone = useCallback(() => setIsReady(true), []);
+  // stable, so the product page's pack effect runs only when the chosen pack changes
+  // (remembered, so a scene built after the product page mounted still shows the chosen pack)
+  const packCountRef = useRef(1);
+  const handlePackChange = useCallback((count: number) => {
+    packCountRef.current = count;
+    sceneManagerRef.current?.setProductPack(count);
+  }, []);
   const handlePreloaderLeave = useCallback(() => sceneManagerRef.current?.playIntro(), []);
   const handleTilt = useCallback((x: number, y: number) => sceneManagerRef.current?.setDeviceTilt(x, y), []);
   const highlightBenefit = useCallback((index: number) => sceneManagerRef.current?.setBenefitGlow(index), []);
@@ -450,8 +485,7 @@ export const App: React.FC = () => {
           isReady={isReady}
           onDone={handlePreloaderDone}
           onLeave={handlePreloaderLeave}
-          minDurationMs={loaderMode === 'product' ? PRODUCT_LOADER_MS : playOpening && webGlAvailable ? OPENING_MIN_SECONDS * 1000 : MIN_LOADER_MS}
-          showStage={loaderMode === 'cinematic' && playOpening && webGlAvailable}
+          minDurationMs={loaderMode === 'product' ? PRODUCT_LOADER_MS : MIN_LOADER_MS}
         />
       )}
 
@@ -477,15 +511,9 @@ export const App: React.FC = () => {
         <FallbackStage activeIndex={activeIndex} showCan={!sceneWanted ? false : true} />
       )}
 
-      {/* Cinema bars: slide in while the visitor scrolls fast, pull back at rest (driven from the scene loop). */}
-      {isHome && webGlAvailable && sceneWanted && (
-        <div className="cine-bars" aria-hidden="true">
-          <span className="cine-bars__bar cine-bars__bar--top" />
-          <span className="cine-bars__bar cine-bars__bar--bottom" />
-        </div>
-      )}
 
-      <SiteFrame scene={isHome ? scene : 'page'} chapter={isHome ? sectionIndex : undefined} chapters={SCENE_SEQUENCE.length} />
+      <SiteFrame scene={isHome ? scene : 'page'} chapter={isHome ? sectionIndex : undefined} chapters={SCENE_SEQUENCE.length - 1} />
+      {isHome && isReady && <ChapterRail active={sectionIndex} onJump={scrollToSection} />}
 
       <SiteHeader
         isMenuOpen={isMenuOpen}
@@ -500,31 +528,31 @@ export const App: React.FC = () => {
 
       {route.type === 'CART' ? (
         <main id="main" className="page">
-          <CartPage onNavigate={navigate} />
+          <Suspense fallback={null}><CartPage onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'CHECKOUT' ? (
         <main id="main" className="page">
-          <CheckoutPage onNavigate={navigate} />
+          <Suspense fallback={null}><CheckoutPage onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'SHOP' ? (
         <main id="main" className="page">
-          <ShopPage onNavigate={navigate} />
+          <Suspense fallback={null}><ShopPage onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'MIX' ? (
         <main id="main" className="page">
-          <PackBuilder onNavigate={navigate} />
+          <Suspense fallback={null}><PackBuilder onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'HALAL' ? (
         <main id="main" className="page">
-          <HalalPage />
+          <Suspense fallback={null}><HalalPage /></Suspense>
         </main>
       ) : route.type === 'PRIVACY' ? (
         <main id="main" className="page">
-          <PrivacyPage />
+          <Suspense fallback={null}><PrivacyPage /></Suspense>
         </main>
       ) : route.type === 'STORES' ? (
         <main id="main" className="page">
-          <StoreLocator onNavigate={navigate} />
+          <Suspense fallback={null}><StoreLocator onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'NOT_FOUND' ? (
         <main id="main" className="page">
@@ -536,6 +564,9 @@ export const App: React.FC = () => {
             slug={route.slug}
             onNavigate={navigate}
             onRotate={(dx, dy) => sceneManagerRef.current?.rotateProduct(dx, dy)}
+            onFling={(vx) => sceneManagerRef.current?.flingProduct(vx)}
+            onPreviewFlavor={(slug) => sceneManagerRef.current?.previewProductFlavor(slug)}
+            onPackChange={handlePackChange}
             onView={(view) => sceneManagerRef.current?.setProductView(view)}
             onHighlightBenefit={highlightBenefit}
             isWebglAvailable={webGlAvailable}
@@ -549,12 +580,8 @@ export const App: React.FC = () => {
             onSelectFlavor={selectFlavor}
             onPrev={() => stepFlavor(-1)}
             onNext={() => stepFlavor(1)}
-            onViewDetails={(slug) => navigate(`/products/${slug}`)}
           />
           <ProfileSection activeIndex={activeIndex} isActive={scene === 'flavor'} onViewDetails={(slug) => navigate(`/products/${slug}`)} />
-          {webGlAvailable && sceneWanted && (
-            <SpecCallouts visible={sectionIndex === 1} sceneRef={sceneManagerRef} onNavigateChapter={(index) => scrollToSection(`benefits-${index + 1}`)} />
-          )}
           <BenefitsSection
             activeChapter={chapter}
             showRail={scene === 'flavor' || scene === 'benefit'}
@@ -567,7 +594,18 @@ export const App: React.FC = () => {
         </main>
       )}
       <SiteFooter />
+      {/* The loop segment: the scene returns to the hero here, then the page wraps to the top (useSmoothScroll). */}
+      {isHome && (
+        <div id="loop" className="home-loop" aria-hidden="true">
+          <p className="home-loop__cue">
+            <span>Keep scrolling</span>
+            <span className="home-loop__cue-line" />
+            <span>back to the start</span>
+          </p>
+        </div>
+      )}
       <PointerFX onTilt={handleTilt} />
+      {showDebugHud && <DebugHud />}
       <CookieNotice isReady={isReady} />
     </>
   );

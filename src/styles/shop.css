@@ -249,21 +249,45 @@
   width: auto;
 }
 
-.pdp-stage__controls {
-  position: absolute;
-  left: var(--layout-text-inset);
-  bottom: calc(var(--space-md) + var(--notice-h, 0px));
-  display: flex;
-  gap: var(--space-2xs);
-}
-
+/* The can is the control (no Front / Back buttons): one quiet hint under it, which fades after the first turn. */
 .pdp-stage__hint {
   position: absolute;
   left: var(--layout-text-inset);
-  bottom: calc(var(--space-md) + var(--notice-h, 0px) + var(--control-size) + var(--space-xs));
-  font-size: var(--font-size-sm);
+  /* in the left column, under the four label hotspots: clear of the can (at the bottom it sat on the can's base) */
+  top: calc(var(--space-2xl) + 4 * var(--control-size) + 3 * var(--space-2xs) + var(--space-md));
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-label);
   text-transform: uppercase;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity var(--motion-slow) var(--ease-out);
+}
+
+.pdp-stage__hint svg {
+  width: var(--space-lg);
+  height: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pdp-stage.is-used .pdp-stage__hint {
+  opacity: 0;
+}
+
+.pdp-stage__hint-touch {
+  display: none;
+}
+
+@media (hover: none) {
+  .pdp-stage__hint-pointer { display: none; }
+  .pdp-stage__hint-touch { display: inline; }
 }
 
 .pdp-panel {
@@ -446,7 +470,58 @@
 }
 
 .page--product .pdp-section:last-child {
-  padding-bottom: var(--space-5xl);
+  padding-bottom: var(--space-3xl);
+}
+
+/* Related flavors close the page across its full width: the pinned can has lifted away by then, and the cards sat
+   small in the right column over a large empty left half. */
+.pdp-section--related {
+  margin-left: var(--layout-text-inset);
+  margin-right: var(--layout-gutter);
+  max-width: none;
+}
+
+.pdp-section--related .related {
+  gap: var(--space-md);
+}
+
+.pdp-section--related .related__card {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-xl) var(--space-md);
+  transform: perspective(60rem) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+/* the sheen follows the pointer across the card */
+.pdp-section--related .related__card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--sheen-x, 50%) var(--sheen-y, 0%), var(--color-white-a08), transparent 55%);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+  pointer-events: none;
+}
+
+.pdp-section--related .related__card:hover::after {
+  opacity: 1;
+}
+
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .pdp-section--related .related__card { transform: none; }
+}
+
+.pdp-section--related .related__card img {
+  width: calc(var(--size-related-thumb) * 1.6);
+}
+
+.pdp-section--related .related__name {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
+  font-style: italic;
+  font-weight: var(--font-weight-display);
+  text-transform: uppercase;
 }
 
 /* Tasting notes */
@@ -768,13 +843,16 @@ html.is-locked {
     translate: none;
   }
 
-  .pdp-stage__controls {
-    left: 50%;
-    transform: translateX(-50%);
+  /* narrow: under the can's stage, in room reserved for it (never over the can) */
+  .pdp-stage {
+    margin-bottom: var(--space-xl);
   }
 
   .pdp-stage__hint {
-    display: none;
+    top: auto;
+    left: 50%;
+    bottom: calc(-1 * var(--space-lg));
+    transform: translateX(-50%);
   }
 
   .pdp-panel,
@@ -815,7 +893,8 @@ html.is-locked {
   .pdp-panel > .countdown { order: 2; }
   .pdp-panel > .pdp-price { order: 3; margin-bottom: var(--space-sm); }
   .pdp-panel > .trust-badges { order: 4; margin-bottom: var(--space-sm); }
-  .pdp-panel > .flavor-swatches { order: 5; }
+  .pdp-panel > .flavor-swatches,
+  .pdp-panel > .flavor-swatches__label { order: 5; } /* the label travels with its swatches */
   .pdp-panel > .pack-picker { order: 6; }
   .pdp-panel > .pdp-buy { order: 7; }
   .pdp-panel > .pdp-status { order: 8; }
@@ -883,6 +962,7 @@ body:has(.page) .site-header::before {
 
 .pdp-panel__edition {
   display: inline-block;
+  align-self: flex-start; /* a compact badge, not a full-width bar, in the stacked narrow layout */
   margin-bottom: var(--space-sm);
 }
 
@@ -903,6 +983,20 @@ html[data-pdp-end] .pdp-buybar {
 }
 
 /* ---------- Flavor switcher (by the title) ---------- */
+/* The current flavor's name above the swatches, so the choice never relies on colour alone. */
+.flavor-swatches__label {
+  margin-bottom: var(--space-2xs);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.flavor-swatches__name {
+  margin-left: var(--space-2xs);
+  color: var(--color-text-primary);
+}
+
 .flavor-swatches {
   display: flex;
   flex-wrap: wrap;

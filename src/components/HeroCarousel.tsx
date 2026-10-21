@@ -10,7 +10,6 @@ interface HeroCarouselProps {
   onSelectFlavor: (index: number) => void;
   onPrev: () => void;
   onNext: () => void;
-  onViewDetails: (slug: string) => void;
 }
 
 const ArrowDots: React.FC<{ direction: 'prev' | 'next' }> = ({ direction }) => (
@@ -27,7 +26,7 @@ const ArrowDots: React.FC<{ direction: 'prev' | 'next' }> = ({ direction }) => (
  * Hero HUD over the 3D ring: prev/next arrows beside the focused can, flavor
  * name, rainbow flavor slider and the scroll prompt. The ring itself is WebGL.
  */
-export const HeroCarousel: React.FC<HeroCarouselProps> = ({ activeIndex, isActive, onSelectFlavor, onPrev, onNext, onViewDetails }) => {
+export const HeroCarousel: React.FC<HeroCarouselProps> = ({ activeIndex, isActive, onSelectFlavor, onPrev, onNext }) => {
   const flavor = FLAVORS[activeIndex % FLAVORS.length];
   const { t, locale } = useLocale();
   const titleLines = locale === 'ur' ? [FLAVOR_NAMES_UR[flavor.id]] : [flavor.line1, flavor.line2].filter(Boolean);
@@ -76,17 +75,6 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ activeIndex, isActiv
         <div className="hero__title-wrap">
           <RevealText key={flavor.id + locale} id="hero-title" as="h2" className="hero__title display" lines={titleLines} label={locale === 'ur' ? undefined : flavor.name} joiner={flavor.name.includes(' ') ? ' ' : ''} split={locale === 'ur' ? 'lines' : 'chars'} />
         </div>
-        <a
-          className="detail-link"
-          aria-label={`View details and order ${flavor.name}`}
-          href={`/products/${flavor.id}`}
-          onClick={(event) => {
-            event.preventDefault();
-            onViewDetails(flavor.id);
-          }}
-        >
-          {t('viewDetails')}
-        </a>
 
         <div
           ref={sliderRef}
@@ -119,7 +107,6 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ activeIndex, isActiv
         </div>
 
         <p className="hero__scroll-hint">{t('scroll')}</p>
-        <p className="hero__turn-hint" aria-hidden="true">{t('turnHint')}</p>
       </div>
     </section>
   );

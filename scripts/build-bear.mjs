@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Crops the bear from each flavor's label front (public/textures/grizzly/<slug>-front.png) for the
+ * Crops the bear from each flavor's label front (assets/label-front/<slug>-front.png) for the
  * "roar" moment, where it appears huge and faint behind the can.
  *   node scripts/build-bear.mjs
  * Output: public/textures/grizzly/bear/<slug>.webp (the bear and the ice around it on black).
@@ -15,7 +15,7 @@ const data = JSON.parse(await readFile(resolve(root, 'src/data/grizzly.json'), '
 const dir = resolve(root, 'public/textures/grizzly');
 await mkdir(resolve(dir, 'bear'), { recursive: true });
 for (const flavor of data.flavors) {
-  const front = sharp(resolve(dir, `${flavor.slug}-front.png`));
+  const front = sharp(resolve(root, 'assets/label-front', `${flavor.slug}-front.png`));
   const { width, height } = await front.metadata();
   // The bear sits in the upper half of the front panel, under the flavor pill.
   const top = Math.round(height * 0.07);

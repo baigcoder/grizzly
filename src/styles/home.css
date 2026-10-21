@@ -32,7 +32,7 @@
     linear-gradient(180deg, var(--color-surface-base) 18%, var(--color-floor-low) 62%, var(--color-floor-mid) 100%);
 }
 
-/* Soft flavor glows under the hero pedestal. */
+/* Soft flavor glows under the hero title. */
 .stage-glow {
   position: absolute;
   bottom: var(--backdrop-glow-bottom);
@@ -254,7 +254,8 @@
 .hero__hud {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--space-xl) + var(--notice-h, 0px));
+  /* clear of the frame's bottom edge on short windows (at --space-xl the scroll hint was clipped) */
+  bottom: calc(var(--space-2xl) + var(--notice-h, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -273,6 +274,14 @@
 
 /* Wide screens: the flavor name sits on one line so the can can be taller (≈55% of the viewport). */
 @media (min-width: 768px) {
+  /* During the dive the hero title swells toward the viewer and dissolves within the first third, as if the camera
+     passed through it, before the flavor chapter's title reveals (a glide toward that title crossed the can). */
+  .hero__title {
+    transform: scale(calc(1 + var(--dive, 0) * 0.7));
+    opacity: clamp(0, calc(1 - var(--dive, 0) * 3.4), 1);
+    will-change: transform, opacity;
+  }
+
   .hero__title-wrap {
     min-height: calc(var(--font-size-3xl) * var(--line-height-display));
     margin-bottom: var(--space-lg);
@@ -804,6 +813,7 @@
   }
 
   .benefit-rail__list {
+    --rail-button: var(--control-size);
     gap: var(--space-sm);
   }
 
@@ -1011,30 +1021,16 @@
   }
 }
 
+/* Pinned benefit copy does not scroll, so its view timeline never moves: the drift froze part-way and pushed the
+   title ~32 px right of its tag. The pinned titles hold still. */
+.benefit .section-copy__title {
+  animation: none;
+  translate: none;
+}
+
 @keyframes title-drift {
   from { translate: calc(var(--drift-distance) * -1) 0; }
   to { translate: var(--drift-distance) 0; }
-}
-
-/* Model-viewer hint: pointer and keyboard devices only (touch drags the ring instead). */
-.hero__turn-hint {
-  margin-top: var(--space-2xs);
-  color: var(--color-text-muted);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-xs);
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
-}
-
-/* Gone (not just faded) once the hero hands over: a half-faded hint fails contrast over the next section. */
-.hero:not(.is-active) .hero__turn-hint {
-  visibility: hidden;
-}
-
-@media (hover: none) {
-  .hero__turn-hint {
-    display: none;
-  }
 }
 
 /* Benefit chapters: a soft dark falloff behind the copy, so bubbles, fruit or the lit label never
@@ -1056,104 +1052,232 @@
   }
 }
 
-/* ---------- Spec callouts (flavor chapter): labels pinned to the floating can ----------
-   Each callout's anchor is a point on the can's left silhouette (translate3d set by SpecCallouts every frame);
-   the body hangs to the left of it: text, a leader line, a glowing dot on the can. */
-.spec-callouts {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-content);
+/* The loop segment after the footer: one empty screen in which the 3D scene returns to the hero ring; at its bottom
+   the page wraps to the top (useSmoothScroll), where the frame is the same. */
+.home-loop {
+  height: 100svh;
   pointer-events: none;
 }
 
-.spec-callout {
-  position: absolute;
-  left: 0;
-  top: 0;
-  will-change: transform;
+@media (prefers-reduced-motion: reduce) {
+  .hero__title { transform: none; }
 }
 
-.spec-callout__body {
+/* Scroll aesthetics: the body of each chapter rises into place line by line behind a mask once the chapter is in
+   view (the titles already reveal per character), then stays. Transform, clip-path and opacity only. */
+.home-section .replaced-tag,
+.home-section .section-copy__text,
+.home-section .section-copy__body,
+.home-section .detail-link--left {
+  clip-path: inset(0 0 100% 0);
+  opacity: 0;
+  transform: translateY(0.9em);
+  transition:
+    clip-path 900ms var(--ease-out),
+    transform 900ms var(--ease-out),
+    opacity 600ms var(--ease-out);
+}
+
+.home-section.is-active .replaced-tag,
+.home-section.is-active .section-copy__text,
+.home-section.is-active .section-copy__body,
+.home-section.is-active .detail-link--left {
+  clip-path: inset(-20% -10% -20% -10%);
+  opacity: 1;
+  transform: none;
+}
+
+.home-section.is-active .replaced-tag { transition-delay: 80ms; }
+.home-section.is-active .section-copy__text,
+.home-section.is-active .section-copy__body { transition-delay: 260ms; }
+.home-section.is-active .detail-link--left { transition-delay: 420ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-section .replaced-tag,
+  .home-section .section-copy__text,
+  .home-section .section-copy__body,
+  .home-section .detail-link--left {
+    clip-path: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* The loop cue: a quiet line at the foot of the loop screen, while the scene glides back into the hero. */
+.home-loop {
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding-bottom: calc(var(--space-2xl) + var(--notice-h, 0px));
+}
+
+.home-loop__cue {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: right;
-  transform: translate(calc(-100% + var(--spec-dot) / 2), -50%);
-  opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
-}
-
-.spec-callouts.is-visible .spec-callout__body {
-  opacity: 1;
-  transition-delay: calc(var(--i) * var(--stagger-char) * 4 + var(--delay-reveal-body));
-}
-
-.spec-callout__body--link {
-  cursor: pointer;
-}
-
-.spec-callouts.is-visible .spec-callout__body--link {
-  pointer-events: auto;
-}
-
-.spec-callout__text {
-  display: grid;
-  gap: var(--space-3xs);
-}
-
-.spec-callout__title {
-  font-size: var(--font-size-sm);
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-}
-
-.spec-callout__detail {
+  color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
 }
 
-/* the leader draws itself out from the label toward the can */
-.spec-callout__leader {
-  width: var(--spec-leader);
+.home-loop__cue-line {
+  width: var(--space-3xl);
   height: var(--border-hairline);
-  background: linear-gradient(90deg, var(--color-white-a30), var(--color-accent));
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--motion-standard) var(--ease-out);
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  animation: loop-cue 2.4s var(--ease-in-out) infinite;
 }
 
-.spec-callouts.is-visible .spec-callout__leader {
-  transform: scaleX(1);
-  transition-delay: calc(var(--i) * var(--stagger-char) * 4 + var(--delay-reveal-body));
-}
-
-.spec-callout__dot {
-  flex: none;
-  width: var(--spec-dot);
-  height: var(--spec-dot);
-  border-radius: var(--radius-round);
-  background: var(--color-accent);
-  box-shadow: var(--shadow-accent-glow);
-}
-
-.spec-callout__body--link:hover .spec-callout__title,
-.spec-callout__body--link:focus-visible .spec-callout__title {
-  color: var(--color-accent);
-}
-
-@media (max-width: 1023px) {
-  .spec-callouts { display: none; }
+@keyframes loop-cue {
+  0%, 100% { transform: scaleX(0.4); opacity: 0.4; }
+  50% { transform: scaleX(1); opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spec-callout__body,
-  .spec-callout__leader { transition: none; }
+  .home-loop__cue-line { animation: none; }
+}
+
+/* ---------- Benefit chapters: one pinned copy panel ----------
+   The four chapters share one spot on screen: the active chapter's copy is pinned there and the next one swaps in
+   (its title per character, the rest rising behind a mask), so the frame is never empty between chapters while the
+   can steps and its lit block slides down the label. Inactive copy is hidden from view and from pointer input. */
+.benefit .section-copy {
+  position: fixed;
+  z-index: var(--z-content);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 450ms var(--ease-out),
+    visibility 0s linear 450ms;
+}
+
+.benefit.is-active .section-copy {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 120ms, 0s;
+}
+
+/* chapter counter: "01 / 04", the number rolls up as the chapter arrives */
+.benefit-count {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2xs);
+  margin-bottom: var(--space-xs);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-label);
+  color: var(--color-text-muted);
+}
+
+.benefit-count__now {
+  display: inline-block;
+  color: var(--color-text-primary);
+  clip-path: inset(0 0 0 0);
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 600ms var(--ease-out), opacity 400ms var(--ease-out);
+}
+
+.benefit.is-active .benefit-count__now {
+  transform: none;
+  opacity: 1;
+  transition-delay: 150ms;
+}
+
+/* rail progress: a thin line behind the icons fills from the first chapter to the active one */
+.benefit-rail__list {
+  position: relative;
+}
+
+.benefit-rail__list::before,
+.benefit-rail__list::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(var(--rail-button, var(--control-size-icon)) / 2);
+  bottom: calc(var(--rail-button, var(--control-size-icon)) / 2);
+  width: var(--border-hairline);
+  transform: translateX(-50%);
+  z-index: -1;
+}
+
+.benefit-rail__list::before {
+  background: var(--color-line-subtle);
+}
+
+.benefit-rail__list::after {
+  background: var(--color-accent);
+  transform: translateX(-50%) scaleY(var(--rail-progress, 0));
+  transform-origin: top;
+  transition: transform 700ms var(--ease-out), background-color var(--motion-slow) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .benefit .section-copy,
+  .benefit-count__now,
+  .benefit-rail__list::after { transition: none; }
+}
+
+/* The inline Zamzam seal is complete as soon as its chapter shows (it fades in with the pinned copy). Drawn stroke by
+   stroke, it was often caught with only the outer ring drawn, which read as an empty circle. */
+.halal-seal--inline .halal-seal__line {
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+  animation: none;
+}
+
+.halal-seal--inline .halal-seal__latin,
+.halal-seal--inline .halal-seal__caption {
+  opacity: 1;
+}
+
+/* ---------- Zamzam chapter: dawn gold and the name in calligraphy ----------
+   The last benefit leaves the flavor colour for the gold of first light over the water (the scene's rosette and dawn
+   band, moments/zamzamPool.ts). Beside the emblem, زمزم in Amiri, a classical Naskh face, is written in from right
+   to left as the chapter arrives, then a slow sheen of light passes across it. */
+.benefit--zamzam {
+  --color-accent: var(--color-zamzam-gold);
+}
+
+.zamzam-script {
+  position: absolute;
+  top: calc(var(--size-hex-emblem) * -0.2);
+  left: calc(var(--size-hex-emblem) + var(--space-md));
+  font-family: 'Amiri', 'Traditional Arabic', 'Geeza Pro', serif;
+  font-weight: 700;
+  font-size: calc(var(--size-hex-emblem) * 0.95);
+  line-height: 1.25;
+  white-space: nowrap;
+  background: linear-gradient(
+    100deg,
+    var(--color-zamzam-gold-deep) 0%,
+    var(--color-zamzam-gold) 40%,
+    var(--color-zamzam-gold-light) 50%,
+    var(--color-zamzam-gold) 60%,
+    var(--color-zamzam-gold-deep) 100%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  clip-path: inset(0 0 0 100%);
+  transition: clip-path 1600ms var(--ease-out) 250ms;
+}
+
+.benefit--zamzam.is-active .zamzam-script {
+  clip-path: inset(0 0 0 0);
+  animation: zamzam-sheen 7s linear 1.8s infinite;
+}
+
+@keyframes zamzam-sheen {
+  from { background-position: 100% 0; }
+  to { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zamzam-script { transition: none; }
+  .benefit--zamzam.is-active .zamzam-script { animation: none; background-position: 50% 0; }
 }

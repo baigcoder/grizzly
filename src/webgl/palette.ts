@@ -34,7 +34,6 @@ export const SCENE_COLOR = {
   // Floor reflections and air
   reflectionMetal: 0x4c5563,
   reflectionShell: 0x9aa4b6,
-  iceDust: 0xd8e8ff,
 } as const;
 
 /** Procedural fruit-slice textures drawn on a 2D canvas (CSS colour strings). */
@@ -57,5 +56,3 @@ export const FRUIT_PIECE_COLOR = {
   texture: 0xffffff,
 } as const;
 
-/** Canvas fill for masks and blanks. */
-export const CANVAS_BLACK = '#000000';

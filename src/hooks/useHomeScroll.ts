@@ -16,6 +16,7 @@ const SCENE_BY_SECTION: Record<string, HomeScene> = {
   'full-gamme': 'lineup',
   FAQ: 'faq',
   newsletter: 'newsletter',
+  loop: 'hero',
 };
 
 export interface HomeScrollState {
@@ -67,6 +68,8 @@ export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject
       }
       const progress = position / last;
       root.style.setProperty('--scroll-progress', progress.toFixed(4));
+      // 0 → 1 across the hero → flavor dive (CSS: the hero title glides toward the flavor chapter's title)
+      root.style.setProperty('--dive', Math.min(1, position).toFixed(3));
       sceneRef.current?.seekProgress(progress);
 
       const sectionIndex = Math.min(last, Math.round(position));

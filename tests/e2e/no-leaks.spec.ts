@@ -8,7 +8,6 @@ test('no placeholder, other-brand or broken text on any route (text, alt, aria-l
   test.setTimeout(240_000);
   await page.addInitScript(() => {
     window.localStorage.setItem('grizzly_notice_v1', '1');
-    window.sessionStorage.setItem('grizzly_opened_v1', '1');
   });
   for (const route of ROUTES) {
     await page.goto(route);

@@ -34,10 +34,10 @@ export function createStudioEnvironment(renderer: THREE.WebGLRenderer, accent?: 
   };
 
   addPanel(8, 2.4, SCENE_COLOR.studioKey, 3.6, [0, 7, 2.5]); // overhead softbox: metal-grey lids with a bright ring, never blown white
-  addPanel(1.5, 10, SCENE_COLOR.studioStripLeft, 3.4, [-6.5, 0.8, 2.5]); // left strip: the key side, a crisp gloss streak down each can
+  addPanel(2.2, 10, SCENE_COLOR.studioStripLeft, 4.0, [-6.5, 0.8, 2.5]); // left strip: the key side, a bold gloss streak down each can (the reference's metal read)
   addPanel(1.0, 10, SCENE_COLOR.studioStripRight, 0.8, [6.5, 0.8, -1.5]); // right strip: a faint second edge on the shadow side
   addPanel(24, 24, SCENE_COLOR.studioFloorBounce, 0.2, [0, -6, 0]); // grey floor bounce
-  addPanel(12, 7, SCENE_COLOR.studioFrontFill, 1.6, [-2, 2, 14]); // frontal fill so labels stay readable
+  addPanel(12, 7, SCENE_COLOR.studioFrontFill, 0.7, [-2, 2, 14]); // frontal fill: low, so the can's face reflects dark between the streaks (at 1.6 it washed the label flat)
   addPanel(1.6, 1.6, SCENE_COLOR.white, 5.0, [3.5, 3, -9]); // small hard kicker behind
   // a coloured gel on the shadow side: each flavor's can carries a thin streak of its own colour in the metal
   if (accent !== undefined) addPanel(1.2, 9, accent, 1.6, [7.5, 0.5, 1.5]);

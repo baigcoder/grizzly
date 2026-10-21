@@ -608,3 +608,112 @@ body:has(.loader) {
     white-space: nowrap;
   }
 }
+
+/* ---------- Chapter rail (home, wide screens): where you are, and a way to jump ---------- */
+.chapter-rail {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .chapter-rail {
+    position: fixed;
+    left: var(--layout-frame-inset);
+    top: 50%;
+    z-index: var(--z-chrome);
+    display: block;
+    transform: translateY(-50%);
+  }
+
+  /* the rail replaces the frame's bare "03 – 10" index here */
+  .frame-index {
+    display: none;
+  }
+
+  html[data-loading='true'] .chapter-rail {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.chapter-rail ol {
+  display: grid;
+  gap: var(--space-2xs);
+  list-style: none;
+}
+
+.chapter-rail__mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--space-lg);
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* each chapter is a short tick; the active one grows into a line */
+.chapter-rail__mark::before {
+  content: '';
+  width: var(--space-2xs);
+  height: var(--border-hairline);
+  background: currentColor;
+  transition: width var(--motion-slow) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+}
+
+.chapter-rail__num {
+  display: none;
+}
+
+.chapter-rail__label {
+  opacity: 0;
+  transform: translateX(calc(-1 * var(--space-2xs)));
+  white-space: nowrap;
+  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.chapter-rail__mark.is-active {
+  color: var(--color-text-primary);
+}
+
+.chapter-rail__mark.is-active::before {
+  width: var(--space-lg);
+  background: var(--color-accent);
+}
+
+/* names appear on hover / focus only (an always-on name sat over the first can of the ring) */
+.chapter-rail__mark:hover .chapter-rail__label,
+.chapter-rail__mark:focus-visible .chapter-rail__label {
+  opacity: 1;
+  transform: none;
+}
+
+.chapter-rail__mark:hover {
+  color: var(--color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter-rail__mark::before,
+  .chapter-rail__label { transition: none; }
+}
+
+/* ?debug=1 performance readout (real-device checks) */
+.debug-hud {
+  position: fixed;
+  right: var(--space-sm);
+  bottom: var(--space-sm);
+  z-index: 9999;
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 0.7);
+  color: #9cffb0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  pointer-events: none;
+}
+
+.debug-hud[data-slow='true'] {
+  color: #ffb09c;
+}

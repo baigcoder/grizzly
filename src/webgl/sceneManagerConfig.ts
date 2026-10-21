@@ -10,14 +10,14 @@ export const CAROUSEL_CONFIG = {
   ringRadiusMobile: 10,
   ringArc: 0.075,        // a symmetric fan: cans rise gently either side of the centre (squared with slot distance)
   ringArcMobile: 0.09,   // phones: outer cans rise slightly (squared with the slot distance)
-  ringWave: 0,           // tilted ring: height swing either side of centre (off: the fan is symmetric)
+  ringWave: 0.4,         // tilted ring, as in the reference: lower left of centre, higher right of it
   ringWaveMobile: 0.35,
   ringWaveSlots: 5,      // slots from the centre to where the ring turns back level (its edge)
   visibleSlots: 4,       // nine big cans across the frame on desktop; the outermost fade into the frame edge
   visibleSlotsMobile: 1.35,
   heroScale: 1.5,        // the hero can fills the space between the header and the title (heroFit scales it down to fit)
   heroScaleMobile: 1.6,
-  neighbourScale: 0.82,  // neighbours relative to the centre can
+  neighbourScale: 0.76,  // neighbours relative to the centre can (stepped down so the focused can clearly leads, as in the reference)
   heroLift: 1.4,         // focused can steps toward the camera
   yBase: 0.1,
   pitchX: -0.2,          // focused can: bottom toward camera, underside ellipse visible
@@ -25,7 +25,7 @@ export const CAROUSEL_CONFIG = {
   yawHeroY: -0.35,       // logo turned toward camera
   rollZ: 0.08,           // focused can leans a little left
   neighbourLean: 0.42,   // neighbours lean toward the centre, like a fan
-  scatter: 0,            // per-can height/roll jitter (desktop): off, the fan reads as one clean line-up
+  scatter: 0.4,          // per-can height/roll jitter (desktop): a light, stable tumble so the ring floats like the reference, not a shelf
   scatterMobile: 0.4,
   labelTurn: -0.7,       // neighbours turn a little with the ring but keep their fronts readable
 };
