@@ -197,3 +197,127 @@ body:has(.page-backdrop) .fallback-stage {
 .story--halal .halal-seal__latin {
   fill: var(--color-zamzam-gold-light);
 }
+
+/* ---------- Mix your pack in 3D ---------- */
+/* The real pack (WebGL, drawn behind the page) stands in this box: it only reserves the space and labels it. */
+.builder__stage {
+  position: relative;
+  height: clamp(15rem, 40svh, 27rem);
+  margin-bottom: var(--space-md);
+  pointer-events: none;
+}
+
+.builder__stage-label {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  translate: -50% 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  transition: color var(--motion-slow) var(--ease-out);
+}
+
+.builder__stage.is-full .builder__stage-label {
+  color: var(--color-text-primary);
+}
+
+/* the slot grid becomes the pack's compact control under it: small can tops, flat, no carton tilt */
+.builder--3d .carton {
+  --size-can-top: 2.75rem;
+  display: block;
+  padding: 0;
+  perspective: none;
+}
+
+.builder--3d .carton .builder__slots {
+  justify-content: center;
+  transform: none;
+  padding: var(--space-sm);
+}
+
+.builder--3d .carton__band {
+  display: none;
+}
+
+.builder--3d .builder__pack > .field-legend {
+  text-align: center;
+}
+
+@media (max-width: 1023px) {
+  /* phones and tablets: pack, a swipeable row of flavors right under it, then the slots, so every pick lands in
+     view without scrolling away from the pack */
+  .builder--3d .builder__layout {
+    gap: var(--space-sm);
+  }
+
+  .builder--3d .builder__pack {
+    display: contents;
+  }
+
+  .builder--3d .builder__stage {
+    order: 1;
+    height: clamp(13rem, 32svh, 20rem);
+    margin-bottom: 0;
+  }
+
+  .builder--3d .builder__flavors {
+    order: 2;
+    min-width: 0;
+  }
+
+  .builder--3d .builder__pack > .field-legend {
+    order: 3;
+    text-align: center;
+  }
+
+  .builder--3d .carton {
+    order: 4;
+  }
+
+  .builder--3d .builder__palette {
+    display: flex;
+    gap: var(--space-2xs);
+    overflow-x: auto;
+    padding-bottom: var(--space-2xs);
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .builder--3d .builder__palette li {
+    flex: none;
+    scroll-snap-align: start;
+  }
+
+  .builder--3d .palette-item {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  /* the three sizes in one row */
+  .builder--3d .builder__size-options .pack-option {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .builder--3d .builder__sizes,
+  .builder--3d .builder__lead {
+    margin-bottom: var(--space-md);
+  }
+
+  .builder--3d .builder__slots--24 {
+    grid-template-columns: repeat(6, var(--size-can-top));
+  }
+}
+
+@media (max-width: 767px) {
+  .builder--3d .carton {
+    --size-can-top: 2.25rem;
+  }
+
+  .builder--3d .carton .builder__slots {
+    gap: var(--space-2xs);
+  }
+}

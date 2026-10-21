@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FLAVORS } from '../data/flavors';
 import { PACK_OPTIONS, formatPrice, PLACEHOLDER_PRICING } from '../data/products';
 import { useCart } from '../store/cart';
@@ -9,6 +9,12 @@ import { audioManager } from '../audio/audioManager';
 
 interface PackBuilderProps {
   onNavigate: (url: string) => void;
+  /** The 3D scene is up: the pack is built in 3D in the stage box, and the slot grid becomes its compact control. */
+  show3d?: boolean;
+  /** Every change of size or slot, for the 3D pack. */
+  onMixChange?: (size: number, slots: (string | null)[]) => void;
+  /** The stage box the 3D pack stands in (null when it unmounts). */
+  onStage?: (element: HTMLElement | null) => void;
 }
 
 const SIZES = PACK_OPTIONS.filter((pack) => pack.count >= 6);
@@ -19,9 +25,11 @@ const SIZES = PACK_OPTIONS.filter((pack) => pack.count >= 6);
  * filled slot empties it. One Add to bag for the whole pack.
  *
  * The slots are a carton seen in perspective: a picked flavor arcs from the list into its well and drops in with a
- * small bounce, and the carton lights up once every slot is full.
+ * small bounce, and the carton lights up once every slot is full. With the 3D scene up, the real pack is built above
+ * the slots (webgl/packDisplay.ts, mix mode): the tray or clip waits, each picked flavor drops its can into place, and
+ * the pack closes when full; the slot grid stays as its compact, accessible control.
  */
-export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate }) => {
+export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate, show3d = false, onMixChange, onStage }) => {
   const [packId, setPackId] = useState(SIZES[0].id);
   const pack = SIZES.find((option) => option.id === packId) ?? SIZES[0];
   const [slots, setSlots] = useState<(string | null)[]>(() => Array(SIZES[0].count).fill(null));
@@ -30,6 +38,10 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate }) => {
   const slotRefs = useRef<(HTMLLIElement | null)[]>([]);
   /** The slot that just received a can (replays its drop). */
   const [landed, setLanded] = useState<{ index: number; key: number } | null>(null);
+
+  useEffect(() => {
+    onMixChange?.(pack.count, slots);
+  }, [pack.count, slots, onMixChange]);
 
   const filled = slots.filter(Boolean).length;
   const isFull = filled === pack.count;
@@ -46,7 +58,8 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate }) => {
     const index = at ?? slots.findIndex((slot) => slot === null);
     if (index < 0) return;
     const well = slotRefs.current[index];
-    if (from && well) flyBetween(`/products/thumbs/${slug}.webp`, from, well, { duration: 560, endScale: 0.55, fade: true, lift: 90 });
+    // (with the 3D pack the can drops into the real pack instead of a flat image flying across the page)
+    if (from && well && !show3d) flyBetween(`/products/thumbs/${slug}.webp`, from, well, { duration: 560, endScale: 0.55, fade: true, lift: 90 });
     setSlots((previous) => {
       const next = [...previous];
       next[index] = slug;
@@ -82,7 +95,7 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate }) => {
   };
 
   return (
-    <section className="builder" aria-labelledby="builder-title">
+    <section className={`builder ${show3d ? 'builder--3d' : ''}`} aria-labelledby="builder-title">
       <h1 id="builder-title" className="display builder__title">Mix your pack</h1>
       <p className="builder__lead">Choose a size, then fill every slot with the flavors you want.</p>
 
@@ -100,7 +113,7 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate }) => {
       </fieldset>
 
       <div className="builder__layout">
-        <div>
+        <div className="builder__flavors">
           <p className="field-legend" id="palette-label">Flavors</p>
           <ul className="builder__palette" aria-labelledby="palette-label">
             {FLAVORS.map((flavor) => (
@@ -124,7 +137,12 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate }) => {
           </ul>
         </div>
 
-        <div>
+        <div className="builder__pack">
+          {show3d && (
+            <div className={`builder__stage ${isFull ? 'is-full' : ''}`} ref={onStage} aria-hidden="true">
+              <span className="builder__stage-label">{isFull ? `${pack.count}-pack ready` : `${filled} / ${pack.count}`}</span>
+            </div>
+          )}
           <p className="field-legend" aria-live="polite">{filled} of {pack.count} filled</p>
           <div className={`carton ${isFull ? 'is-full' : ''}`}>
             <ol className={`builder__slots builder__slots--${pack.count}`} aria-label="Pack slots">

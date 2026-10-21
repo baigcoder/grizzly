@@ -227,7 +227,7 @@ export class SceneManager {
     floorY: -3.6, reflect: 1, mountains: 1, moon: 1, mistFg: 0.6, glow: 1, stars: 1, field: 0, studio: 0,
   };
 
-  public routeMode: 'HOME' | 'PRODUCT' | 'PAGE' = 'HOME';
+  public routeMode: 'HOME' | 'PRODUCT' | 'PAGE' | 'MIX' = 'HOME';
   public activeProductIndex = 0;
   private productScroll = 0;
   /** Narrow product pose fitted to the measured DOM stage (null until measured, and on wide screens). */
@@ -275,6 +275,11 @@ export class SceneManager {
   /** Product page pack picker: how many cans the chosen pack holds, shown by the pack display (built on first use). */
   private productPackCount = 1;
   private pack: PackDisplay | null = null;
+  /** Mix your pack: the chosen size, each slot's flavor index (-1 empty) and the DOM box the pack stands in. */
+  private mixSize = 6;
+  private readonly mixSlots = new Int8Array(24).fill(-1);
+  private mixStage: HTMLElement | null = null;
+  private readonly mixLoaded = new Uint8Array(FLAVORS.length);
   /** Hero: the camera eases back while the ring travels between flavors and settles when it stops. */
   private ringDolly = 0;
   /** Visitor turning the featured can (keys / drag), eased; glides back to the authored pose when idle. */
@@ -974,14 +979,19 @@ export class SceneManager {
    * Route switch. Entering a product carries the featured can over: every can's current transform
    * is captured and the loop blends from it to the product pose (the others shrink away).
    */
-  public setRoute(mode: 'HOME' | 'PRODUCT' | 'PAGE', productSlug?: string) {
+  public setRoute(mode: 'HOME' | 'PRODUCT' | 'PAGE' | 'MIX', productSlug?: string) {
     const previous = this.routeMode;
     // the scene starts in HOME mode and draws a frame while it is built: only an explicit earlier route counts
     const hadRoute = this.routeSet;
     this.routeMode = mode;
     this.routeSet = true;
-    if (mode === 'HOME') FLAVORS.forEach((_, index) => void this.labels.ensureAlbedo(index, 0));
+    if (mode === 'HOME' || mode === 'MIX') FLAVORS.forEach((_, index) => void this.labels.ensureAlbedo(index, 0));
     this.pack?.reset();
+    if (mode === 'MIX') {
+      // any flavor can land in the pack: every 1k label now, and the sharper level for each as it is chosen
+      FLAVORS.forEach((_, index) => void this.labels.ensureSurface(index));
+      this.mixLoaded.fill(0);
+    }
     if (mode !== 'PRODUCT') return;
 
     const index = FLAVORS.findIndex((flavor) => flavor.id === productSlug);
@@ -1275,6 +1285,7 @@ export class SceneManager {
 
     if (this.routeMode === 'PRODUCT') this.renderProduct(delta, time);
     else if (this.routeMode === 'HOME') this.renderHome(delta, time, now);
+    else if (this.routeMode === 'MIX') this.renderMix(delta, time);
     else this.renderPage(time);
   };
 
@@ -1408,6 +1419,71 @@ export class SceneManager {
 
   /** Plain pages (bag, checkout, story, 404): the night stage only, redrawn at a relaxed pace. */
   private pageFrame = 0;
+  private ensurePack() {
+    return (this.pack ??= new PackDisplay(this.scene, FLAVORS.length, this.isLowPower));
+  }
+
+  /** Mix your pack: the size (6, 12 or 24) and each slot's flavor slug (null for an empty slot). */
+  public setMix(size: number, slots: (string | null)[]) {
+    this.mixSize = size;
+    this.mixSlots.fill(-1);
+    slots.forEach((slug, k) => {
+      if (k >= this.mixSlots.length || !slug) return;
+      const flavor = FLAVORS.findIndex((item) => item.id === slug);
+      this.mixSlots[k] = flavor;
+      // a chosen flavor sharpens to its 2k label (once per flavor and visit)
+      if (flavor >= 0 && !this.mixLoaded[flavor]) {
+        this.mixLoaded[flavor] = 1;
+        void this.labels.ensureAlbedo(flavor, 1);
+      }
+    });
+    this.lastActivityAt = performance.now();
+  }
+
+  /** The page element the mix pack stands in (measured every frame, so it scrolls with the page); null clears it. */
+  public setMixStage(element: HTMLElement | null) {
+    this.mixStage = element;
+  }
+
+  /**
+   * Mix your pack: the product studio (grey, lit from above), no single cans, and the pack standing in the page's
+   * stage box: the tray or clip waits, each chosen flavor drops into its slot, and it closes when full.
+   */
+  private renderMix(delta: number, time: number) {
+    this.cans.forEach((can) => (can.visible = false));
+    this.reflections?.hideAll();
+    Object.assign(this.data, { camRotX: 0.04, camRotY: 0, camRotZ: 0, floorY: -3.4, reflect: 0, mountains: 0, moon: 0, mistFg: 0.2, glow: 1, stars: 0, wave: 0, swirl: 0, labelDim: 0, field: 0, studio: 1 });
+    this.camera.fov = PRODUCT_CAMERA.fov;
+    this.camera.updateProjectionMatrix();
+    this.camera.position.set(PRODUCT_CAMERA.x, PRODUCT_CAMERA.y, PRODUCT_CAMERA.z);
+    this.camera.rotation.set(this.data.camRotX, 0, 0);
+    this.updateAccent(this.carousel.getIndex(), time);
+    this.baseFill.intensity = 0.18;
+
+    const pack = this.ensurePack();
+    FLAVORS.forEach((_, index) => pack.setFlavorLabel(index, this.labels.get(index)));
+    pack.setProductFlavor(0, '#e9e4d8', 'Your mix'); // the tray and clip print (cans take their own slot's flavor)
+    pack.updateMix(delta, this.mixSize, this.mixSlots, this.reducedMotion);
+    if (pack.isAnimating) this.lastActivityAt = performance.now();
+
+    // the stage box on screen → world units at the pack's depth (the camera's small tilt drops everything a little)
+    const height = window.innerHeight;
+    const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(PRODUCT_CAMERA.fov / 2)) * PRODUCT_CAMERA.z) / height;
+    const rect = this.mixStage?.getBoundingClientRect();
+    const box = rect && rect.width > 0 ? rect : { left: window.innerWidth * 0.55, top: height * 0.25, width: window.innerWidth * 0.4, height: height * 0.5 };
+    const x = (box.left + box.width / 2 - window.innerWidth / 2) * unitsPerPx;
+    const y = (height / 2 - (box.top + box.height / 2)) * unitsPerPx + Math.tan(this.data.camRotX) * PRODUCT_CAMERA.z;
+    const sway = this.reducedMotion ? 0 : Math.sin(time * 0.0005) * 0.08;
+    pack.place(x, y, 0, sway, 0, box.width * unitsPerPx * 0.9, box.height * unitsPerPx * 0.9);
+    this.keyLight.position.set(x - 4.2, y + 4.6, 3.6);
+    this.keyLight.target.position.set(x, y, 0);
+    this.keyLight.target.updateMatrixWorld();
+
+    this.updateStage(time, null);
+    this.post?.setFocus(0.5, 0.5, 0);
+    this.renderScene(time);
+  }
+
   private renderPage(time: number) {
     this.pageFrame += 1;
     if (this.pageFrame % 2 === 1) return;
@@ -1921,9 +1997,10 @@ export class SceneManager {
 
     // The chosen pack takes the hero can's place once the can has arrived: the can steps out, the pack assembles.
     // An open label hotspot brings the single can back (its lit label block is what the hotspot points at).
-    const pack = (this.pack ??= new PackDisplay(this.scene, this.labels.get(this.activeProductIndex), this.isLowPower));
+    const pack = this.ensurePack();
     const shownIndex = this.previewIndex < 0 ? this.activeProductIndex : this.previewIndex;
-    pack.setLabel(this.labels.get(shownIndex), FLAVORS[shownIndex].theme.secondary, FLAVORS[shownIndex].name);
+    pack.setFlavorLabel(shownIndex, this.labels.get(shownIndex));
+    pack.setProductFlavor(shownIndex, FLAVORS[shownIndex].theme.secondary, FLAVORS[shownIndex].name);
     pack.update(delta, this.routeBlend > 0.9 && this.benefitGlowIndex < 0 ? this.productPackCount : 1, this.reducedMotion);
     if (pack.isAnimating) this.lastActivityAt = performance.now();
     if (pack.group.visible) {

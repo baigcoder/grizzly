@@ -119,10 +119,10 @@ function parseCurrentRoute(): AppRoute {
  * checkout, mix, halal, stores, privacy, 404) only use it as a backdrop, so phones skip it there: the buying funnel
  * loads no WebGL. If the visitor then opens the home page or a product, the scene is created on demand.
  */
-const wantsScene = (route: AppRoute) => route.type === 'HOME' || route.type === 'PRODUCT' || !isLowPowerDevice();
+const wantsScene = (route: AppRoute) => route.type === 'HOME' || route.type === 'PRODUCT' || route.type === 'MIX' || !isLowPowerDevice();
 
 /** Scene mode per route: the home story, a single product can, or nothing (plain pages). */
-const sceneRoute = (route: AppRoute) => (route.type === 'PRODUCT' ? 'PRODUCT' : route.type === 'HOME' ? 'HOME' : 'PAGE');
+const sceneRoute = (route: AppRoute) => (route.type === 'PRODUCT' ? 'PRODUCT' : route.type === 'HOME' ? 'HOME' : route.type === 'MIX' ? 'MIX' : 'PAGE');
 
 function getInitialFlavorIndex(): number {
   if (typeof window === 'undefined') return 0;
@@ -246,6 +246,8 @@ export const App: React.FC = () => {
         sm.setRoute(sceneRoute(initial), initial.type === 'PRODUCT' ? initial.slug : undefined);
         sm.setInitialFlavor(initialFlavorIndexRef.current);
         sm.setProductPack(packCountRef.current);
+        sm.setMix(mixRef.current.size, mixRef.current.slots);
+        sm.setMixStage(mixStageRef.current);
         // The cans are only held back for the loader's cinematic; a scene created later has no loader to release them.
         if (initial.type === 'HOME' && loaderMode === 'cinematic') sm.armIntro();
         // While the ring travels to a chosen flavor it passes the ones in between: those are not selections, so only
@@ -480,6 +482,18 @@ export const App: React.FC = () => {
     packCountRef.current = count;
     sceneManagerRef.current?.setProductPack(count);
   }, []);
+  // Mix your pack: the slots and the stage box go to the 3D pack (remembered, so a scene built after the page mounted
+  // still shows the mix)
+  const mixRef = useRef<{ size: number; slots: (string | null)[] }>({ size: 6, slots: [] });
+  const mixStageRef = useRef<HTMLElement | null>(null);
+  const handleMixChange = useCallback((size: number, slots: (string | null)[]) => {
+    mixRef.current = { size, slots };
+    sceneManagerRef.current?.setMix(size, slots);
+  }, []);
+  const handleMixStage = useCallback((element: HTMLElement | null) => {
+    mixStageRef.current = element;
+    sceneManagerRef.current?.setMixStage(element);
+  }, []);
   const handlePreloaderLeave = useCallback(() => sceneManagerRef.current?.playIntro(), []);
   const handleTilt = useCallback((x: number, y: number) => sceneManagerRef.current?.setDeviceTilt(x, y), []);
   const highlightBenefit = useCallback((index: number) => sceneManagerRef.current?.setBenefitGlow(index), []);
@@ -518,7 +532,7 @@ export const App: React.FC = () => {
         <FallbackStage activeIndex={activeIndex} showCan={!sceneWanted ? false : true} />
       )}
       {/* plain pages: a calm studio backdrop over the canvas (the halal story in dawn gold) */}
-      {!isHome && route.type !== 'PRODUCT' && (
+      {!isHome && route.type !== 'PRODUCT' && !(route.type === 'MIX' && webGlAvailable && sceneWanted) && (
         <div className="page-backdrop" data-variant={route.type === 'HALAL' ? 'halal' : undefined} aria-hidden="true" />
       )}
 
@@ -551,7 +565,9 @@ export const App: React.FC = () => {
         </main>
       ) : route.type === 'MIX' ? (
         <main id="main" className="page">
-          <Suspense fallback={null}><PackBuilder onNavigate={navigate} /></Suspense>
+          <Suspense fallback={null}>
+            <PackBuilder onNavigate={navigate} show3d={webGlAvailable && sceneWanted} onMixChange={handleMixChange} onStage={handleMixStage} />
+          </Suspense>
         </main>
       ) : route.type === 'HALAL' ? (
         <main id="main" className="page">

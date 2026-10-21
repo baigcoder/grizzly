@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAN, TAB_PIVOT, getCanGeometry } from './canGeometry';
-import { createCanMaterials } from './canModel';
+import { createCanMaterials, createPlaceholderLabel } from './canModel';
 import { SCENE_COLOR } from './palette';
 import type { LabelMaps } from './labelTextures';
 
@@ -19,6 +19,10 @@ import type { LabelMaps } from './labelTextures';
  * tray, clip, film and contact shadow are procedural (geometry and canvas prints built once per pack size, on first
  * use). Instance matrices are only rewritten while the pack is assembling. Reduced motion: packs switch instantly.
  * Optional: without it the product page shows the single can. Everything is freed in dispose().
+ *
+ * Mix mode (the Mix your pack page, updateMix): the tray or clip stands ready, every filled slot drops in a can of
+ * its own flavor (each flavor is its own instanced shell, so a pack can hold any mix), a cleared slot lifts its can
+ * out, and the pack only closes (clip pressed down, film shrunk on) once every slot is full.
  */
 
 const PITCH = CAN.radius * 2 * 1.004; // can-to-can spacing in a pack
@@ -78,11 +82,14 @@ export class PackDisplay {
   /** 1 while the single hero can should show, 0 while a pack stands in its place. */
   heroPresence = 1;
 
-  private readonly shell: THREE.InstancedMesh;
+  /** One instanced label shell per flavor (built on first use), so a pack can mix flavors. */
+  private readonly shells: (THREE.InstancedMesh | null)[];
+  private readonly shellCounts: Int32Array;
+  private readonly flavorMaps: (LabelMaps | null)[];
+  private readonly placeholder = createPlaceholderLabel();
   private readonly top: THREE.InstancedMesh;
   private readonly bottom: THREE.InstancedMesh;
   private readonly tab: THREE.InstancedMesh;
-  private readonly bodyMaterial: THREE.MeshStandardMaterial;
   private readonly metalMaterial: THREE.Material;
   private readonly baseMaterial: THREE.Material;
   private readonly parts = new Map<number, PackParts>();
@@ -90,7 +97,14 @@ export class PackDisplay {
   private readonly isLowPower: boolean;
 
   private shown = 1;
+  private productFlavor = 0;
   private progress = 0;
+  // mix mode: each slot's wanted flavor, the flavor its can shows now, and that can's drop (0 out .. 1 in)
+  private mixMode = false;
+  private mixMoving = false;
+  private readonly slotShown = new Int8Array(MAX_CANS).fill(-1);
+  private readonly slotT = new Float32Array(MAX_CANS);
+  private wrapT = 0;
   private appliedProgress = -1;
   private current: PackParts | null = null;
   private printKey = '';
@@ -108,23 +122,27 @@ export class PackDisplay {
   private readonly scale = new THREE.Vector3();
   private readonly euler = new THREE.Euler();
   private readonly offset = new THREE.Vector3();
+  private readonly hidden = new THREE.Matrix4().makeScale(0, 0, 0);
 
-  constructor(scene: THREE.Scene, maps: LabelMaps, isLowPower: boolean) {
+  constructor(scene: THREE.Scene, flavorCount: number, isLowPower: boolean) {
     this.isLowPower = isLowPower;
+    this.shells = Array.from({ length: flavorCount }, () => null);
+    this.shellCounts = new Int32Array(flavorCount);
+    this.flavorMaps = Array.from({ length: flavorCount }, () => null);
     const geometry = getCanGeometry();
-    const materials = createCanMaterials(maps.albedo, maps.surface, isLowPower, isLowPower ? null : maps.normal);
-    this.bodyMaterial = materials.bodyMat as THREE.MeshStandardMaterial;
+    // the ends are shared by every flavor; each flavor's label shell is made in shellFor()
+    const materials = createCanMaterials(this.placeholder, null, isLowPower, null);
+    materials.bodyMat.dispose();
     this.metalMaterial = materials.aluminumMat;
     const base = materials.aluminumMat.clone() as THREE.MeshStandardMaterial;
     base.roughness = 0.46;
     base.color.setHex(SCENE_COLOR.baseRim);
     this.baseMaterial = base;
 
-    this.shell = new THREE.InstancedMesh(geometry.shell, this.bodyMaterial, MAX_CANS);
     this.top = new THREE.InstancedMesh(geometry.top, this.metalMaterial, MAX_CANS);
     this.bottom = new THREE.InstancedMesh(geometry.bottom, this.baseMaterial, MAX_CANS);
     this.tab = new THREE.InstancedMesh(geometry.tab, this.metalMaterial, MAX_CANS);
-    [this.shell, this.top, this.bottom, this.tab].forEach((mesh) => {
+    [this.top, this.bottom, this.tab].forEach((mesh) => {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false; // instances move far from the base geometry's bounds while they drop in
       mesh.count = 0;
@@ -146,21 +164,165 @@ export class PackDisplay {
 
   /** True while a pack is assembling or leaving (the scene keeps full frame rate for it). */
   get isAnimating() {
+    if (this.mixMode) return this.mixMoving;
     return this.current ? this.appliedProgress !== this.progress || this.progress < 1 : this.heroPresence < 1;
   }
 
-  /** The label the pack's cans wear, and the flavor colour and name printed on the tray and clip. */
-  setLabel(maps: LabelMaps, accent: string, flavorName: string) {
-    const material = this.bodyMaterial;
+  /** A flavor's current label maps (called every frame; only a changed texture is swapped in). */
+  setFlavorLabel(flavor: number, maps: LabelMaps) {
+    this.flavorMaps[flavor] = maps;
+    const material = this.shells[flavor]?.material as THREE.MeshStandardMaterial | undefined;
+    if (!material) return;
     if (material.map !== maps.albedo) material.map = maps.albedo;
     if (material.metalnessMap !== maps.surface) {
       material.metalnessMap = maps.surface;
       material.roughnessMap = maps.surface;
     }
-    if (!this.isLowPower && material.normalMap !== maps.normal) material.normalMap = maps.normal;
+    if (!this.isLowPower && material.normalMap !== maps.normal) {
+      material.normalMap = maps.normal;
+      material.needsUpdate = true;
+    }
+  }
+
+  /** Product page: the flavor every can wears, and the flavor colour and name printed on the tray and clip. */
+  setProductFlavor(flavor: number, accent: string, flavorName: string) {
+    this.productFlavor = flavor;
     this.accent = accent;
     this.flavorName = flavorName;
     this.refreshPrints();
+  }
+
+  /** This flavor's instanced label shell (built on first use, with its own label material). */
+  private shellFor(flavor: number) {
+    let shell = this.shells[flavor];
+    if (!shell) {
+      const maps = this.flavorMaps[flavor];
+      const material = createCanMaterials(maps?.albedo ?? this.placeholder, maps?.surface ?? null, this.isLowPower, this.isLowPower ? null : maps?.normal ?? null).bodyMat;
+      shell = new THREE.InstancedMesh(getCanGeometry().shell, material, MAX_CANS);
+      shell.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      shell.frustumCulled = false;
+      shell.count = 0;
+      this.shells[flavor] = shell;
+      this.group.add(shell);
+    }
+    return shell;
+  }
+
+  /** Writes can k (all its parts) at `matrix`, in `flavor`'s label; -1 hides it. */
+  private writeCan(k: number, flavor: number, matrix: THREE.Matrix4) {
+    if (flavor < 0) {
+      this.top.setMatrixAt(k, this.hidden);
+      this.bottom.setMatrixAt(k, this.hidden);
+      this.tab.setMatrixAt(k, this.hidden);
+      return;
+    }
+    this.shellFor(flavor).setMatrixAt(this.shellCounts[flavor]++, matrix);
+    this.top.setMatrixAt(k, matrix);
+    this.bottom.setMatrixAt(k, matrix);
+    this.tabMatrix.multiplyMatrices(matrix, this.tabOffset);
+    this.tab.setMatrixAt(k, this.tabMatrix);
+  }
+
+  private beginCans() {
+    this.shellCounts.fill(0);
+  }
+
+  private endCans(total: number) {
+    this.shells.forEach((shell, flavor) => {
+      if (!shell) return;
+      shell.count = this.shellCounts[flavor];
+      shell.instanceMatrix.needsUpdate = true;
+    });
+    this.top.count = total;
+    this.bottom.count = total;
+    this.tab.count = total;
+    this.top.instanceMatrix.needsUpdate = true;
+    this.bottom.instanceMatrix.needsUpdate = true;
+    this.tab.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Mix your pack: `size` cans (6, 12 or 24); `slots[k]` is the flavor index in slot k, or -1 for an empty slot.
+   * The tray or clip stands ready, filled slots drop their cans in, cleared ones lift out, and the pack closes once
+   * it is full. A new size clears the pack and builds the new one.
+   */
+  updateMix(delta: number, size: number, slots: ArrayLike<number>, reducedMotion: boolean) {
+    const rm = reducedMotion;
+    this.mixMode = true;
+    let moving = false;
+    if (size !== this.shown) {
+      // clear the current pack quickly, then build the new size
+      let any = false;
+      for (let k = 0; k < MAX_CANS; k += 1) {
+        this.slotT[k] = rm ? 0 : Math.max(0, this.slotT[k] - delta * 6);
+        if (this.slotT[k] > 0) any = true;
+      }
+      this.wrapT = rm ? 0 : Math.max(0, this.wrapT - delta * 5);
+      if (!any && this.wrapT === 0) {
+        this.show(size);
+        this.slotShown.fill(-1);
+        this.progress = rm ? 1 : 0;
+      }
+      moving = true;
+    } else {
+      if (this.progress < 1) {
+        this.progress = rm ? 1 : Math.min(1, this.progress + delta / 0.7);
+        moving = true;
+      }
+      let full = true;
+      let settled = true;
+      for (let k = 0; k < size; k += 1) {
+        const target = k < slots.length ? slots[k] : -1;
+        if (target < 0) full = false;
+        const before = this.slotT[k];
+        if (this.slotShown[k] !== target) {
+          // a different flavor (or none): the can lifts out first
+          this.slotT[k] = rm ? 0 : Math.max(0, before - delta * 5);
+          if (this.slotT[k] === 0) this.slotShown[k] = target;
+        } else if (target >= 0) {
+          this.slotT[k] = rm ? 1 : Math.min(1, before + delta * 2.4);
+        }
+        if (this.slotT[k] !== before) moving = true;
+        if (target >= 0 && this.slotT[k] < 1) settled = false;
+      }
+      const wrapBefore = this.wrapT;
+      this.wrapT = full && settled ? (rm ? 1 : Math.min(1, this.wrapT + delta * 1.2)) : rm ? 0 : Math.max(0, this.wrapT - delta * 5);
+      if (this.wrapT !== wrapBefore) moving = true;
+    }
+    this.mixMoving = moving;
+    if (this.current && (moving || this.appliedProgress < 0)) this.applyMix();
+    this.group.visible = !!this.current;
+  }
+
+  /** Mix mode layout: the tray stands (by `progress`), each slot's can at its own drop, the closing by `wrapT`. */
+  private applyMix() {
+    const parts = this.current;
+    if (!parts) return;
+    this.appliedProgress = this.progress;
+    const { cols, rows, kind } = parts;
+    const total = cols * rows;
+    const isTray = kind === 'tray';
+    const floor = isTray ? TRAY_FLOOR : 0;
+    this.beginCans();
+    for (let k = 0; k < total; k += 1) {
+      const c = this.slotT[k];
+      const flavor = this.slotShown[k];
+      if (flavor < 0 || c <= 0) {
+        this.writeCan(k, -1, this.hidden);
+        continue;
+      }
+      const row = Math.floor(k / cols);
+      const col = k % cols;
+      const jitter = hash(k + total * 7) - 0.5;
+      this.euler.set((1 - c) * 0.25 * jitter, -0.35 + 0.55 + jitter * 0.6, (1 - c) * 0.35 * jitter, 'XYZ');
+      this.quaternion.setFromEuler(this.euler);
+      this.position.set((col - (cols - 1) / 2) * PITCH, floor + CAN_FOOT + (1 - landing(c)) * 4.5, (row - (rows - 1) / 2) * PITCH);
+      this.scale.setScalar(1);
+      this.matrix.compose(this.position, this.quaternion, this.scale);
+      this.writeCan(k, flavor, this.matrix);
+    }
+    this.endCans(total);
+    this.layoutPack(parts, this.progress * 0.24, this.wrapT);
   }
 
   /**
@@ -203,6 +365,11 @@ export class PackDisplay {
 
   /** Back to the single can at once (leaving the product page). */
   reset() {
+    this.mixMode = false;
+    this.mixMoving = false;
+    this.slotShown.fill(-1);
+    this.slotT.fill(0);
+    this.wrapT = 0;
     this.shown = 1;
     this.heroPresence = 1;
     this.progress = 0;
@@ -237,7 +404,7 @@ export class PackDisplay {
   }
 
   private setCanCount(count: number) {
-    this.shell.count = count;
+    if (count === 0) this.shells.forEach((shell) => shell && (shell.count = 0));
     this.top.count = count;
     this.bottom.count = count;
     this.tab.count = count;
@@ -255,6 +422,7 @@ export class PackDisplay {
     // cans drop back row first, left to right, so the front row lands last and in front
     const dropStart = isTray ? 0.24 : 0.02;
     const dropSpan = isTray ? 0.44 : 0.48;
+    this.beginCans();
     for (let k = 0; k < total; k += 1) {
       const row = Math.floor(k / cols);
       const col = k % cols;
@@ -267,19 +435,20 @@ export class PackDisplay {
       this.euler.set((1 - c) * 0.25 * jitter, -0.35 + 0.55 + jitter * 0.6, (1 - c) * 0.35 * jitter, 'XYZ');
       this.quaternion.setFromEuler(this.euler);
       this.position.set(x, floor + CAN_FOOT + (1 - landing(c)) * 5.5, z);
-      this.scale.setScalar(c > 0 ? 1 : 0);
+      this.scale.setScalar(1);
       this.matrix.compose(this.position, this.quaternion, this.scale);
-      this.shell.setMatrixAt(k, this.matrix);
-      this.top.setMatrixAt(k, this.matrix);
-      this.bottom.setMatrixAt(k, this.matrix);
-      this.tabMatrix.multiplyMatrices(this.matrix, this.tabOffset);
-      this.tab.setMatrixAt(k, this.tabMatrix);
+      this.writeCan(k, c > 0 ? this.productFlavor : -1, this.matrix);
     }
-    this.shell.instanceMatrix.needsUpdate = true;
-    this.top.instanceMatrix.needsUpdate = true;
-    this.bottom.instanceMatrix.needsUpdate = true;
-    this.tab.instanceMatrix.needsUpdate = true;
+    this.endCans(total);
+    this.layoutPack(parts, t, clamp01((t - 0.6) / 0.4));
+  }
 
+  /**
+   * Tray, film, clip and shadow. `t` is the tray's own timeline (slide in by 0.12, walls up by 0.24); `close` runs
+   * the closing: the clip presses down, the film drops over and shrinks tight.
+   */
+  private layoutPack(parts: PackParts, t: number, close: number) {
+    const isTray = parts.kind === 'tray';
     if (parts.tray) {
       // the blank slides in on the line, then the walls fold up
       const slide = easeOut(clamp01(t / 0.12));
@@ -295,7 +464,7 @@ export class PackDisplay {
     }
     if (parts.film && parts.filmUniform) {
       // the film drops over the pack loose and heat-shrinks tight
-      const f = clamp01((t - 0.74) / 0.26);
+      const f = clamp01((close - 0.35) / 0.65);
       parts.film.visible = f > 0;
       const shrink = 1 - easeOut(f);
       parts.film.scale.set(1 + 0.16 * shrink, 1 + 0.1 * shrink, 1 + 0.2 * shrink);
@@ -304,13 +473,13 @@ export class PackDisplay {
     }
     if (parts.clip) {
       // the clip is pressed down onto the lids once the six are standing
-      const p = clamp01((t - 0.6) / 0.32);
+      const p = clamp01(close / 0.8);
       parts.clip.visible = p > 0;
       const settle = p < 1 ? 1 - easeOut(p) : 0;
       parts.clip.position.y = NECK_Y + CAN_FOOT + settle * 2.4;
     }
     const shadowMaterial = parts.shadow.material as THREE.MeshBasicMaterial;
-    shadowMaterial.opacity = 0.62 * smooth(clamp01(isTray ? t / 0.2 : t / 0.5));
+    shadowMaterial.opacity = 0.62 * smooth(clamp01(isTray ? t / 0.2 : this.mixMode ? 1 : t / 0.5));
   }
 
   // ───────────────────────── building ─────────────────────────
@@ -446,8 +615,13 @@ export class PackDisplay {
     this.group.removeFromParent();
     this.parts.forEach((parts) => parts.disposables.forEach((item) => item.dispose()));
     this.parts.clear();
-    [this.shell, this.top, this.bottom, this.tab].forEach((mesh) => mesh.dispose());
-    this.bodyMaterial.dispose();
+    [this.top, this.bottom, this.tab].forEach((mesh) => mesh.dispose());
+    this.shells.forEach((shell) => {
+      if (!shell) return;
+      shell.dispose();
+      (shell.material as THREE.Material).dispose();
+    });
+    this.placeholder.dispose();
     this.metalMaterial.dispose();
     this.baseMaterial.dispose();
     this.wrinkles.dispose();
