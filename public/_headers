@@ -1,8 +1,9 @@
 # Security and caching headers. This file is copied to the site root by the build.
 #
-# The format is read as-is by Netlify and Cloudflare Pages. The final host is not confirmed: on nginx,
-# Apache, Vercel or S3/CloudFront, copy the same headers into that host's own configuration (the values
-# are what matters, not the file). The test tests/e2e/security-headers.spec.ts parses the Content-Security-Policy
+# The format is read as-is by Netlify and Cloudflare Pages. Vercel ignores this file: vercel.json at the
+# repository root carries the same rules, and src/__tests__/hostHeaders.test.ts fails if the two drift
+# apart. On nginx, Apache or S3/CloudFront, copy the same headers into that host's own configuration (the
+# values are what matters, not the file). The test tests/e2e/security-headers.spec.ts parses the Content-Security-Policy
 # line below and loads the site under it, so a host-config change that drifts from this file is the only thing
 # that can break WebGL; keep them in step.
 #
@@ -34,7 +35,7 @@
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
 /basis/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
-/products/*
+/products/thumbs/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
 /brand/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
