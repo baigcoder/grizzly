@@ -18,6 +18,41 @@ import { RevealText } from './RevealText';
 import { ButtonLabel } from './ButtonLabel';
 import { BenefitIcon } from './BenefitIcons';
 import { flyToBag } from './flyToBag';
+import { prefersReducedMotion } from '../hooks/useSmoothScroll';
+
+/** Phones and narrow tablets (the stacked layout, the 3D stage above the purchase panel). */
+const isStacked = () => typeof window !== 'undefined' && window.innerWidth < 1024;
+/** The pack shown first: one can on phones (the stage is small and the can is the hero), the six-pack on desktop. */
+const defaultPackId = (): PackOption['id'] => (isStacked() ? 'single' : 'pack-6');
+
+/**
+ * Glides the page to the top over `duration` ms (ease in-out), driven here rather than by native smooth scrolling,
+ * which some browsers skip or cut short. Returns a cancel function; a touch or wheel from the visitor cancels it too.
+ */
+function glideToTop(duration: number, onArrive: () => void): () => void {
+  const from = window.scrollY;
+  const start = performance.now();
+  let frame = 0;
+  const stop = () => {
+    cancelAnimationFrame(frame);
+    window.removeEventListener('touchstart', stop);
+    window.removeEventListener('wheel', stop);
+  };
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+    window.scrollTo(0, Math.round(from * (1 - eased)));
+    if (t < 1) frame = requestAnimationFrame(step);
+    else {
+      stop();
+      onArrive();
+    }
+  };
+  window.addEventListener('touchstart', stop, { passive: true });
+  window.addEventListener('wheel', stop, { passive: true });
+  frame = requestAnimationFrame(step);
+  return stop;
+}
 import { InfoDrawer } from './InfoDrawer';
 import { LimitedCountdown } from './LimitedCountdown';
 import { sharePoster, type ShareOutcome } from './sharePoster';
@@ -49,7 +84,9 @@ const ADD_LABEL: Record<AddState, string> = {
 export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNavigate, onRotate, onFling, onPreviewFlavor, onPackChange, onView, onHighlightBenefit, isWebglAvailable }) => {
   const product = getProductBySlug(slug);
   const { addItem, persistent } = useCart();
-  const [packId, setPackId] = useState<PackOption['id']>('pack-6');
+  const [packId, setPackId] = useState<PackOption['id']>(defaultPackId);
+  /** Set when the visitor picks a pack (not on load or product change): only a pick scrolls the stage into view. */
+  const packPickedRef = useRef(false);
   const [quantity, setQuantity] = useState(1);
   const [addState, setAddState] = useState<AddState>('idle');
   const [message, setMessage] = useState('');
@@ -92,7 +129,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
 
   // Reset the purchase panel and the can when switching product.
   useEffect(() => {
-    setPackId('pack-6');
+    setPackId(defaultPackId());
     setQuantity(1);
     setAddState('idle');
     setMessage('');
@@ -104,9 +141,40 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
 
   // the 3D scene shows the chosen pack (the selected option's can count); back to a single can when the page closes
   const chosenCount = product?.packOptions.find((option) => option.id === packId)?.count ?? 1;
+  // On phones the pack options sit below the 3D stage: a pick scrolls back up first and the pack builds once the
+  // stage is in view, so the visitor watches it assemble (1.2 s at most; at once on wide screens or near the top).
+  const [stageCount, setStageCount] = useState(chosenCount);
   useEffect(() => {
-    onPackChange(chosenCount);
-  }, [chosenCount, onPackChange]);
+    const picked = packPickedRef.current;
+    packPickedRef.current = false;
+    if (!picked || !isStacked() || window.scrollY < 60) {
+      setStageCount(chosenCount);
+      return;
+    }
+    if (prefersReducedMotion()) {
+      window.scrollTo(0, 0);
+      setStageCount(chosenCount);
+      return;
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      setStageCount(chosenCount);
+    };
+    // the pack builds as the stage arrives (never later than 1.2 s, even if the glide is interrupted)
+    const timer = window.setTimeout(finish, 1200);
+    const cancelGlide = glideToTop(Math.min(900, 380 + window.scrollY * 0.5), finish);
+    return () => {
+      done = true;
+      cancelGlide();
+      window.clearTimeout(timer);
+    };
+  }, [chosenCount]);
+  useEffect(() => {
+    onPackChange(stageCount);
+  }, [stageCount, onPackChange]);
   useEffect(() => () => onPackChange(1), [onPackChange]);
 
   useEffect(() => {
@@ -280,6 +348,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
                     checked={option.id === pack.id}
                     disabled={!option.inStock}
                     onChange={() => {
+                      packPickedRef.current = true;
                       setPackId(option.id);
                       if (addState === 'error') setAddState('idle');
                     }}

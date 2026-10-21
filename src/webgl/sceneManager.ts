@@ -235,6 +235,8 @@ export class SceneManager {
   private readonly widePose = { ...PRODUCT_POSE };
   /** 0..1 as the product page reaches its end: the pinned can lifts away clear of the footer. */
   private productExit = 0;
+  /** Frames drawn since the narrow product stage scrolled out of view (a few, to settle, then the canvas holds). */
+  private offstageFrames = 0;
   private heroLift = 0;
   /** Hero can scale factor so it fits between the header and the title (≤ 1). */
   private heroFit = 1;
@@ -1950,6 +1952,15 @@ export class SceneManager {
    */
   private renderProduct(delta: number, time: number) {
     const isNarrow = window.innerWidth < 1024;
+    // Phones: once the stage has scrolled away with the hero (the can lifts off the top), there is nothing moving to
+    // draw behind the facts and reviews. Draw a few frames so the can clears the frame, then hold the last one until
+    // the stage scrolls back (no GPU work, no battery, while reading). A pack still assembling keeps drawing.
+    if (isNarrow && this.productScroll > 1.25 && !this.pack?.isAnimating) {
+      this.offstageFrames += 1;
+      if (this.offstageFrames > 4) return;
+    } else {
+      this.offstageFrames = 0;
+    }
     const viewerBlend = 1 - Math.exp(-8 * delta);
     const rotation = this.productViewerRotation;
     if (this.productSpin !== 0) {

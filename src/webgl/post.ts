@@ -121,8 +121,9 @@ export class PostFx {
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, width: number, height: number, pixelRatio: number, tier: PostTier) {
     const target = new THREE.WebGLRenderTarget(width * pixelRatio, height * pixelRatio, {
       type: THREE.HalfFloatType,
-      // MSAA on every post tier: without it the can silhouettes and label edges stair-step (read as cheap cans)
-      samples: 4,
+      // MSAA on every post tier: without it the can silhouettes and label edges stair-step (read as cheap cans).
+      // At 2x density and up (phones) each sample is already half the size: 2 samples look the same for half the cost.
+      samples: pixelRatio >= 2 ? 2 : 4,
     });
     this.composer = new EffectComposer(renderer, target);
     this.composer.setPixelRatio(pixelRatio);
