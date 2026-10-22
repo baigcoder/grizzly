@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { SceneManager } from '../webgl/sceneManager';
 import { SCENE_SEQUENCE } from '../webgl/sceneStates';
 import { audioManager } from '../audio/audioManager';
+import { scrollVar } from './scrollVar';
 
 export type HomeScene = 'hero' | 'flavor' | 'benefit' | 'argument' | 'lineup' | 'faq' | 'newsletter';
 
@@ -30,14 +31,16 @@ export interface HomeScrollState {
 /**
  * The one scroll listener for the home page. Maps section positions to the
  * master timeline (seeked in the WebGL loop), writes the header progress as a CSS
- * variable (no React render), and exposes the active section for the DOM.
+ * variable (no React render), and exposes the active section for the DOM. The scroll variables go only on the
+ * elements that read them (scrollVar.ts), never on <html>, so a scroll frame does not re-style the whole page.
  */
 export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject<SceneManager | null>) {
   const [state, setState] = useState<HomeScrollState>({ sectionIndex: 0, scene: 'hero', chapter: -1 });
 
   useEffect(() => {
     if (!enabled) return;
-    const root = document.documentElement;
+    const progressVar = scrollVar('--scroll-progress', '.scroll-progress, .hero__hud, .hero-arrow, .lineup__cta');
+    const diveVar = scrollVar('--dive', '.hero__title');
     let ticking = false;
     let lastSection = -1;
     let tops: number[] = [];
@@ -47,6 +50,9 @@ export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject
         const element = document.getElementById(sectionId);
         return element ? element.getBoundingClientRect().top + window.scrollY : Number.POSITIVE_INFINITY;
       });
+      // the page has changed shape: elements may have mounted since (the hero after the loader, the finale CTA)
+      progressVar.refresh();
+      diveVar.refresh();
     };
 
     const update = () => {
@@ -67,9 +73,9 @@ export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject
         break;
       }
       const progress = position / last;
-      root.style.setProperty('--scroll-progress', progress.toFixed(4));
+      progressVar.set(progress.toFixed(4));
       // 0 → 1 across the hero → flavor dive (CSS: the hero title glides toward the flavor chapter's title)
-      root.style.setProperty('--dive', Math.min(1, position).toFixed(3));
+      diveVar.set(Math.min(1, position).toFixed(3));
       sceneRef.current?.seekProgress(progress);
 
       const sectionIndex = Math.min(last, Math.round(position));
@@ -104,6 +110,8 @@ export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject
     window.addEventListener('resize', onResize, { passive: true });
     return () => {
       resizeObserver.disconnect();
+      progressVar.clear();
+      diveVar.clear();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
     };

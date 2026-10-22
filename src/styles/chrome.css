@@ -115,12 +115,14 @@ body:has(main.page) .site-header::before {
   background: var(--color-line-subtle);
 }
 
+/* The fill is the track's full length slid in from the left (a transform, so a scroll frame never re-lays out the
+   header or re-blurs the glint); the clip hides what is still off the track but keeps the glow above and below. */
 .scroll-progress__fill {
-  right: auto;
-  width: calc((100% - 2 * var(--space-lg)) * var(--progress) + var(--space-xl));
-  max-width: calc(100% - 2 * var(--space-lg));
+  transform: translateY(-50%) translateX(min(0px, calc((var(--progress) - 1) * 100% + var(--space-xl))));
   background: linear-gradient(90deg, var(--color-white-a45), var(--color-text-primary));
   box-shadow: var(--shadow-glow);
+  clip-path: inset(-1rem 0 -1rem calc((1 - var(--progress)) * 100% - var(--space-xl)));
+  will-change: transform;
 }
 
 .scroll-progress__fill::after {

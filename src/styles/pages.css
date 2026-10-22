@@ -360,3 +360,35 @@ body:has(.page-backdrop) .fallback-stage {
     line-height: var(--line-height-tight);
   }
 }
+
+/* ---------- Phones: smooth scrolling ---------- */
+/* A backdrop blur over moving content is recomputed every frame it moves: on a phone GPU the pack options, the
+   sticky buy bar, shop cards and story cards (all scrolling over the live 3D canvas or the page) cost frames during
+   every scroll. On touch screens they use a slightly denser solid glass instead; the menu, bag drawer and notices
+   (short-lived overlays) keep their blur. */
+@media (pointer: coarse), (max-width: 1023px) {
+  .pack-option,
+  .shop-card,
+  .story--halal .story-block {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .pdp-buybar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: color-mix(in oklab, var(--color-surface-panel) 96%, transparent);
+  }
+
+  .shop-card {
+    background:
+      radial-gradient(circle at 20% 50%, color-mix(in oklab, var(--color-accent) 30%, transparent), transparent 62%),
+      color-mix(in oklab, var(--color-surface-panel) 92%, transparent);
+  }
+
+  .story--halal .story-block {
+    background:
+      linear-gradient(160deg, color-mix(in oklab, var(--color-zamzam-gold) 7%, transparent), transparent 60%),
+      color-mix(in oklab, var(--color-surface-panel) 90%, transparent);
+  }
+}

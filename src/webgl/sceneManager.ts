@@ -320,11 +320,29 @@ export class SceneManager {
   public timeOverride: number | null = null;
   public readonly focusScreen = new THREE.Vector2(0.5, 0.45);
 
+  /**
+   * The canvas size in CSS px. On phones the height is the large viewport (the tallest seen at this width, i.e.
+   * with the address bar hidden): the bar collapsing and expanding while scrolling fired a resize every time, and
+   * each one reallocated the renderer, post and backdrop buffers mid-scroll and shifted the framing. Now the bar
+   * simply slides over the bottom of the canvas. A width change (rotation) measures afresh.
+   */
+  public viewWidth = 0;
+  public viewHeight = 0;
+  private measureView() {
+    const width = window.innerWidth;
+    const height = this.isLowPower && width === this.viewWidth ? Math.max(this.viewHeight, window.innerHeight) : window.innerHeight;
+    const changed = width !== this.viewWidth || height !== this.viewHeight;
+    this.viewWidth = width;
+    this.viewHeight = height;
+    return changed;
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    this.isLowPower = width < 1024 || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+    this.isLowPower = window.innerWidth < 1024 || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+    this.measureView();
+    const width = this.viewWidth;
+    const height = this.viewHeight;
     // up to 2x on every tier for crisp labels; the frame-rate governor steps down on slow GPUs
     this.pixelRatioCap = 2;
     const pixelRatio = Math.min(window.devicePixelRatio, this.pixelRatioCap);
@@ -376,7 +394,7 @@ export class SceneManager {
     const steps: Array<() => void> = [
       () => {
         // setQuality may already have built it (reduced motion / low tiers)
-        if (!this.post) this.buildPost(window.innerWidth, window.innerHeight, this.renderer.getPixelRatio());
+        if (!this.post) this.buildPost(this.viewWidth, this.viewHeight, this.renderer.getPixelRatio());
       },
       () => {
         if (!this.isLowPower) this.reflections = new FloorReflections(this.scene, this.cans, this.labels);
@@ -599,7 +617,7 @@ export class SceneManager {
    * lift the ring until the can's lowest point sits a margin above it.
    */
   public setHeroSafeBottom(titleTopPx: number, headerBottomPx = 0) {
-    const height = window.innerHeight;
+    const height = this.viewHeight;
     const isMobile = window.innerWidth < 768;
     const distance = (isMobile ? this.data.camPosZ + 6.5 : this.data.camPosZ) - CAROUSEL_CONFIG.heroLift;
     const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / height;
@@ -651,7 +669,8 @@ export class SceneManager {
     this.govFrames = 0;
     if (time < 4000 || this.govStep >= 3) return; // startup (shader compiles, texture uploads) never counts
     this.govSlowWindows = fps >= 40 ? 0 : this.govSlowWindows + 1;
-    if (this.govSlowWindows < 2) return;
+    // phones step down after one slow 2 s window (two let a struggling phone stutter through the first scrolls)
+    if (this.govSlowWindows < (this.isLowPower ? 1 : 2)) return;
     this.govSlowWindows = 0;
     this.govStep += 1;
     const dpr = Math.min(window.devicePixelRatio || 1, this.pixelRatioCap);
@@ -672,9 +691,9 @@ export class SceneManager {
   private applyQuality(level: QualityLevel) {
     if (this.quality === level) return;
     this.quality = level;
-    this.buildPost(window.innerWidth, window.innerHeight, this.renderer.getPixelRatio());
+    this.buildPost(this.viewWidth, this.viewHeight, this.renderer.getPixelRatio());
     this.reflections?.setEnabled(level !== 'LOW');
-    this.stage.setQuality(level, window.innerWidth, window.innerHeight);
+    this.stage.setQuality(level, this.viewWidth, this.viewHeight);
     this.onQualityChange?.(level);
   }
 
@@ -1093,13 +1112,13 @@ export class SceneManager {
       this.narrowPose = null;
       return;
     }
-    const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(PRODUCT_CAMERA.fov / 2)) * PRODUCT_CAMERA.z) / window.innerHeight;
+    const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(PRODUCT_CAMERA.fov / 2)) * PRODUCT_CAMERA.z) / this.viewHeight;
     // The product camera tilts up by camRotX, which drops everything a little: lift the can to compensate.
     const tiltLift = Math.tan(0.04) * PRODUCT_CAMERA.z;
     const centerPx = stage.top + stage.height / 2;
     const canHeight = CAN.shellHeight + CAN.topHeight + CAN.bottomHeight;
     const scale = THREE.MathUtils.clamp((0.86 * stage.height * unitsPerPx) / canHeight, 0.6, PRODUCT_POSE_NARROW.scale * 1.3);
-    this.narrowPose = { ...PRODUCT_POSE_NARROW, y: (window.innerHeight / 2 - centerPx) * unitsPerPx + tiltLift, scale };
+    this.narrowPose = { ...PRODUCT_POSE_NARROW, y: (this.viewHeight / 2 - centerPx) * unitsPerPx + tiltLift, scale };
   }
 
   /** Product page scroll (in viewport heights); on narrow screens the can scrolls away with the hero. */
@@ -1174,8 +1193,9 @@ export class SceneManager {
   }
 
   private onResize = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    if (!this.measureView()) return; // the address bar moved: nothing to reallocate
+    const width = this.viewWidth;
+    const height = this.viewHeight;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
@@ -1469,7 +1489,7 @@ export class SceneManager {
     if (pack.isAnimating) this.lastActivityAt = performance.now();
 
     // the stage box on screen → world units at the pack's depth (the camera's small tilt drops everything a little)
-    const height = window.innerHeight;
+    const height = this.viewHeight;
     const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(PRODUCT_CAMERA.fov / 2)) * PRODUCT_CAMERA.z) / height;
     const rect = this.mixStage?.getBoundingClientRect();
     const box = rect && rect.width > 0 ? rect : { left: window.innerWidth * 0.55, top: height * 0.25, width: window.innerWidth * 0.4, height: height * 0.5 };

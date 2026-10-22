@@ -32,6 +32,7 @@ import { useSmoothScroll, prefersReducedMotion } from './hooks/useSmoothScroll';
 import { useHomeScroll } from './hooks/useHomeScroll';
 import { useCanKeys } from './hooks/useCanKeys';
 import { isLowPowerDevice, pickQuality, readDeviceSignals } from './webgl/devicePower';
+import { scrollVar } from './hooks/scrollVar';
 
 // Secondary routes load on demand (their own chunks), so the home story's first download stays small.
 const CartPage = lazy(() => import('./components/CartPage').then((m) => ({ default: m.CartPage })));
@@ -306,6 +307,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (route.type !== 'PRODUCT') return;
     let frame = 0;
+    // written on the pinned stage only (on <html> it re-styled the whole page every scroll frame)
+    const exitVar = scrollVar('--pdp-exit', '.pdp-stage');
+    let pageEnd = false;
     const onScroll = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
@@ -320,8 +324,11 @@ export const App: React.FC = () => {
           ? Math.min(1, Math.max(0, (height - related.getBoundingClientRect().top) / (height * 0.6)))
           : Math.min(1, Math.max(0, 1 - (document.documentElement.scrollHeight - window.scrollY - height) / height / 0.8));
         sm?.setProductExit(exit);
-        document.documentElement.style.setProperty('--pdp-exit', exit.toFixed(3));
-        document.documentElement.toggleAttribute('data-pdp-end', exit > 0.35);
+        exitVar.set(exit.toFixed(3));
+        if (exit > 0.35 !== pageEnd) {
+          pageEnd = exit > 0.35;
+          document.documentElement.toggleAttribute('data-pdp-end', pageEnd);
+        }
       });
     };
     onScroll();
@@ -329,7 +336,7 @@ export const App: React.FC = () => {
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', onScroll);
-      document.documentElement.style.removeProperty('--pdp-exit');
+      exitVar.clear();
       document.documentElement.removeAttribute('data-pdp-end');
     };
   }, [route]);

@@ -37,7 +37,10 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtE
       frame = requestAnimationFrame(loop);
 
       let snap: Snap | null = null;
-      if (snapSelector) {
+      // No snap on touch screens: it waited for the native momentum to end and then pulled the page with its own
+      // 1.2 s animation, which fought the finger and read as lag. A flick ends where the phone's own physics take it.
+      const touch = window.matchMedia('(pointer: coarse)').matches;
+      if (snapSelector && !touch) {
         snap = new SnapCtor(lenis, {
           type: 'proximity',
           distanceThreshold: '14%',

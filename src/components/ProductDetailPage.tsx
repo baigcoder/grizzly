@@ -96,28 +96,18 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
   const timers = useRef<number[]>([]);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   // The sticky buy bar shows only once the main Add to bag button has scrolled up out of view, so it never covers
-  // the pack sizes and price it repeats. Read from the button's position on every scroll (an IntersectionObserver
-  // missed a jump from below the button straight back to the top, which left the bar over the buy box).
+  // the pack sizes and price it repeats. An IntersectionObserver whose area runs far below the screen reports it
+  // without a layout read on every scroll frame: "out of the area" can only mean "passed through the top", so a jump
+  // from below the button straight back to the top (which a plain viewport observer missed) still flips it.
   const [showBuyBar, setShowBuyBar] = useState(false);
   useEffect(() => {
     const button = addButtonRef.current;
     if (!button) return;
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      setShowBuyBar(button.getBoundingClientRect().bottom < 0);
-    };
-    const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
+    const observer = new IntersectionObserver(([entry]) => setShowBuyBar(!entry.isIntersecting), {
+      rootMargin: '0px 0px 100000px 0px',
+    });
+    observer.observe(button);
+    return () => observer.disconnect();
   }, [slug]);
   // The can turns to its back label (nutrition and facts) while the facts section is on screen, and back to the
   // front above it. A manual Front / Back choice or a drag still works in between.
