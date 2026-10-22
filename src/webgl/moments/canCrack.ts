@@ -99,10 +99,9 @@ export class CanCrack implements SceneMoment {
       const after = t - CRACK_AT;
       this.lid.set(0, 2.2, -0.2).applyMatrix4(can.matrixWorld).project(scene.camera);
       scene.fx.burstPos.set(this.lid.x * 0.5 + 0.5, this.lid.y * 0.5 + 0.5);
-      const puff = Math.exp(-after * 1.8);
-      const roll = THREE.MathUtils.smoothstep(after, 0, 0.5) * (1 - THREE.MathUtils.smoothstep(t, 2.2, DURATION));
-      scene.fx.burst = Math.max(scene.fx.burst, 0.45 * puff + 0.35 * roll);
-      scene.fx.flash = Math.max(scene.fx.flash, 0.25 * Math.exp(-after * 14));
+      // a small cold breath at the lid only: the full puff (and its flash) washed the whole can white
+      const puff = Math.exp(-after * 3.2);
+      scene.fx.burst = Math.max(scene.fx.burst, 0.12 * puff);
     }
   }
 

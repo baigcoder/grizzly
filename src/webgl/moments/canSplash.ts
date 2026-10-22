@@ -25,11 +25,11 @@ const rand = (min: number, max: number) => min + Math.random() * (max - min);
  * the rim (fresnel), one sharp highlight from the key light, and the caustic glow light gathers into on the far, lower
  * side after passing through the drop. Instanced (three.js supplies instanceMatrix), view-space shading, no textures.
  */
-function createDropMaterial(opacity: number) {
+function createDropMaterial(opacity: number, shine: number) {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    uniforms: { uTint: { value: new THREE.Color() }, uOpacity: { value: opacity } },
+    uniforms: { uTint: { value: new THREE.Color() }, uOpacity: { value: opacity }, uShine: { value: shine } },
     vertexShader: /* glsl */ `
       varying vec3 vNormal;
       varying vec3 vViewDir;
@@ -44,6 +44,7 @@ function createDropMaterial(opacity: number) {
     fragmentShader: /* glsl */ `
       uniform vec3 uTint;
       uniform float uOpacity;
+      uniform float uShine;
       varying vec3 vNormal;
       varying vec3 vViewDir;
       void main() {
@@ -53,11 +54,12 @@ function createDropMaterial(opacity: number) {
         float rim = pow(1.0 - facing, 2.0);
         // the studio key light, upper left and in front
         vec3 light = normalize(vec3(-0.45, 0.72, 0.55));
-        float highlight = pow(max(dot(n, normalize(light + v)), 0.0), 120.0);
+        float highlight = pow(max(dot(n, normalize(light + v)), 0.0), 160.0) * uShine;
         // light focused through the drop lands low on the side opposite the highlight
-        float caustic = smoothstep(0.5, 1.0, dot(n, normalize(vec3(0.38, -0.78, 0.5))));
-        vec3 color = uTint * (0.28 + 0.72 * rim) + uTint * caustic * 1.1 + vec3(1.0) * (highlight * 1.6 + rim * 0.12);
-        float alpha = clamp(uOpacity * (0.22 + 0.78 * rim) + highlight + caustic * 0.3, 0.0, 1.0);
+        float caustic = smoothstep(0.55, 1.0, dot(n, normalize(vec3(0.38, -0.78, 0.5))));
+        // clear liquid: the centre is almost see-through, the colour lives in the rim and the caustic
+        vec3 color = uTint * (0.2 + 0.8 * rim) + uTint * caustic * 0.9 + vec3(1.0) * highlight;
+        float alpha = clamp(uOpacity * (0.06 + 0.94 * rim) + highlight * 0.9 + caustic * 0.22, 0.0, 1.0);
         gl_FragColor = vec4(color, alpha);
       }
     `,
@@ -103,18 +105,18 @@ export class CanSplash implements SceneMoment {
   private readonly hidden = new THREE.Matrix4().makeScale(0, 0, 0);
 
   constructor(scene: SceneManager) {
-    this.sprayCount = scene.isLowPower ? 44 : 80;
-    this.beadCount = scene.isLowPower ? 34 : 60;
+    this.sprayCount = scene.isLowPower ? 48 : 90;
+    this.beadCount = scene.isLowPower ? 22 : 38;
 
     // the drink: water-drop shading in the flavor colour
-    this.sprayMaterial = createDropMaterial(0.95);
+    this.sprayMaterial = createDropMaterial(0.8, 1.4);
     this.spray = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), this.sprayMaterial, this.sprayCount);
     this.spray.frustumCulled = false;
     this.spray.visible = false;
     scene.scene.add(this.spray);
 
     // condensation: clear water beads with a breath of the flavor colour, mostly rim and highlight
-    this.beadMaterial = createDropMaterial(0.55);
+    this.beadMaterial = createDropMaterial(0.32, 0.9);
     this.beads = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), this.beadMaterial, this.beadCount);
     this.beads.frustumCulled = false;
     this.beads.visible = false;
@@ -160,8 +162,9 @@ export class CanSplash implements SceneMoment {
     this.last = seconds;
     const canScale = can.scale.x;
 
-    this.sprayMaterial.uniforms.uTint.value.copy(color);
-    this.beadMaterial.uniforms.uTint.value.set(0xcfe0ee).lerp(color, 0.2);
+    // the drink is the flavor colour seen through clear liquid: lighter and less saturated than the label
+    this.sprayMaterial.uniforms.uTint.value.set(0xdfe9f2).lerp(color, 0.55);
+    this.beadMaterial.uniforms.uTint.value.set(0x9fb1c1).lerp(color, 0.15);
 
     // the opening, in world space, and the can's "up" and "toward the viewer" there
     can.updateMatrixWorld(true);
@@ -173,7 +176,7 @@ export class CanSplash implements SceneMoment {
       // a fizzing burst: most drops in the first 0.15 s, a tail over the next 0.4 s
       this.delay[i] = Math.random() < 0.7 ? rand(0, 0.15) : rand(0.15, 0.55);
       // mostly fine droplets, a few full drops
-      this.size[i] = (Math.random() < 0.12 ? rand(0.04, 0.058) : rand(0.01, 0.03)) * canScale;
+      this.size[i] = (Math.random() < 0.1 ? rand(0.032, 0.048) : rand(0.008, 0.024)) * canScale;
       const speed = rand(2.6, 5.6) * Math.sqrt(canScale);
       // a fizz: up out of the opening, leaning a little toward the viewer, in a tight cone
       this.direction
@@ -195,7 +198,7 @@ export class CanSplash implements SceneMoment {
     for (let i = 0; i < this.beadCount; i += 1) {
       this.angle[i] = facing + rand(-1.15, 1.15);
       this.height[i] = rand(-top, top);
-      this.beadSize[i] = rand(0.018, 0.045) * (Math.random() < 0.15 ? 1.5 : 1);
+      this.beadSize[i] = rand(0.014, 0.034) * (Math.random() < 0.15 ? 1.4 : 1);
       this.appear[i] = rand(0.1, 1.0);
       // about a third grow heavy and run down the label
       const runs = Math.random() < 0.34;
