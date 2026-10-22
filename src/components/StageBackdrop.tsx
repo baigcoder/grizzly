@@ -1,6 +1,7 @@
 import React from 'react';
 import type { HomeScene } from '../hooks/useHomeScroll';
 import { BRAND } from '../data/brand';
+import { splitTagline } from '../data/tagline';
 
 interface StageBackdropProps {
   scene: HomeScene;
@@ -54,10 +55,3 @@ export const StageBackdrop: React.FC<StageBackdropProps> = ({ scene, flavorLines
     </div>
   );
 };
-
-/** "Fuel your wild side" → ["Fuel your", "wild side"] for the two-line giant type. */
-function splitTagline(tagline: string): string[] {
-  const words = tagline.split(' ');
-  const half = Math.ceil(words.length / 2);
-  return [words.slice(0, half).join(' '), words.slice(half).join(' ')];
-}

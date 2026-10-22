@@ -198,7 +198,9 @@ export const SCENE_SEQUENCE: ReadonlyArray<{ sectionId: string; state: keyof typ
   { sectionId: 'full-gamme', state: 'range' },
   { sectionId: 'FAQ', state: 'faq' },
   { sectionId: 'newsletter', state: 'newsletter' },
-  // The loop, as in the reference: past the footer the scene flows back into the hero ring, and at the very bottom
-  // the page wraps to the top (useSmoothScroll), where the frame is identical, so the story starts again seamlessly.
-  { sectionId: 'loop', state: 'hero' },
+  // The loop, as in the reference: the studio stays empty until the footer has gone, then over one clear screen the
+  // cans rise back into the hero ring (never behind the footer text), and at the very bottom the page wraps to the
+  // top (useSmoothScroll), where the frame is identical, so the story starts again seamlessly.
+  { sectionId: 'loop', state: 'newsletter' },
+  { sectionId: 'loop-end', state: 'hero' },
 ];

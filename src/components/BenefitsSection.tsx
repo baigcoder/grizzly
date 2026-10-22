@@ -5,6 +5,7 @@ import { audioManager } from '../audio/audioManager';
 import { BenefitIcon } from './BenefitIcons';
 import { RevealText } from './RevealText';
 import { HalalSeal } from './HalalSeal';
+import { RevealLines } from './RevealLines';
 
 interface BenefitsSectionProps {
   activeChapter: number;
@@ -84,7 +85,7 @@ export const BenefitsSection: React.FC<BenefitsSectionProps> = ({ activeChapter,
             className="section-copy__title display"
             lines={benefit.titleLine2 ? [benefit.titleLine1, benefit.titleLine2] : [benefit.titleLine1]}
           />
-          <p className="section-copy__text">{publicText(benefit.description)}</p>
+          <RevealLines className="section-copy__text" text={publicText(benefit.description)} />
           {benefit.iconType === 'zamzam' && <HalalSeal inline />}
         </div>
       </section>

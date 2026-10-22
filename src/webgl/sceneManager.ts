@@ -240,11 +240,6 @@ export class SceneManager {
   private heroLift = 0;
   /** Hero can scale factor so it fits between the header and the title (≤ 1). */
   private heroFit = 1;
-  /** Phones: each home section's copy top edge (px from the top of the screen once the section is in place; -1 for a
-   * section without copy) and the header's bottom edge: the band the single can stands in. */
-  private copyTops: number[] = [];
-  private headerBottom = 0;
-  private readonly phoneFit = { scale: 1, y: 0 };
   private govStart = 0;
   private govFrames = 0;
   private govStep = 0;
@@ -646,39 +641,6 @@ export class SceneManager {
     if (!isMobile && available !== Number.POSITIVE_INFINITY && available > span * scale) {
       this.heroLift += (available - span * scale) * 0.3;
     }
-  }
-
-  /** Phones: where each home section's copy starts (see `copyTops`), measured by the page on resize, never per frame. */
-  public setCopyBands(tops: number[], headerBottomPx: number) {
-    this.copyTops = tops;
-    this.headerBottom = headerBottomPx;
-  }
-
-  /**
-   * Phones: the can stands whole between the header and the section's copy, never under the text. Writes the largest
-   * scale (up to `scale`) that fits the band and the height that centres the can in it into `phoneFit`. The band
-   * follows the scroll from one section's copy to the next, so the can eases between them instead of jumping.
-   */
-  private fitPhoneCan(scale: number, rotX: number, rotZ: number, canZ: number) {
-    const height = this.viewHeight;
-    const section = Math.max(0, this.sectionPosition);
-    const index = Math.floor(section);
-    const copyTop = (i: number) => {
-      const top = this.copyTops[i] ?? -1;
-      return top > 0 ? top : height - 24; // no copy: the can may use the whole frame
-    };
-    const bottom = THREE.MathUtils.lerp(copyTop(index), copyTop(index + 1), smooth(section - index)) - 20;
-    const top = this.headerBottom + 12;
-    const distance = Math.max(1, this.camera.position.z - canZ);
-    const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / height;
-    // the leaning can's height on screen: its length foreshortened by the roll and pitch plus the rims' width; 4% for
-    // the near rim, which perspective draws a little larger than the can's centre
-    const half =
-      (CAN.shellHeight / 2 + CAN.topHeight) * Math.abs(Math.cos(rotZ)) * Math.abs(Math.cos(rotX)) +
-      CAN.radius * (Math.abs(Math.sin(rotZ)) + Math.abs(Math.sin(rotX)));
-    const fit = (Math.max(0, bottom - top) * unitsPerPx) / (2 * half * 1.04);
-    this.phoneFit.scale = Math.min(scale, fit);
-    this.phoneFit.y = this.camera.position.y + distance * Math.tan(this.data.camRotX) + (height / 2 - (top + bottom) / 2) * unitsPerPx;
   }
 
   // ───────────────────────── quality ─────────────────────────
@@ -1680,7 +1642,7 @@ export class SceneManager {
         // Spacing from the cans' real size: neighbours keep about 12% of a diameter of air between them at any width
         // (the fixed 1.68-unit step was narrower than a can, so tilted neighbours passed through each other, worst on
         // phones where the row's positions shrank more than its cans).
-        const finalScale = this.data.canScale * (isMobile ? 0.46 : rowK);
+        const finalScale = this.data.canScale * (isMobile ? 0.8 : rowK); // phones: the reference's big, cropped shelf
         const posK = mobileK * rowK;
         const spread = Math.max(1, (2 * CAN.radius * finalScale * 1.12) / (1.72 * posK));
         // Each can drops in on its own beat (back row first), with a small settle.
@@ -1690,7 +1652,7 @@ export class SceneManager {
         const breath = this.reducedMotion ? 0 : Math.sin(time * 0.0008 + phase) * 0.014;
         can.position.set(
           this.data.canPosX * (1 - s) + slot.x * posK * spread * s,
-          this.data.canPosY * (1 - s) + ((1 + (slot.y - 1) * spread) * posK + (isMobile ? 2.2 : 0) + breath + drop) * s,
+          this.data.canPosY * (1 - s) + ((1 + (slot.y - 1) * spread) * posK + (isMobile ? 0.6 : 0) + breath + drop) * s,
           this.data.canPosZ * (1 - s) + slot.z * rowK * spread * s
         );
         can.rotation.set(
@@ -1720,8 +1682,21 @@ export class SceneManager {
         let featRotX = this.data.canRotX;
         let featRotY = this.data.canRotY + this.data.canSpin;
         if (isMobile) {
-          // Phones: the can stands centred and whole above the copy (sized to the band below, once its lean is known)
-          featX = 0;
+          // Phones shrink the can (benefit close-ups most, blended through labelDim). The
+          // vertical pose scales with it, so the lit benefit block keeps its place on screen
+          // instead of the can for the lowest block leaving the top of the frame.
+          // (the desktop intro can is very large; phones keep it to the old on-screen size)
+          // The tagline section has no copy at the bottom, so there the can returns to near full size, centred.
+          const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
+          // As on the reference at 375×812: the chapter cans stay big and run down behind the centred copy (the frame
+          // fades to black under the text); the flavor intro's can is the largest, cropped by the frame's edges.
+          const k = 0.95;
+          featScale *= k;
+          featY = featY * k + 0.9 * (1 - tagline);
+          featX = 0.1 * (1 - tagline);
+          const profile = Math.max(0, 1 - Math.abs(this.sectionPosition - 1));
+          featScale *= 1 + 0.1 * profile;
+          featY += 0.6 * profile;
         } else {
           featX = this.fitFeatureX(featX);
         }
@@ -1750,11 +1725,6 @@ export class SceneManager {
           featRotY += Math.PI * 2 * turn * dir;
           featZ += swing * 1.6;
           featRotZ += swing * 0.12 * dir;
-        }
-        if (isMobile) {
-          this.fitPhoneCan(featScale, featRotX, featRotZ, featZ);
-          featScale = this.phoneFit.scale;
-          featY = this.phoneFit.y;
         }
         // inertia: the can leans back against a fast scroll and trails it slightly, then settles
         featRotX -= this.scrollVelocity * 0.07;
@@ -1830,11 +1800,12 @@ export class SceneManager {
       let targetSectionPosY = this.data.canPosY;
       let targetSectionPosX = this.data.canPosX;
       if (isMobile && this.data.wave < 0.5) {
-        // Phones: the dive lands on the same band fit as the single-can pose (whole, centred above the copy)
-        this.fitPhoneCan(targetSectionScale, this.data.canRotX, this.data.canRotZ, this.data.canPosZ);
-        targetSectionScale = this.phoneFit.scale;
-        targetSectionPosY = this.phoneFit.y;
-        targetSectionPosX = 0;
+        // Phones shrink and raise the can for the sections with copy at the bottom. The tagline section has
+        // no copy, so there the can returns to its full size and centre (it used to stay a small can at the top).
+        const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
+        targetSectionScale *= 0.65 + 0.35 * tagline;
+        targetSectionPosY += 1.0 * (1 - tagline);
+        targetSectionPosX *= 0.2;
       } else if (!isMobile) {
         targetSectionPosX = this.fitFeatureX(targetSectionPosX);
       }

@@ -395,33 +395,6 @@ export const App: React.FC = () => {
     };
   }, [isHome, isReady]);
 
-  // Phones: where each home section's copy starts, so the scene stands the can in the band above it (never under the
-  // text). Measured on resize and when a copy block changes size (a new flavor's text), never during scroll.
-  useEffect(() => {
-    if (!isHome || !sceneUp) return;
-    const sections = Array.from(document.querySelectorAll<HTMLElement>('main.home > .home-section'));
-    const copies = sections.map((section) => section.querySelector<HTMLElement>('.section-copy'));
-    const update = () => {
-      const tops = sections.map((section, index) => {
-        const copy = copies[index];
-        if (!copy) return -1;
-        const rect = copy.getBoundingClientRect();
-        // pinned copy (the benefit chapters) is placed on the screen; the rest sits in its section
-        return getComputedStyle(copy).position === 'fixed' ? rect.top : rect.top - section.getBoundingClientRect().top;
-      });
-      const logo = document.querySelector<HTMLElement>('.site-logo');
-      sceneManagerRef.current?.setCopyBands(tops, logo ? logo.getBoundingClientRect().bottom : 0);
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    copies.forEach((copy) => copy && observer.observe(copy));
-    window.addEventListener('resize', update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', update);
-    };
-  }, [isHome, sceneUp]);
-
   // The roar: once per visit, the first scroll away from the top.
   useEffect(() => {
     if (!isHome || !isReady) return;
@@ -655,9 +628,11 @@ export const App: React.FC = () => {
         </main>
       )}
       <SiteFooter />
-      {/* The loop segment: the scene returns to the hero here, then the page wraps to the top (useSmoothScroll). */}
+      {/* The loop segment: an empty screen, then the scene returns to the hero (at #loop-end), then the page wraps to the
+          top (useSmoothScroll). */}
       {isHome && (
         <div id="loop" className="home-loop" aria-hidden="true">
+          <span id="loop-end" className="home-loop__end" />
           <p className="home-loop__cue">
             <span>Keep scrolling</span>
             <span className="home-loop__cue-line" />

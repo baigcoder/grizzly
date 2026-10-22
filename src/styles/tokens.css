@@ -211,7 +211,7 @@
   --saturate-glass: 1.2;
 
   /* Motion choreography */
-  --stagger-char: 22ms;
+  --stagger-char: 14ms;
   --stagger-item: 50ms;
   --delay-reveal-body: 160ms;
   --delay-finale-cta: 1400ms; /* after the cans have landed */
@@ -219,7 +219,7 @@
   --motion-pulse: 1600ms;
   --motion-bars: 900ms;
   --motion-cloud: 22s;
-  --reveal-distance: 105%;
+  --reveal-distance: -110%; /* above the line: letters drop into place */
 
   /* Component geometry (measured from the reference at 1920×920) */
   --size-logo: 9.5rem;

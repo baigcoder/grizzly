@@ -170,7 +170,6 @@
 .reveal__unit {
   display: inline-block;
   transform: translate3d(0, var(--reveal-distance), 0);
-  opacity: 0;
 }
 
 /* The display face's tight tracking all but swallows a word space ("ZAMZAMWATER"): give it a real word gap. */
@@ -179,12 +178,17 @@
 }
 
 .is-active .reveal__unit {
-  animation: reveal-up var(--motion-fast) var(--ease-out) forwards;
-  animation-delay: calc(var(--i) * var(--stagger-char));
+  animation: reveal-up 500ms var(--ease-out) forwards;
+  animation-delay: calc(var(--reveal-delay, 0ms) + var(--i) * var(--stagger-char));
 }
 
+/* (the reference's letters drop in from above their line, masked, never faded) */
 @keyframes reveal-up {
-  to { transform: none; opacity: 1; }
+  to { transform: none; }
+}
+
+.section-copy {
+  --reveal-delay: 200ms;
 }
 
 .section-copy__text,
@@ -1055,8 +1059,16 @@
 /* The loop segment after the footer: one empty screen in which the 3D scene returns to the hero ring; at its bottom
    the page wraps to the top (useSmoothScroll), where the frame is the same. */
 .home-loop {
-  height: 100svh;
+  position: relative;
+  height: 200svh;
   pointer-events: none;
+}
+
+/* where the hero frame is whole again: one screen into the loop (the last screen is the hero, then the wrap) */
+.home-loop__end {
+  position: absolute;
+  top: 100svh;
+  left: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1066,8 +1078,6 @@
 /* Scroll aesthetics: the body of each chapter rises into place line by line behind a mask once the chapter is in
    view (the titles already reveal per character), then stays. Transform, clip-path and opacity only. */
 .home-section .replaced-tag,
-.home-section .section-copy__text,
-.home-section .section-copy__body,
 .home-section .detail-link--left {
   clip-path: inset(0 0 100% 0);
   opacity: 0;
@@ -1079,8 +1089,6 @@
 }
 
 .home-section.is-active .replaced-tag,
-.home-section.is-active .section-copy__text,
-.home-section.is-active .section-copy__body,
 .home-section.is-active .detail-link--left {
   clip-path: inset(-20% -10% -20% -10%);
   opacity: 1;
@@ -1088,15 +1096,35 @@
 }
 
 .home-section.is-active .replaced-tag { transition-delay: 80ms; }
-.home-section.is-active .section-copy__text,
-.home-section.is-active .section-copy__body { transition-delay: 260ms; }
 .home-section.is-active .detail-link--left { transition-delay: 420ms; }
+
+/* The chapter text, as on the reference: each wrapped line (RevealLines) drops into place from above behind its own
+   mask, one after another, a beat after the title starts. Transform only. */
+.reveal-lines__mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.reveal-lines__line {
+  display: block;
+  transform: translate3d(0, -110%, 0);
+  transition: transform 450ms var(--ease-out);
+}
+
+.is-active .reveal-lines__line {
+  transform: none;
+  transition-duration: 600ms;
+  transition-delay: calc(300ms + var(--l, 0) * 70ms);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .home-section .replaced-tag,
   .home-section .section-copy__text,
   .home-section .section-copy__body,
-  .home-section .detail-link--left {
+  .home-section .detail-link--left,
+  .reveal-lines__line {
     clip-path: none;
     opacity: 1;
     transform: none;
@@ -1282,48 +1310,111 @@
   .benefit--zamzam.is-active .zamzam-script { animation: none; background-position: 50% 0; }
 }
 
-/* ---------- Phones: the can above, the copy below on a shade, the chapter buttons under it ----------
-   The scene stands the can whole in the band between the header and the copy (setCopyBands, measured on resize), so
-   the text never sits on the can. The copy rests on a solid shade rising from the bottom edge (a can passing between
-   chapters stays behind it), and the chapter buttons leave the can's side for one row under the copy. */
+/* phones only (below) */
+.argument__tagline {
+  display: none;
+}
+
+/* ---------- Phones: the reference's chapter layout ----------
+   Measured on ciaoenergy.com at 375×812: the flavor and benefit chapters are 125% of the screen tall; their copy is
+   one centred column (315px) at the foot of the frame over the big can, never moved out of its way: the title 31.5px
+   italic caps, the text 17.5px light, the strike tag 12.25px; no emblem and no counter; the icon rail stays on the
+   right (44px buttons, ~35px apart, its top a third of the way down). Legibility comes from the frame, not a panel:
+   a fade to black over the last 30% of the screen and a light fade under the header. */
 @media (max-width: 767px) {
+  .flavor-intro,
+  .benefit {
+    min-height: 125svh;
+  }
+
   .flavor-intro .section-copy,
   .benefit .section-copy {
-    --rail-room: calc(var(--control-size) + var(--space-lg) + env(safe-area-inset-bottom, 0px));
-    bottom: var(--rail-room);
-    isolation: isolate;
+    left: 50%;
+    right: auto;
+    width: min(315px, calc(100vw - 2 * var(--space-lg)));
+    translate: -50% 0;
+    text-align: center;
   }
 
+  /* Pinned, as on the reference: the chapter copy never scrolls up with the page. It holds its place on the screen
+     and the chapters swap in it (fade), while the can moves behind. The flavor copy sits 24px off the bottom edge. */
   .flavor-intro .section-copy {
-    z-index: 0;
+    position: fixed;
+    z-index: var(--z-content);
+    bottom: 24px;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 450ms var(--ease-out),
+      visibility 0s linear 450ms;
   }
 
-  .flavor-intro .section-copy::before,
+  .flavor-intro.is-active .section-copy {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 120ms, 0s;
+  }
+
+  /* the pinned benefit copy: 41px off the bottom edge */
+  .benefit .section-copy {
+    bottom: 41px;
+  }
+
+  .flavor-intro .section-copy__title,
+  .benefit .section-copy__title {
+    font-size: 1.96875rem;
+    line-height: 1.2;
+    margin-bottom: var(--space-sm);
+  }
+
+  .flavor-intro .section-copy__text,
+  .benefit .section-copy__text {
+    font-size: 1.09375rem;
+    font-weight: var(--font-weight-body);
+    line-height: 1.25;
+  }
+
+  .flavor-intro .detail-link {
+    margin-top: var(--space-sm);
+  }
+
+  .benefit .replaced-tag {
+    justify-content: center;
+    margin-bottom: var(--space-sm);
+    font-size: 0.765625rem;
+  }
+
+  .benefit .hex-emblem,
+  .benefit .benefit-count,
+  .zamzam-script,
   .benefit .section-copy::before {
+    display: none;
+  }
+
+  .benefit .halal-seal--inline {
+    justify-content: center;
+    margin-top: var(--space-sm);
+  }
+
+  /* the frame's own fade: clear over the top 70%, black by 95% (the reference's gradient overlay) */
+  main.home::after {
     content: '';
-    position: absolute;
-    z-index: -1;
-    inset: calc(var(--space-2xl) * -1) calc(var(--space-md) * -1) calc(var(--rail-room) * -1);
-    background: linear-gradient(
-      180deg,
-      transparent,
-      color-mix(in oklab, var(--color-page-floor) 72%, transparent) 34%,
-      color-mix(in oklab, var(--color-page-floor) 90%, transparent)
-    );
+    position: fixed;
+    inset: 0;
+    z-index: -1; /* inside the home layer: over the canvas, under every line of copy */
+    background: linear-gradient(180deg, transparent 0%, transparent 70%, var(--color-black) 95%);
     pointer-events: none;
   }
 
-  .benefit-rail,
-  .benefit-rail.is-visible {
-    top: auto;
-    right: auto;
-    left: var(--space-md);
-    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  body[data-scene] .site-header::before {
+    height: 98px;
+    background: linear-gradient(180deg, rgb(0 0 0 / 0.6), transparent);
   }
 
   .benefit-rail {
-    z-index: calc(var(--z-content) + 1); /* above the pinned copy's shade */
-    transform: translateY(var(--space-sm));
+    right: 14px;
+    top: 265px;
+    transform: translateX(var(--space-sm));
   }
 
   .benefit-rail.is-visible {
@@ -1331,40 +1422,44 @@
   }
 
   .benefit-rail__list {
-    flex-direction: row;
+    gap: 35px;
   }
 
-  /* the progress line runs along the row */
-  .benefit-rail__list::before,
-  .benefit-rail__list::after {
-    top: 50%;
-    bottom: auto;
-    left: calc(var(--rail-button) / 2);
-    right: calc(var(--rail-button) / 2);
-    width: auto;
-    height: var(--border-hairline);
-    transform: translateY(-50%);
+  /* the tagline chapter: the whole can above, the line in the accent colour at the foot of the frame (as the
+     reference's "Zero Bullshit"), instead of the giant type behind the can */
+  .stage-giant {
+    display: none;
   }
 
-  .benefit-rail__list::after {
-    transform: translateY(-50%) scaleX(var(--rail-progress, 0));
-    transform-origin: left;
+  .argument__tagline {
+    position: fixed;
+    z-index: var(--z-content);
+    left: 0;
+    right: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)); /* under the can's base, never across it */
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 450ms var(--ease-out),
+      visibility 0s linear 450ms;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 2.5rem;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--color-accent);
   }
-}
 
-/* Short phones: the benefit copy took ~40% of a 640px screen and left the can a sliver. A smaller emblem and seal and
-   tighter steps give the can back the room. */
-@media (max-width: 767px) and (max-height: 740px) {
-  .benefit .section-copy {
-    --size-hex-emblem: 2.75rem;
-    --size-seal-inline: 3rem;
+  .argument.is-active .argument__tagline {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 120ms, 0s;
   }
 
-  .benefit .hex-emblem {
-    margin-bottom: var(--space-xs);
-  }
-
-  .benefit .halal-seal--inline {
-    margin-top: var(--space-xs);
+  /* the shop line holds its place too, and fades out with the scroll instead of riding up */
+  .lineup__cta {
+    position: fixed;
+    z-index: var(--z-content);
   }
 }

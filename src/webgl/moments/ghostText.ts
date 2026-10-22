@@ -97,9 +97,11 @@ export class GhostText implements SceneMoment {
     const reveal = THREE.MathUtils.smoothstep(p, 5.35, 5.95);
     // gone before the line-up drops in (it showed through the arriving row)
     const leave = 1 - THREE.MathUtils.smoothstep(p, 6.15, 6.5);
-    // soft solid letters (the reference's translucent wall of type); a little stronger on phones, where the can covers more
+    // soft solid letters (the reference's translucent wall of type); a little stronger on portrait screens
     const opacity = (scene.camera.aspect < 0.8 ? 0.75 : 0.6) * leave;
-    this.mesh.visible = !!this.texture && reveal > 0.001 && opacity > 0.002;
+    // phones show the tagline as page type at the foot of the frame instead (ArgumentSection), as the reference does
+    const phone = window.innerWidth < 768;
+    this.mesh.visible = !phone && !!this.texture && reveal > 0.001 && opacity > 0.002;
     if (!this.mesh.visible) return;
     const z = -4.5;
     const distance = scene.camera.position.z - z;

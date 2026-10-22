@@ -17,7 +17,8 @@ const SCENE_BY_SECTION: Record<string, HomeScene> = {
   'full-gamme': 'lineup',
   FAQ: 'faq',
   newsletter: 'newsletter',
-  loop: 'hero',
+  loop: 'newsletter',
+  'loop-end': 'hero',
 };
 
 export interface HomeScrollState {

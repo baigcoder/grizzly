@@ -1,6 +1,7 @@
 import React from 'react';
 import { FLAVORS } from '../data/flavors';
 import { RevealText } from './RevealText';
+import { RevealLines } from './RevealLines';
 
 interface ProfileSectionProps {
   activeIndex: number;
@@ -25,7 +26,7 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({ activeIndex, isA
       <div className="section-copy">
         <RevealText key={flavor.id} id="flavor-title" className="section-copy__title display" lines={[flavor.line1, flavor.line2].filter(Boolean)} label={flavor.name} joiner={flavor.name.includes(' ') ? ' ' : ''} />
         <div className="section-copy__body framed">
-          <p className="section-copy__text">{flavor.description}</p>
+          <RevealLines key={flavor.id} className="section-copy__text" text={flavor.description} />
         </div>
         <a
           className="detail-link detail-link--left"
