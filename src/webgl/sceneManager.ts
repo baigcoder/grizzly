@@ -11,7 +11,7 @@ import { PostFx } from './post';
 import { FloorReflections } from './reflections';
 import { Scene3DData } from '../types';
 import { CAROUSEL_CONFIG } from './sceneManagerConfig';
-import { SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
+import { PHONE_STATES, SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
 import type { SceneMoment } from './moments/types';
 import { FlavorLetters } from './moments/flavorLetters';
 import { RoarMoment } from './moments/roar';
@@ -307,6 +307,8 @@ export class SceneManager {
   private timelineStates: Record<string, number>[] = [];
   private timelineKeys: string[] = [];
   private timelineSeekedAt = -1;
+  /** The timeline was built with the phone poses (PHONE_STATES); rebuilt when the width crosses 768 px. */
+  private phoneTimeline = false;
   private targetTimelineProgress = 0;
   private currentTimelineProgress = 0;
   /** Section position 0..9 (continuous), for the stage's slow drift. */
@@ -451,7 +453,7 @@ export class SceneManager {
 
   private setupSceneObjects() {
     this.labels = new LabelTextures(this.renderer);
-    this.labels.maxLod = this.isLowPower || this.dataSaver ? 1 : 2;
+    this.labels.maxLod = this.dataSaver ? 1 : 2; // (phones' level 2 is the full 2k, not 4k: see phoneLevels)
     this.labels.loadNormals = !this.isLowPower;
     this.labels.phoneLevels = this.isLowPower;
     this.labels.onChange = (flavorIndex) => this.applyLabelMaps(flavorIndex);
@@ -528,6 +530,9 @@ export class SceneManager {
     }
     [1, count - 1].forEach((step) => void this.labels.ensureSurface((focusFlavor + step) % count));
     if (closeUp && this.wantsDetail4k()) void this.labels.ensureAlbedo(focusFlavor, 2);
+    // Phones: in the single-can close-ups the label's small print fills the screen, and the light ETC1S 2k read soft
+    // there: the focused flavor sharpens once more, to the full-quality 2k (≈1.3 MB, only for the flavor in view).
+    else if (closeUp && this.isLowPower && this.labels.maxLod >= 2) void this.labels.ensureAlbedo(focusFlavor, 2);
     if (this.isLowPower || this.dataSaver) return;
     // Prefetch the next flavor's 2k only once the visitor has engaged (a bounce never pays for it), and only
     // when the browser is idle.
@@ -797,11 +802,17 @@ export class SceneManager {
       ...state.stage,
     });
 
-    this.timelineStates = SCENE_SEQUENCE.map(({ state }) => stateToData(SCENE_STATES[state]) as Record<string, number>);
+    this.phoneTimeline = this.viewWidth < 768;
+    this.timelineStates = SCENE_SEQUENCE.map(({ state }) => stateToData(this.stateFor(state)) as Record<string, number>);
     this.timelineKeys = Object.keys(this.timelineStates[0]);
     this.timelineData = { ...this.data, ...stateToData(SCENE_STATES[SCENE_SEQUENCE[0].state]) };
     Object.assign(this.data, this.timelineData);
     this.seekTimeline(0);
+  }
+
+  /** A waypoint's pose: the phone variant where there is one and the screen is a phone's. */
+  private stateFor(name: string) {
+    return (this.phoneTimeline && PHONE_STATES[name]) || SCENE_STATES[name];
   }
 
   /**
@@ -1201,6 +1212,12 @@ export class SceneManager {
     this.renderer.setSize(width, height);
     this.post?.setSize(width, height);
     this.stage.resize(width, height);
+    if ((width < 768) !== this.phoneTimeline) {
+      // a rotation or resize across the phone width swaps the phone poses in or out, at the current scroll position
+      this.buildMasterTimeline();
+      this.timelineSeekedAt = -1;
+      this.seekTimeline(this.currentTimelineProgress);
+    }
   };
 
   private onMouseMove = (e: MouseEvent) => {
@@ -1586,7 +1603,9 @@ export class SceneManager {
     // finale row stays sharp. (a strong blur read as low-quality cans: the ring keeps only a gentle depth cue; the
     // fast-scroll blur and cinema bars are gone: the reference keeps the frame open and sharp while scrolling)
     // (the ring's depth blur is light: blurred side cans read as low-resolution labels, the reference keeps them sharp)
-    const lens = 0.12 * this.data.wave + 0.18 * (1 - this.data.wave) * (1 - this.data.swirl);
+    // Single-can scenes are now fully sharp: the close-ups fill the frame, so the lit block and the label's small print
+    // sat outside the sharp ellipse and read blurry (the reference keeps them crisp); it also saves a full-screen pass.
+    const lens = 0.12 * this.data.wave;
     this.post?.setFocus(this.focusScreen.x, this.focusScreen.y, lens * (1 - 0.8 * this.pickBlend));
     this.renderScene(time);
   }
@@ -1598,7 +1617,8 @@ export class SceneManager {
   private updateCinema(now: number) {
     const speed = Math.abs(this.scrollVelocity);
     const nearest = Math.round(this.sectionPosition);
-    const state = SCENE_STATES[SCENE_SEQUENCE[nearest]?.state];
+    const name = SCENE_SEQUENCE[nearest]?.state;
+    const state = name ? this.stateFor(name) : undefined;
     const settled = Math.abs(this.sectionPosition - nearest) < 0.04 && speed < 0.2;
     if (settled && nearest !== this.settledSection) {
       this.settledSection = nearest;

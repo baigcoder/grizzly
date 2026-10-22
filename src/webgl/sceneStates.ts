@@ -65,16 +65,18 @@ const BENEFIT_ROT_Y = (0.5 - panelCentreU) * Math.PI * 2;
 
 /**
  * As in the reference: one huge dark can, centred and leaning, cropped by the frame, the chapter's lit block held at
- * mid-screen. The can steps up chapter by chapter as the lit block moves down the label.
+ * mid-screen. The can steps up chapter by chapter as the lit block moves down the label, and each chapter pushes in a
+ * little closer and sits a little to one side (`zoom`, `posX`), so every step reads as a new camera move.
  */
-const benefit = (rotZ: number, chapter: number): SceneStateConfig => {
+const benefit = (rotZ: number, chapter: number, zoom = 1, posX = 0.35, stage = STAGE_CLOSE): SceneStateConfig => {
   const [, v0, , v1] = LABEL.benefitBlocks[chapter];
   const blockY = ((v0 + v1) / 2 - 0.5) * SHELL_HEIGHT; // local height of the block's centre on the can
+  const scale = BENEFIT_SCALE * zoom;
   return {
     camera: cam(0, 0, 27, 0, 0, 0),
-    product: { scale: BENEFIT_SCALE, posX: 0.35, posY: -blockY * BENEFIT_SCALE * Math.cos(rotZ), posZ: 0, rotX: 7 * DEG, rotY: BENEFIT_ROT_Y, rotZ, spin: 0 },
+    product: { scale, posX, posY: -blockY * scale * Math.cos(rotZ), posZ: 0, rotX: 7 * DEG, rotY: BENEFIT_ROT_Y, rotZ, spin: 0 },
     lighting: { ...LIGHT, pointerInfluence: 0, labelDim: 1 },
-    stage: STAGE_CLOSE,
+    stage,
     spacing: CAROUSEL_CONFIG.spacing,
     wave: 0,
     swirl: 0,
@@ -117,9 +119,9 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
   },
 
   // Benefits: the camera pushes closer chapter by chapter; the can steps up so the active block stays mid-screen.
-  benefit01: benefit(12 * DEG, 0),
-  benefit02: benefit(9 * DEG, 1),
-  benefit03: benefit(11 * DEG, 2),
+  benefit01: benefit(12 * DEG, 0, 1, 0.35),
+  benefit02: benefit(9 * DEG, 1, 1.08, 0.1),
+  benefit03: benefit(11 * DEG, 2, 1.16, 0.5),
   // Zamzam: the camera pulls back and the whole can stands upright over still, lit water (see moments/zamzamPool.ts):
   // the label is lit again and the can's base meets its own reflection on the water line.
   benefit04: {
@@ -181,6 +183,15 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
     wave: 0,
     swirl: 1,
   },
+};
+
+/**
+ * Phones replace a few poses. The Zamzam chapter's whole can over the water is a small can on a portrait screen with
+ * nothing lit: there it stays the benefit close-up, pushed in once more, its own block (Added Zamzam water) lit at the
+ * same spot as the others, over the Zamzam stage.
+ */
+export const PHONE_STATES: Partial<Record<keyof typeof SCENE_STATES, SceneStateConfig>> = {
+  benefit04: benefit(8 * DEG, 3, 1.24, 0.2, { ...STAGE_CLOSE, field: 0.5 }),
 };
 
 /**
