@@ -1281,3 +1281,90 @@
   .zamzam-script { transition: none; }
   .benefit--zamzam.is-active .zamzam-script { animation: none; background-position: 50% 0; }
 }
+
+/* ---------- Phones: the can above, the copy below on a shade, the chapter buttons under it ----------
+   The scene stands the can whole in the band between the header and the copy (setCopyBands, measured on resize), so
+   the text never sits on the can. The copy rests on a solid shade rising from the bottom edge (a can passing between
+   chapters stays behind it), and the chapter buttons leave the can's side for one row under the copy. */
+@media (max-width: 767px) {
+  .flavor-intro .section-copy,
+  .benefit .section-copy {
+    --rail-room: calc(var(--control-size) + var(--space-lg) + env(safe-area-inset-bottom, 0px));
+    bottom: var(--rail-room);
+    isolation: isolate;
+  }
+
+  .flavor-intro .section-copy {
+    z-index: 0;
+  }
+
+  .flavor-intro .section-copy::before,
+  .benefit .section-copy::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: calc(var(--space-2xl) * -1) calc(var(--space-md) * -1) calc(var(--rail-room) * -1);
+    background: linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in oklab, var(--color-page-floor) 72%, transparent) 34%,
+      color-mix(in oklab, var(--color-page-floor) 90%, transparent)
+    );
+    pointer-events: none;
+  }
+
+  .benefit-rail,
+  .benefit-rail.is-visible {
+    top: auto;
+    right: auto;
+    left: var(--space-md);
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .benefit-rail {
+    z-index: calc(var(--z-content) + 1); /* above the pinned copy's shade */
+    transform: translateY(var(--space-sm));
+  }
+
+  .benefit-rail.is-visible {
+    transform: none;
+  }
+
+  .benefit-rail__list {
+    flex-direction: row;
+  }
+
+  /* the progress line runs along the row */
+  .benefit-rail__list::before,
+  .benefit-rail__list::after {
+    top: 50%;
+    bottom: auto;
+    left: calc(var(--rail-button) / 2);
+    right: calc(var(--rail-button) / 2);
+    width: auto;
+    height: var(--border-hairline);
+    transform: translateY(-50%);
+  }
+
+  .benefit-rail__list::after {
+    transform: translateY(-50%) scaleX(var(--rail-progress, 0));
+    transform-origin: left;
+  }
+}
+
+/* Short phones: the benefit copy took ~40% of a 640px screen and left the can a sliver. A smaller emblem and seal and
+   tighter steps give the can back the room. */
+@media (max-width: 767px) and (max-height: 740px) {
+  .benefit .section-copy {
+    --size-hex-emblem: 2.75rem;
+    --size-seal-inline: 3rem;
+  }
+
+  .benefit .hex-emblem {
+    margin-bottom: var(--space-xs);
+  }
+
+  .benefit .halal-seal--inline {
+    margin-top: var(--space-xs);
+  }
+}
