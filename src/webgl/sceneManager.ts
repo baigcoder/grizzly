@@ -19,6 +19,7 @@ import { GhostText } from './moments/ghostText';
 import { ZamzamPool } from './moments/zamzamPool';
 import { moonPhase, twilight } from './liveSky';
 import { CanCrack } from './moments/canCrack';
+import { CanSplash } from './moments/canSplash';
 import { PackDisplay } from './packDisplay';
 import { CAN } from './canDimensions';
 import { MOTION_RATE, damp } from './motionVocabulary';
@@ -376,8 +377,10 @@ export class SceneManager {
 
     this.buildMasterTimeline();
     this.roarMoment = new RoarMoment(this);
-    this.crack = new CanCrack();
-    this.moments.push(this.roarMoment, this.crack);
+    // (the splash runs after the crack, so the drops leave on the frame the tab cracks)
+    const splash = new CanSplash(this);
+    this.crack = new CanCrack(splash);
+    this.moments.push(this.roarMoment, this.crack, splash);
     this.bindEvents();
     (window as unknown as { __GRIZZLY_SCENE__: SceneManager }).__GRIZZLY_SCENE__ = this;
     this.animate(0);
@@ -595,10 +598,25 @@ export class SceneManager {
     return ((Math.round(this.carousel.position / this.carousel.spacing) % count) + count) % count;
   }
 
-  /** Cracks the centre hero can open (click on it, or the O key). Only while the hero ring is on screen. */
+  /** Cracks the featured can open (click on it, or the O key): the hero ring's centre can, or a whole single can. */
   public crackOpen() {
-    if (this.routeMode !== 'HOME' || this.data.wave < 0.6) return;
-    this.crack.trigger(this.featuredCanIndex());
+    if (this.routeMode !== 'HOME') return;
+    if (this.data.wave > 0.6) this.crack.trigger(this.featuredCanIndex());
+    else if (this.wholeSingleCan()) this.crack.trigger(this.featuredCanIndex(), 'single', Math.round(this.sectionPosition));
+  }
+
+  /**
+   * A single-can scene whose whole can (lid in frame) is on screen: the flavor intro and the tagline. Not the benefit
+   * close-ups (labelDim, their lid is off the top of the frame) nor the line-up row.
+   */
+  private wholeSingleCan() {
+    return this.data.wave < 0.15 && this.data.swirl < 0.1 && this.data.labelDim < 0.5;
+  }
+
+  /** The featured can when the point is on it in a scene where it can be opened, else -1. */
+  private openableCanAt(clientX: number, clientY: number) {
+    if (this.routeMode !== 'HOME' || !(this.data.wave > 0.6 || this.wholeSingleCan())) return -1;
+    return this.centreCanAt(clientX, clientY);
   }
 
   /** The centre hero can's index when the point hits it, else -1. */
@@ -936,6 +954,10 @@ export class SceneManager {
     } else if (this.routeMode === 'HOME') {
       if (this.data.swirl > 0.4) this.handleLineupClick(e.clientX, e.clientY);
       else if (this.data.wave > 0.4) this.handleCanClick(e.clientX, e.clientY);
+      else if (this.wholeSingleCan() && this.centreCanAt(e.clientX, e.clientY) >= 0) {
+        // a tap on the single can opens it, as in the hero
+        this.crack.trigger(this.featuredCanIndex(), 'single', Math.round(this.sectionPosition));
+      }
     }
   };
 
@@ -1220,8 +1242,10 @@ export class SceneManager {
     }
   };
 
+  private hoverPickAt = 0;
   private onMouseMove = (e: MouseEvent) => {
-    this.lastActivityAt = performance.now();
+    const now = performance.now();
+    this.lastActivityAt = now;
     this.pointer.x = e.clientX - window.innerWidth / 2;
     this.pointer.y = e.clientY - window.innerHeight / 2;
     const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -1229,6 +1253,15 @@ export class SceneManager {
     const halfH = Math.tan((this.camera.fov * Math.PI) / 360) * this.camera.position.z;
     this.pointerLightTarget.x = ndcX * halfH * this.camera.aspect;
     this.pointerLightTarget.y = ndcY * halfH;
+    // Hover (a mouse): pointing at a can that opens lifts its tab a little and shows the hand (a ray cast at most
+    // every 80 ms; touch has no hover, a tap opens it)
+    if (now - this.hoverPickAt > 80) {
+      this.hoverPickAt = now;
+      const index = this.isPointerDown ? -1 : this.openableCanAt(e.clientX, e.clientY);
+      this.crack.setHover(index);
+      const cursor = index >= 0 ? 'pointer' : '';
+      if (this.canvas.style.cursor !== cursor) this.canvas.style.cursor = cursor;
+    }
   };
 
   private onVisibilityChange = () => {
