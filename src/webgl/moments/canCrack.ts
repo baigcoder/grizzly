@@ -8,14 +8,15 @@ import type { CanSplash } from './canSplash';
 
 /**
  * Crack it open. Clicking or tapping the featured can (the hero ring's centre can, or the single can of the flavor
- * intro and the tagline; or pressing O) tips its lid toward the camera, lifts the tab with a crack and a hiss, and the
- * drink sprays out of the opening in the flavor's colour while cold beads form on the can (CanSplash); a moment later
- * the tab closes and the can settles back. Pointing at the can (a mouse) lifts the tab a little: it opens.
+ * intro and the tagline; or pressing O) tips its lid toward the camera, lifts the tab with a crack and a hiss, a fine
+ * fizz sparkles out of the opening with a wisp of cold vapour while condensation beads up and runs on the label
+ * (CanSplash); a moment later the tab closes and the can settles back. Pointing at the can (a mouse) lifts the tab a
+ * little: it opens.
  *
  * Trigger: a click/tap on the featured can without a drag, or the O key (SceneManager.crackOpen); hover from
  * SceneManager.setCanHover. Persists: nothing. State/time-driven (3.2 s). WebGL: the featured can's offset pose, its
  * tab and opening, the stage's mist burst and flash, CanSplash. Optional: under reduced motion the tab still lifts and
- * the sound plays, without the tilt, mist or drops. Fallback: nothing essential lives in the effect.
+ * the sound plays, without the tilt, mist, fizz or condensation. Fallback: nothing essential lives in the effect.
  */
 const DURATION = 3.2;
 const CRACK_AT = 0.55;

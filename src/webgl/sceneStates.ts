@@ -59,8 +59,6 @@ const STAGE_CLOSE = { floorY: -9, reflect: 0, mountains: 0, moon: 0, mistFg: 0.1
 const BENEFIT_SCALE = 2.4;
 const SHELL_HEIGHT = CAN.shellHeight;
 const panelCentreU = (LABEL.panels.right[0] + LABEL.panels.right[1]) / 2;
-/** The Zamzam chapter's upright can (world units); its base sits on the water line. */
-const ZAMZAM_CAN = { scale: 1.45, x: 3.3, y: 0.55 };
 const BENEFIT_ROT_Y = (0.5 - panelCentreU) * Math.PI * 2;
 
 /**
@@ -122,17 +120,10 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
   benefit01: benefit(12 * DEG, 0, 1, 0.35),
   benefit02: benefit(9 * DEG, 1, 1.08, 0.1),
   benefit03: benefit(11 * DEG, 2, 1.16, 0.5),
-  // Zamzam: the camera pulls back and the whole can stands upright over still, lit water (see moments/zamzamPool.ts):
-  // the label is lit again and the can's base meets its own reflection on the water line.
-  benefit04: {
-    camera: cam(0, 0.2, 28, 0.02, 0, 0),
-    product: { scale: ZAMZAM_CAN.scale, posX: ZAMZAM_CAN.x, posY: ZAMZAM_CAN.y, posZ: 0, rotX: 4 * DEG, rotY: -0.3, rotZ: 0, spin: 0 },
-    lighting: { ...LIGHT, pointerInfluence: 0.1, labelDim: 0 },
-    stage: { ...STAGE_CLOSE, floorY: ZAMZAM_CAN.y - (SHELL_HEIGHT / 2 + CAN.bottomHeight) * ZAMZAM_CAN.scale, reflect: 0.9, field: 0.5 },
-    spacing: CAROUSEL_CONFIG.spacing,
-    wave: 0,
-    swirl: 0,
-  },
+  // Zamzam: the last benefit is a close-up too, pushed in once more, its own block (Added Zamzam water) lit at the same
+  // spot as the others, over the Zamzam stage (still water and gold, moments/zamzamPool.ts). The whole upright can
+  // over the water left nothing in focus: a small can off to one side with an unlit label.
+  benefit04: benefit(8 * DEG, 3, 1.24, 0.2, { ...STAGE_CLOSE, field: 0.5 }),
 
   // The tagline: an upright can in front of the giant headline.
   argument: {
@@ -183,15 +174,6 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
     wave: 0,
     swirl: 1,
   },
-};
-
-/**
- * Phones replace a few poses. The Zamzam chapter's whole can over the water is a small can on a portrait screen with
- * nothing lit: there it stays the benefit close-up, pushed in once more, its own block (Added Zamzam water) lit at the
- * same spot as the others, over the Zamzam stage.
- */
-export const PHONE_STATES: Partial<Record<keyof typeof SCENE_STATES, SceneStateConfig>> = {
-  benefit04: benefit(8 * DEG, 3, 1.24, 0.2, { ...STAGE_CLOSE, field: 0.5 }),
 };
 
 /**

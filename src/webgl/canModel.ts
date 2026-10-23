@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CAN, LID_Y, TAB_PIVOT, getCanGeometry } from './canGeometry';
 import { SCENE_COLOR } from './palette';
+import { type CanWetUniforms, createWetUniforms, WET_ALBEDO, WET_CLEARCOAT, WET_FIELD, WET_LIGHT, WET_NORMAL, WET_PARS, WET_ROUGHNESS } from './condensation';
 
 /**
  * Grizzly can asset and material pipeline.
@@ -114,8 +115,9 @@ function getBrushTexture(): THREE.Texture {
  * - glowRect: UV rect (u0, v0, u1, v1) of the label block that glows during benefits.
  * - glowStrength: emissive gain of that block (0 = off).
  * - labelDim: extra darkening of the printed label (benefit chapters turn the can dark).
+ * - uWet*: cold condensation after the can is opened (condensation.ts; 0 = dry, the layer is skipped).
  */
-export interface CanSurfaceUniforms {
+export interface CanSurfaceUniforms extends CanWetUniforms {
   uFocus: { value: number };
   uLabelDim: { value: number };
   uGlowRect: { value: THREE.Vector4 };
@@ -143,6 +145,7 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
     uBrushMap: { value: getBrushTexture() },
     uRimColor: { value: new THREE.Color(1, 1, 1) },
     uRimStrength: { value: 0 },
+    ...createWetUniforms(),
   };
   material.userData.surface = uniforms;
   material.customProgramCacheKey = () => 'gz-can-surface';
@@ -166,11 +169,13 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           vec2 lo = smoothstep(r.xy - soft, r.xy + soft, p);
           vec2 hi = 1.0 - smoothstep(r.zw - soft, r.zw + soft, p);
           return lo.x * lo.y * hi.x * hi.y;
-        }`
+        }
+        ${WET_PARS}`
       )
       .replace(
         '#include <map_fragment>',
-        `#include <map_fragment>
+        `${WET_FIELD}
+        #include <map_fragment>
         #ifdef USE_MAP
           vec3 gzInk = diffuseColor.rgb;
           #ifdef USE_METALNESSMAP
@@ -196,7 +201,8 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         #ifdef USE_MAP
           // studio falloff down the body: lit under the lid, a touch darker at the base (packshot light)
           diffuseColor.rgb *= mix(0.8, 1.04, smoothstep(0.03, 0.97, vMapUv.y));
-        #endif`
+        #endif
+        ${WET_ALBEDO}`
       )
       .replace(
         '#include <roughnessmap_fragment>',
@@ -204,7 +210,8 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           float roughnessFactor = roughness * texture2D(roughnessMap, vRoughnessMapUv).g * (0.85 + 0.3 * gzBrush);
         #else
           float roughnessFactor = roughness * mix(0.46, 0.2, gzMetal) * (0.82 + 0.36 * gzBrush);
-        #endif`
+        #endif
+        ${WET_ROUGHNESS}`
       )
       .replace(
         '#include <metalnessmap_fragment>',
@@ -214,9 +221,14 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           float metalnessFactor = metalness * mix(0.72, 1.0, gzMetal);
         #endif`
       )
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        ${WET_NORMAL}`)
+      .replace('#include <clearcoat_normal_fragment_maps>', `#include <clearcoat_normal_fragment_maps>
+        ${WET_CLEARCOAT}`)
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
+        ${WET_LIGHT}
         {
           float rimFacing = 1.0 - saturate(dot(normal, normalize(vViewPosition)));
           totalEmissiveRadiance += uRimColor * uRimStrength * pow(rimFacing, 4.0);

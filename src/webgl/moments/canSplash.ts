@@ -1,155 +1,306 @@
 import * as THREE from 'three';
 import type { SceneManager } from '../sceneManager';
 import type { SceneMoment } from './types';
-import { CAN } from '../canDimensions';
+import { LID_Y } from '../canGeometry';
+import { getCanSurface, type CanSurfaceUniforms } from '../canModel';
+import { WET_LIFE } from '../condensation';
 
 /**
- * The drink itself, when a can is cracked open (CanCrack calls `play`): a spray of glossy drops in the flavor's colour
- * bursts out of the opening and arcs down under gravity, each drop stretched along its flight, and cold condensation
- * beads up across the side of the can facing the viewer, a few of them running down the label, before all of it fades
- * (about 5 s).
+ * The drink breathing out when a can is cracked open (CanCrack calls `play`), shot like a drink commercial: a short
+ * spritz of fine carbonation sparkles out of the opening and falls back, a thin cold vapour wisp curls up out of it
+ * and dissolves, and cold condensation forms on the label, beads and runs, then dries off (condensation.ts, part of
+ * the can's own surface shader). The flavor colour (the accent passed to play) is carried by light only: the fizz,
+ * the vapour's heart and the caustics focused through the beads; the can keeps its own dark colours throughout.
  *
- * Trigger: CanCrack, at the moment the tab cracks. Persists: nothing. Time-driven. WebGL: two instanced meshes (one
- * draw call each, only while playing): the spray in world space, the beads parented to the can so they ride its tilt.
- * Optional: skipped under reduced motion. Fallback: nothing essential lives in it.
+ * Trigger: CanCrack, at the moment the tab cracks. Persists: nothing. Time-driven (WET_LIFE, ~5.8 s; the fizz and the
+ * vapour are gone after ~2.4 s). WebGL: the fizz is one Points draw (the whole flight is computed in its vertex
+ * shader from per-sparkle seeds: no per-frame buffer upload), the vapour one quad with a noise shader, both parented
+ * to the can so they leave with it and drawn only while they play; the condensation adds no draw call (uniforms on
+ * the opened can's surface material). Optional: skipped under reduced motion. Fallback: nothing essential lives in it.
  */
-const SPRAY_LIFE = 1.25;
-const BEAD_LIFE = 5.2;
-const GRAVITY = -13;
+const FIZZ_LIFE = 1.7;
+const VAPOUR_LIFE = 2.6;
 
-const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
+/** The opening in can-local units (CanModel: the Opening mesh sits at LID_Y + 0.004, z -0.2). */
+const MOUTH = new THREE.Vector3(0, LID_Y + 0.02, -0.2);
+
 /**
- * A water drop, drawn the way liquid reads rather than as a lit ball: a see-through tinted body that thickens toward
- * the rim (fresnel), one sharp highlight from the key light, and the caustic glow light gathers into on the far, lower
- * side after passing through the drop. Instanced (three.js supplies instanceMatrix), view-space shading, no textures.
+ * Carbonation: fine bright droplets and bubbles that jump out of the opening, slow in the air and drop back. Each is
+ * soft round sprite: a white-hot pinpoint in a glow of the flavor colour (the fuller drops keep a faint meniscus
+ * edge), with a faint twinkle.
+ * Additive, so it only ever adds light. Flight from seeds: aSeed = (launch delay, life, speed, size), aDir = launch
+ * direction in a frame where y is up and z is toward the viewer.
  */
-function createDropMaterial(opacity: number, shine: number) {
+function createFizzMaterial() {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    uniforms: { uTint: { value: new THREE.Color() }, uOpacity: { value: opacity }, uShine: { value: shine } },
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uMouth: { value: MOUTH.clone() },
+      uUp: { value: new THREE.Vector3(0, 1, 0) },
+      uToward: { value: new THREE.Vector3(0, 0, 1) },
+      uSide: { value: new THREE.Vector3(1, 0, 0) },
+      uScale: { value: 1 },
+      uTint: { value: new THREE.Color() },
+    },
     vertexShader: /* glsl */ `
-      varying vec3 vNormal;
-      varying vec3 vViewDir;
+      attribute vec4 aSeed;
+      attribute vec3 aDir;
+      uniform float uTime;
+      uniform vec3 uMouth;
+      uniform vec3 uUp;
+      uniform vec3 uToward;
+      uniform vec3 uSide;
+      uniform float uScale;
+      varying float vAlpha;
+      varying float vTwinkle;
+      varying float vSize;
       void main() {
-        mat4 model = modelViewMatrix * instanceMatrix;
-        vec4 viewPosition = model * vec4(position, 1.0);
-        vNormal = normalize(mat3(model) * normal);
-        vViewDir = normalize(-viewPosition.xyz);
-        gl_Position = projectionMatrix * viewPosition;
+        float age = uTime - aSeed.x;
+        float life = aSeed.y;
+        if (age < 0.0 || age > life) {
+          gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+          gl_PointSize = 0.0;
+          vAlpha = 0.0;
+          vTwinkle = 0.0;
+          vSize = 0.0;
+          return;
+        }
+        vec3 dir = uSide * aDir.x + uUp * aDir.y + uToward * aDir.z;
+        // air drag on a tiny drop: it slows quickly, then gravity takes it back down
+        float drag = 3.2;
+        float travel = (1.0 - exp(-drag * age)) / drag;
+        vec3 p = uMouth + dir * aSeed.z * travel - uUp * 2.4 * age * age;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float k = age / life;
+        gl_PointSize = clamp(aSeed.w * uScale / -mv.z, 2.0, 14.0);
+        vSize = gl_PointSize;
+        // pops in, glitters, and evaporates
+        vAlpha = smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.55, 1.0, k));
+        vTwinkle = 0.65 + 0.35 * sin(age * 38.0 + aSeed.x * 91.0 + aSeed.w * 17.0);
       }
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uTint;
-      uniform float uOpacity;
-      uniform float uShine;
-      varying vec3 vNormal;
-      varying vec3 vViewDir;
+      varying float vAlpha;
+      varying float vTwinkle;
+      varying float vSize;
       void main() {
-        vec3 n = normalize(vNormal);
-        vec3 v = normalize(vViewDir);
-        float facing = clamp(dot(n, v), 0.0, 1.0);
-        float rim = pow(1.0 - facing, 2.0);
-        // the studio key light, upper left and in front
-        vec3 light = normalize(vec3(-0.45, 0.72, 0.55));
-        float highlight = pow(max(dot(n, normalize(light + v)), 0.0), 160.0) * uShine;
-        // light focused through the drop lands low on the side opposite the highlight
-        float caustic = smoothstep(0.55, 1.0, dot(n, normalize(vec3(0.38, -0.78, 0.5))));
-        // clear liquid: the centre is almost see-through, the colour lives in the rim and the caustic
-        vec3 color = uTint * (0.2 + 0.8 * rim) + uTint * caustic * 0.9 + vec3(1.0) * highlight;
-        float alpha = clamp(uOpacity * (0.06 + 0.94 * rim) + highlight * 0.9 + caustic * 0.22, 0.0, 1.0);
-        gl_FragColor = vec4(color, alpha);
+        vec2 c = gl_PointCoord * 2.0 - 1.0;
+        float r2 = dot(c, c);
+        if (r2 > 1.0) discard;
+        // a glitter of light, not a ball: a white-hot pinpoint inside a soft glow in the drink's colour
+        float core = exp(-r2 * 22.0);
+        float glow = exp(-r2 * 4.0) * (1.0 - r2);
+        // the fuller drops (many pixels wide) keep a faint meniscus edge
+        float ring = smoothstep(9.0, 14.0, vSize) * smoothstep(0.5, 0.85, r2) * (1.0 - smoothstep(0.85, 1.0, r2));
+        vec3 color = uTint * (glow * 0.7 + ring * 0.25) + mix(uTint, vec3(1.0), 0.55) * core * 1.6 * vTwinkle;
+        gl_FragColor = vec4(color * vAlpha, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+}
+
+/**
+ * The cold breath: a thin translucent wisp curling up out of the opening and dissolving. A camera-facing quad (built
+ * in the vertex shader, anchored at the mouth, its "up" the world's up) with a few octaves of warped value noise,
+ * premultiplied so it only lifts the dark behind it a little; its dense heart glows faintly in the flavor colour.
+ */
+function createVapourMaterial(octaves: number) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    premultipliedAlpha: true,
+    blending: THREE.NormalBlending,
+    defines: { OCTAVES: octaves },
+    uniforms: {
+      uTime: { value: 0 },
+      uMouth: { value: MOUTH.clone() },
+      uSize: { value: new THREE.Vector2(1.1, 1.9) },
+      uTint: { value: new THREE.Color() },
+      uSeed: { value: 0 },
+      uOpacity: { value: 0.2 },
+    },
+    vertexShader: /* glsl */ `
+      uniform vec3 uMouth;
+      uniform vec2 uSize;
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        vec4 centre = modelViewMatrix * vec4(uMouth, 1.0);
+        vec3 up = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+        vec3 right = normalize(cross(up, vec3(0.0, 0.0, 1.0)));
+        // the quad's bottom edge sits just inside the mouth; scale comes with the can
+        float scale = length(modelMatrix[0].xyz);
+        vec3 p = centre.xyz + (right * (uv.x - 0.5) * uSize.x + up * (uv.y - 0.06) * uSize.y) * scale;
+        gl_Position = projectionMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uTint;
+      uniform float uSeed;
+      uniform float uOpacity;
+      varying vec2 vUv;
+      float hash(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float sum = 0.0;
+        float amp = 0.5;
+        for (int i = 0; i < OCTAVES; i++) {
+          sum += amp * noise(p);
+          p = p * 2.03 + vec2(1.7, -0.9);
+          amp *= 0.5;
+        }
+        return sum;
+      }
+      void main() {
+        float t = uTime;
+        float y = vUv.y;
+        float x = vUv.x - 0.5;
+        // the wisp leans and curls as it climbs: a slow sway that grows with height
+        float sway = (0.06 * sin(y * 5.0 - t * 2.3 + uSeed) + 0.04 * sin(y * 9.0 + t * 1.3)) * y;
+        vec2 p = vec2((x - sway) * 3.2, y * 2.6 - t * 1.25) + uSeed;
+        float warp = fbm(p * 1.1 + vec2(0.0, -t * 0.4));
+        float d = fbm(p * 1.5 + vec2(warp * 1.6, warp * 0.8));
+        // narrow at the mouth, spreading as it rises
+        float width = mix(0.1, 0.34, smoothstep(0.0, 1.0, y));
+        float column = exp(-pow((x - sway) / width, 2.0) * 1.6);
+        // one breath: the head rises, the tail lets go of the mouth, everything thins out
+        float head = 0.25 + t * 0.95;
+        float tail = max(0.0, t - 0.45) * 0.75;
+        float body = smoothstep(head, head - 0.35, y) * smoothstep(tail - 0.02, tail + 0.25, y);
+        float life = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.9, 2.2, t));
+        float density = smoothstep(0.42, 0.85, d) * column * body * life * smoothstep(0.0, 0.08, y) * (1.0 - smoothstep(0.75, 1.0, y));
+        float a = clamp(density * uOpacity, 0.0, 1.0);
+        // cold, cool-white vapour; its dense heart near the mouth glows in the flavor colour (added light only, so the
+        // colour stays luminous instead of muddying the breath)
+        float heart = column * smoothstep(0.45, 0.85, d) * (1.0 - smoothstep(0.1, 0.6, y)) * body * life;
+        vec3 color = vec3(0.8, 0.85, 0.92);
+        gl_FragColor = vec4(color * a + uTint * heart * 0.5, a);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }
     `,
   });
 }
 
 export class CanSplash implements SceneMoment {
-  private readonly sprayCount: number;
-  private readonly beadCount: number;
-  private readonly spray: THREE.InstancedMesh;
-  private readonly beads: THREE.InstancedMesh;
-  private readonly sprayMaterial: THREE.ShaderMaterial;
-  private readonly beadMaterial: THREE.ShaderMaterial;
-
-  // spray state (world units): position, velocity, launch delay, size
-  private readonly pos: Float32Array;
-  private readonly vel: Float32Array;
-  private readonly delay: Float32Array;
-  private readonly size: Float32Array;
-  // bead state (can-local units): angle round the can, height, size, appear delay, run start and speed
-  private readonly angle: Float32Array;
-  private readonly height: Float32Array;
-  private readonly beadSize: Float32Array;
-  private readonly appear: Float32Array;
-  private readonly runAt: Float32Array;
-  private readonly runSpeed: Float32Array;
+  private readonly fizz: THREE.Points;
+  private readonly fizzMaterial: THREE.ShaderMaterial;
+  private readonly vapour: THREE.Mesh;
+  private readonly vapourMaterial: THREE.ShaderMaterial;
 
   private start = -1;
-  private last = 0;
+  private warming = 0;
   private pending: { can: THREE.Group; color: THREE.Color } | null = null;
   private can: THREE.Group | null = null;
-  private readonly origin = new THREE.Vector3();
-  private readonly lift = new THREE.Vector3();
-  private readonly toward = new THREE.Vector3();
+  private surface: CanSurfaceUniforms | null = null;
+  private readonly inverse = new THREE.Matrix4();
   private readonly local = new THREE.Vector3();
-  private readonly matrix = new THREE.Matrix4();
-  private readonly quaternion = new THREE.Quaternion();
-  private readonly scale = new THREE.Vector3();
-  private readonly position = new THREE.Vector3();
-  private readonly direction = new THREE.Vector3();
-  private readonly up = new THREE.Vector3(0, 1, 0);
-  private readonly outward = new THREE.Vector3(0, 0, 1);
-  private readonly hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+  private readonly buffer = new THREE.Vector2();
 
   constructor(scene: SceneManager) {
-    this.sprayCount = scene.isLowPower ? 48 : 90;
-    this.beadCount = scene.isLowPower ? 22 : 38;
+    const count = scene.isLowPower ? 110 : 220;
+    const seeds = new Float32Array(count * 4);
+    const dirs = new Float32Array(count * 3);
+    for (let i = 0; i < count; i += 1) {
+      // a pop: most of it in the first 0.2 s, a fizzing tail over the next second
+      const delay = Math.random() < 0.65 ? rand(0, 0.2) : rand(0.2, 1.0);
+      const high = Math.random() < 0.3;
+      // fine glitter, a few fuller droplets (world units: a can is 4.5 tall)
+      const size = Math.random() < 0.1 ? rand(0.03, 0.042) : rand(0.01, 0.022);
+      seeds.set([delay, rand(0.35, 0.7), high ? rand(3.0, 4.6) : rand(1.4, 2.8), size], i * 4);
+      // up out of the mouth in a cone, spreading a little sideways and toward the viewer
+      const spread = high ? 0.25 : 0.55;
+      const x = rand(-spread, spread);
+      const z = rand(-0.1, spread * 0.8);
+      const length = Math.hypot(x, 1, z);
+      dirs.set([x / length, 1 / length, z / length], i * 3);
+    }
+    const geometry = new THREE.BufferGeometry();
+    // positions are computed in the shader; the attribute only sets the vertex count
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+    geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 4));
+    geometry.setAttribute('aDir', new THREE.BufferAttribute(dirs, 3));
+    this.fizzMaterial = createFizzMaterial();
+    this.fizz = new THREE.Points(geometry, this.fizzMaterial);
+    this.fizz.frustumCulled = false;
+    this.fizz.visible = false;
+    this.fizz.renderOrder = 2;
 
-    // the drink: water-drop shading in the flavor colour
-    this.sprayMaterial = createDropMaterial(0.8, 1.4);
-    this.spray = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), this.sprayMaterial, this.sprayCount);
-    this.spray.frustumCulled = false;
-    this.spray.visible = false;
-    scene.scene.add(this.spray);
+    this.vapourMaterial = createVapourMaterial(scene.isLowPower ? 3 : 4);
+    this.vapour = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.vapourMaterial);
+    this.vapour.frustumCulled = false;
+    this.vapour.visible = false;
+    this.vapour.renderOrder = 1;
 
-    // condensation: clear water beads with a breath of the flavor colour, mostly rim and highlight
-    this.beadMaterial = createDropMaterial(0.32, 0.9);
-    this.beads = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), this.beadMaterial, this.beadCount);
-    this.beads.frustumCulled = false;
-    this.beads.visible = false;
-
-    this.pos = new Float32Array(this.sprayCount * 3);
-    this.vel = new Float32Array(this.sprayCount * 3);
-    this.delay = new Float32Array(this.sprayCount);
-    this.size = new Float32Array(this.sprayCount);
-    this.angle = new Float32Array(this.beadCount);
-    this.height = new Float32Array(this.beadCount);
-    this.beadSize = new Float32Array(this.beadCount);
-    this.appear = new Float32Array(this.beadCount);
-    this.runAt = new Float32Array(this.beadCount);
-    this.runSpeed = new Float32Array(this.beadCount);
+    // warm-up: drawn for one frame while empty (uTime -1: every sparkle unborn, no breath yet), so their programs are
+    // compiled before the first crack instead of stalling it
+    this.fizzMaterial.uniforms.uTime.value = -1;
+    this.vapourMaterial.uniforms.uTime.value = -1;
+    this.fizz.visible = true;
+    this.vapour.visible = true;
+    scene.scene.add(this.fizz, this.vapour);
+    this.warming = 2; // (moments update before the render: the second update removes them after one drawn frame)
   }
 
-  /** Starts the spray and the beads on this can, in the flavor colour (the next frame picks it up). */
+  /** Starts the fizz, the vapour and the condensation on this can, tinted by the flavor (the next frame picks it up). */
   play(can: THREE.Group, color: THREE.Color) {
     this.pending = { can, color };
   }
 
   update(seconds: number, scene: SceneManager) {
+    if (this.warming > 0) {
+      this.warming -= 1;
+      if (this.warming === 0 && this.start < 0 && !this.pending) this.stop();
+    }
     if (this.pending) this.begin(seconds, scene);
-    if (this.start < 0 || !this.can) return;
+    if (this.start < 0 || !this.can || !this.surface) return;
     const t = seconds - this.start;
-    const dt = Math.min(0.05, Math.max(0, seconds - this.last)); // (a stalled frame never throws a drop across the screen)
-    this.last = seconds;
-    if (t > BEAD_LIFE) {
+    if (t > WET_LIFE || !this.can.visible) {
       this.stop();
       return;
     }
-    this.stepSpray(t, dt);
-    this.stepBeads(t);
+    this.surface.uWetTime.value = t;
+
+    const flying = t < FIZZ_LIFE;
+    const breathing = t < VAPOUR_LIFE;
+    this.fizz.visible = flying;
+    this.vapour.visible = breathing;
+    if (!flying && !breathing) return;
+    this.fizzMaterial.uniforms.uTime.value = t;
+    this.vapourMaterial.uniforms.uTime.value = t;
+    if (!flying) return;
+
+    // the fizz flies in the world, not in the tilted can: world up and the viewer's direction in the can's frame
+    const can = this.can;
+    can.updateMatrixWorld();
+    this.inverse.copy(can.matrixWorld).invert();
+    const u = this.fizzMaterial.uniforms;
+    const up = (u.uUp.value as THREE.Vector3).set(0, 1, 0).transformDirection(this.inverse);
+    this.local.copy(scene.camera.position).applyMatrix4(this.inverse).sub(MOUTH);
+    const toward = (u.uToward.value as THREE.Vector3).copy(this.local).addScaledVector(up, -this.local.dot(up)).normalize();
+    (u.uSide.value as THREE.Vector3).crossVectors(up, toward).normalize();
+    // pixels per world unit at distance 1, so the sprites keep their size in the world (and on any screen)
+    scene.renderer.getDrawingBufferSize(this.buffer);
+    u.uScale.value = (this.buffer.y / (2 * Math.tan(THREE.MathUtils.degToRad(scene.camera.fov) / 2))) * can.scale.x;
   }
 
   private begin(seconds: number, scene: SceneManager) {
@@ -157,140 +308,40 @@ export class CanSplash implements SceneMoment {
     this.pending = null;
     if (scene.reducedMotion) return;
     this.stop();
+    const surface = getCanSurface(can);
+    if (!surface) return;
     this.can = can;
+    this.surface = surface;
     this.start = seconds;
-    this.last = seconds;
-    const canScale = can.scale.x;
 
-    // the drink is the flavor colour seen through clear liquid: lighter and less saturated than the label
-    this.sprayMaterial.uniforms.uTint.value.set(0xdfe9f2).lerp(color, 0.55);
-    this.beadMaterial.uniforms.uTint.value.set(0x9fb1c1).lerp(color, 0.15);
+    // the flavor lives in the light, never on the can: the fizz, the vapour's heart, the caustics through the beads
+    this.fizzMaterial.uniforms.uTint.value.copy(color);
+    this.vapourMaterial.uniforms.uTint.value.copy(color);
+    this.vapourMaterial.uniforms.uSeed.value = Math.random() * 10;
+    surface.uWetTint.value.copy(color);
+    surface.uWetSeed.value = Math.floor(Math.random() * 97);
+    surface.uWetTime.value = 0;
+    surface.uWet.value = 1;
 
-    // the opening, in world space, and the can's "up" and "toward the viewer" there
-    can.updateMatrixWorld(true);
-    this.origin.set(0, CAN.shellHeight / 2 + CAN.topHeight * 0.6, -0.2).applyMatrix4(can.matrixWorld);
-    this.lift.set(0, 1, 0).transformDirection(can.matrixWorld);
-    this.toward.copy(scene.camera.position).sub(this.origin).normalize();
-
-    for (let i = 0; i < this.sprayCount; i += 1) {
-      // a fizzing burst: most drops in the first 0.15 s, a tail over the next 0.4 s
-      this.delay[i] = Math.random() < 0.7 ? rand(0, 0.15) : rand(0.15, 0.55);
-      // mostly fine droplets, a few full drops
-      this.size[i] = (Math.random() < 0.1 ? rand(0.032, 0.048) : rand(0.008, 0.024)) * canScale;
-      const speed = rand(2.6, 5.6) * Math.sqrt(canScale);
-      // a fizz: up out of the opening, leaning a little toward the viewer, in a tight cone
-      this.direction
-        .copy(this.lift)
-        .addScaledVector(this.toward, rand(0.05, 0.35))
-        .add(this.local.set(rand(-0.3, 0.3), rand(0, 0.2), rand(-0.22, 0.22)))
-        .normalize()
-        .multiplyScalar(speed);
-      this.vel.set([this.direction.x, this.direction.y, this.direction.z], i * 3);
-      this.pos.set([this.origin.x, this.origin.y, this.origin.z], i * 3);
-    }
-    this.spray.visible = true;
-
-    // beads on the side facing the viewer: the camera's bearing in the can's own frame
-    this.local.copy(scene.camera.position);
-    can.worldToLocal(this.local);
-    const facing = Math.atan2(this.local.x, this.local.z);
-    const top = CAN.shellHeight / 2 - 0.22;
-    for (let i = 0; i < this.beadCount; i += 1) {
-      this.angle[i] = facing + rand(-1.15, 1.15);
-      this.height[i] = rand(-top, top);
-      this.beadSize[i] = rand(0.014, 0.034) * (Math.random() < 0.15 ? 1.4 : 1);
-      this.appear[i] = rand(0.1, 1.0);
-      // about a third grow heavy and run down the label
-      const runs = Math.random() < 0.34;
-      this.runAt[i] = runs ? rand(0.9, 2.8) : Infinity;
-      this.runSpeed[i] = runs ? rand(0.35, 0.95) : 0;
-    }
-    can.add(this.beads);
-    this.beads.visible = true;
-  }
-
-  private stepSpray(t: number, dt: number) {
-    if (!this.spray.visible) return;
-    let alive = 0;
-    for (let i = 0; i < this.sprayCount; i += 1) {
-      const age = t - this.delay[i];
-      if (age < 0 || age > SPRAY_LIFE) {
-        this.spray.setMatrixAt(i, this.hidden);
-        continue;
-      }
-      alive += 1;
-      const k = i * 3;
-      this.vel[k + 1] += GRAVITY * dt;
-      // a little air drag keeps the arcs soft
-      this.vel[k] *= 1 - 0.6 * dt;
-      this.vel[k + 2] *= 1 - 0.6 * dt;
-      this.pos[k] += this.vel[k] * dt;
-      this.pos[k + 1] += this.vel[k + 1] * dt;
-      this.pos[k + 2] += this.vel[k + 2] * dt;
-      this.position.set(this.pos[k], this.pos[k + 1], this.pos[k + 2]);
-      this.direction.set(this.vel[k], this.vel[k + 1], this.vel[k + 2]);
-      const speed = this.direction.length();
-      this.quaternion.setFromUnitVectors(this.up, this.direction.multiplyScalar(1 / Math.max(speed, 1e-4)));
-      // born as a bead, stretched along its flight, shrinking away at the end of its life
-      const grow = 0.3 + 0.7 * easeOut(Math.min(1, age / 0.1));
-      const fade = 1 - THREE.MathUtils.smoothstep(age, SPRAY_LIFE * 0.55, SPRAY_LIFE);
-      const s = this.size[i] * grow * fade;
-      this.scale.set(s, s * (1 + Math.min(1.1, speed * 0.1)), s);
-      this.matrix.compose(this.position, this.quaternion, this.scale);
-      this.spray.setMatrixAt(i, this.matrix);
-    }
-    this.spray.instanceMatrix.needsUpdate = true;
-    if (alive === 0 && t > 0.6) this.spray.visible = false;
-  }
-
-  private stepBeads(t: number) {
-    const radius = CAN.radius;
-    const bottom = -CAN.shellHeight / 2 + 0.15;
-    const fadeOut = 1 - THREE.MathUtils.smoothstep(t, BEAD_LIFE - 1.4, BEAD_LIFE);
-    for (let i = 0; i < this.beadCount; i += 1) {
-      const appear = easeOut(THREE.MathUtils.clamp((t - this.appear[i]) / 0.45, 0, 1));
-      let y = this.height[i];
-      let size = this.beadSize[i];
-      if (t > this.runAt[i]) {
-        // a running bead picks up speed and pace, swelling as it gathers the ones below it
-        const run = t - this.runAt[i];
-        y -= this.runSpeed[i] * run * (0.5 + run * 0.6);
-        size *= 1 + Math.min(0.5, run * 0.25);
-      }
-      const gone = y < bottom ? 0 : 1;
-      const s = size * appear * fadeOut * gone;
-      if (s <= 1e-4) {
-        this.beads.setMatrixAt(i, this.hidden);
-        continue;
-      }
-      const a = this.angle[i];
-      // half sunk into the shell, flattened against it (a water bead, not a ball)
-      this.position.set(Math.sin(a) * (radius + s * 0.25), y, Math.cos(a) * (radius + s * 0.25));
-      this.direction.set(Math.sin(a), 0, Math.cos(a));
-      this.quaternion.setFromUnitVectors(this.outward, this.direction);
-      // a runner stretches into a teardrop along its path
-      const stretch = t > this.runAt[i] ? 1.45 : 1;
-      this.scale.set(s, s * stretch, s * 0.5);
-      this.matrix.compose(this.position, this.quaternion, this.scale);
-      this.beads.setMatrixAt(i, this.matrix);
-    }
-    this.beads.instanceMatrix.needsUpdate = true;
+    can.add(this.fizz, this.vapour);
   }
 
   private stop() {
     this.start = -1;
-    this.spray.visible = false;
-    this.beads.visible = false;
-    this.beads.removeFromParent();
+    if (this.surface) this.surface.uWet.value = 0;
+    this.surface = null;
+    this.fizz.visible = false;
+    this.vapour.visible = false;
+    this.fizz.removeFromParent();
+    this.vapour.removeFromParent();
     this.can = null;
   }
 
   dispose() {
     this.stop();
-    this.spray.removeFromParent();
-    this.spray.geometry.dispose();
-    this.beads.geometry.dispose();
-    this.sprayMaterial.dispose();
-    this.beadMaterial.dispose();
+    this.fizz.geometry.dispose();
+    this.vapour.geometry.dispose();
+    this.fizzMaterial.dispose();
+    this.vapourMaterial.dispose();
   }
 }

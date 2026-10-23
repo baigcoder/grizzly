@@ -3,7 +3,6 @@ import {
   formatPrice,
   getProductBySlug,
   getProductThumbUrl,
-  getRelatedProducts,
   PRODUCTS,
   PLACEHOLDER_PRICING,
   type PackOption,
@@ -197,7 +196,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
   }
 
   const pack = product.packOptions.find((option) => option.id === packId) ?? product.packOptions[0];
-  const related = getRelatedProducts(product.slug);
   const lineTotal = pack.price * quantity;
 
   const handleAdd = () => {
@@ -469,28 +467,21 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
         </section>
       )}
 
-      <section className="pdp-section pdp-section--related" aria-labelledby="related-title">
-        <h2 id="related-title" className="pdp-section__title display">Try another flavor</h2>
-        <ul className="related">
-          {related.map((item) => (
-            <li key={item.slug} data-accent={item.accentToken}>
-              <a
-                className="related__card"
-                href={`/products/${item.slug}`}
-                onPointerMove={tiltCard}
-                onPointerLeave={resetCard}
-                onClick={(event) => {
-                  event.preventDefault();
-                  onNavigate(`/products/${item.slug}`);
-                }}
-              >
-                <img src={getProductThumbUrl(item)} alt="" loading="lazy" width="120" height="213" />
-                <span className="related__name">{item.name}</span>
-                <span className="related__price">From {formatPrice(item.packOptions[0].price)}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
+      {/* The page ends on a different next step, not a second flavor list: the flavor is chosen once, with the swatches
+          beside the buy button (hover previews the can), and the last section offers the mixed pack instead. */}
+      <section className="pdp-section pdp-mix" aria-labelledby="mix-title">
+        <h2 id="mix-title" className="pdp-section__title display">Can&apos;t pick one?</h2>
+        <p className="pdp-mix__text">Mix any of the six flavors in a 6, 12 or 24 pack.</p>
+        <a
+          className="button-primary"
+          href="/mix"
+          onClick={(event) => {
+            event.preventDefault();
+            onNavigate('/mix');
+          }}
+        >
+          <ButtonLabel>Mix your pack</ButtonLabel>
+        </a>
       </section>
 
       <div className={`pdp-buybar ${showBuyBar ? 'is-visible' : ''}`} aria-hidden={!showBuyBar}>
@@ -534,28 +525,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
     </article>
   );
 };
-
-/**
- * Related cards lean toward the pointer (a few degrees) with a sheen that follows it: CSS variables only, set on the
- * card itself, so nothing re-renders. Mouse and pen only; touch and reduced motion keep the flat card (see shop.css).
- */
-function tiltCard(event: React.PointerEvent<HTMLAnchorElement>) {
-  if (event.pointerType === 'touch') return;
-  const card = event.currentTarget;
-  const rect = card.getBoundingClientRect();
-  const x = (event.clientX - rect.left) / rect.width;
-  const y = (event.clientY - rect.top) / rect.height;
-  card.style.setProperty('--tilt-x', `${((0.5 - y) * 8).toFixed(2)}deg`);
-  card.style.setProperty('--tilt-y', `${((x - 0.5) * 10).toFixed(2)}deg`);
-  card.style.setProperty('--sheen-x', `${(x * 100).toFixed(1)}%`);
-  card.style.setProperty('--sheen-y', `${(y * 100).toFixed(1)}%`);
-}
-
-function resetCard(event: React.PointerEvent<HTMLAnchorElement>) {
-  const card = event.currentTarget;
-  card.style.removeProperty('--tilt-x');
-  card.style.removeProperty('--tilt-y');
-}
 
 /**
  * Left half of the product hero: the can is the control. Drag (mouse) or swipe (touch) turns it a full 360°, and a

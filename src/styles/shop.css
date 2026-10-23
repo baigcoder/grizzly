@@ -473,55 +473,23 @@
   padding-bottom: var(--space-3xl);
 }
 
-/* Related flavors close the page across its full width: the pinned can has lifted away by then, and the cards sat
-   small in the right column over a large empty left half. */
-.pdp-section--related {
+/* The page's last step: one mixed-pack offer across the full width (the flavor is chosen once, with the swatches) */
+.pdp-mix {
   margin-left: var(--layout-text-inset);
   margin-right: var(--layout-gutter);
   max-width: none;
-}
-
-.pdp-section--related .related {
+  display: grid;
+  justify-items: start;
   gap: var(--space-md);
 }
 
-.pdp-section--related .related__card {
-  position: relative;
-  overflow: hidden;
-  padding: var(--space-xl) var(--space-md);
-  transform: perspective(60rem) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
-  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+.pdp-mix .pdp-section__title {
+  margin-bottom: 0;
 }
 
-/* the sheen follows the pointer across the card */
-.pdp-section--related .related__card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at var(--sheen-x, 50%) var(--sheen-y, 0%), var(--color-white-a08), transparent 55%);
-  opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
-  pointer-events: none;
-}
-
-.pdp-section--related .related__card:hover::after {
-  opacity: 1;
-}
-
-@media (hover: none), (prefers-reduced-motion: reduce) {
-  .pdp-section--related .related__card { transform: none; }
-}
-
-.pdp-section--related .related__card img {
-  width: calc(var(--size-related-thumb) * 1.6);
-}
-
-.pdp-section--related .related__name {
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-2xl);
-  font-style: italic;
-  font-weight: var(--font-weight-display);
-  text-transform: uppercase;
+.pdp-mix__text {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
 }
 
 /* Tasting notes */
@@ -583,55 +551,6 @@
 .nutrition td {
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-/* Related flavors */
-.related {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-sm);
-}
-
-.related__card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3xs);
-  padding: var(--space-md) var(--space-xs);
-  border: var(--border-hairline) solid var(--color-line-subtle);
-  border-radius: var(--radius-md);
-  background: radial-gradient(circle at 50% 30%, color-mix(in oklab, var(--color-accent) 30%, transparent), transparent 70%);
-  text-align: center;
-  transition: border-color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
-}
-
-.related__card img {
-  width: var(--size-related-thumb);
-  height: auto;
-  margin-bottom: var(--space-xs);
-  transition: transform var(--motion-fast) var(--ease-out);
-}
-
-.related__card:hover {
-  border-color: var(--color-accent);
-}
-
-.related__card:hover img {
-  transform: translateY(calc(-1 * var(--space-2xs))) rotate(var(--tilt-hover));
-}
-
-.related__card:active {
-  transform: scale(var(--scale-pressed));
-}
-
-.related__name {
-  font-weight: var(--font-weight-medium);
-}
-
-.related__price {
-  font-size: var(--font-size-md);
-  color: var(--color-text-muted);
 }
 
 .pdp-missing {

@@ -11,7 +11,7 @@ import { PostFx } from './post';
 import { FloorReflections } from './reflections';
 import { Scene3DData } from '../types';
 import { CAROUSEL_CONFIG } from './sceneManagerConfig';
-import { PHONE_STATES, SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
+import { SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
 import type { SceneMoment } from './moments/types';
 import { FlavorLetters } from './moments/flavorLetters';
 import { RoarMoment } from './moments/roar';
@@ -308,8 +308,6 @@ export class SceneManager {
   private timelineStates: Record<string, number>[] = [];
   private timelineKeys: string[] = [];
   private timelineSeekedAt = -1;
-  /** The timeline was built with the phone poses (PHONE_STATES); rebuilt when the width crosses 768 px. */
-  private phoneTimeline = false;
   private targetTimelineProgress = 0;
   private currentTimelineProgress = 0;
   /** Section position 0..9 (continuous), for the stage's slow drift. */
@@ -820,17 +818,11 @@ export class SceneManager {
       ...state.stage,
     });
 
-    this.phoneTimeline = this.viewWidth < 768;
-    this.timelineStates = SCENE_SEQUENCE.map(({ state }) => stateToData(this.stateFor(state)) as Record<string, number>);
+    this.timelineStates = SCENE_SEQUENCE.map(({ state }) => stateToData(SCENE_STATES[state]) as Record<string, number>);
     this.timelineKeys = Object.keys(this.timelineStates[0]);
     this.timelineData = { ...this.data, ...stateToData(SCENE_STATES[SCENE_SEQUENCE[0].state]) };
     Object.assign(this.data, this.timelineData);
     this.seekTimeline(0);
-  }
-
-  /** A waypoint's pose: the phone variant where there is one and the screen is a phone's. */
-  private stateFor(name: string) {
-    return (this.phoneTimeline && PHONE_STATES[name]) || SCENE_STATES[name];
   }
 
   /**
@@ -1234,12 +1226,6 @@ export class SceneManager {
     this.renderer.setSize(width, height);
     this.post?.setSize(width, height);
     this.stage.resize(width, height);
-    if ((width < 768) !== this.phoneTimeline) {
-      // a rotation or resize across the phone width swaps the phone poses in or out, at the current scroll position
-      this.buildMasterTimeline();
-      this.timelineSeekedAt = -1;
-      this.seekTimeline(this.currentTimelineProgress);
-    }
   };
 
   private hoverPickAt = 0;
@@ -1650,8 +1636,7 @@ export class SceneManager {
   private updateCinema(now: number) {
     const speed = Math.abs(this.scrollVelocity);
     const nearest = Math.round(this.sectionPosition);
-    const name = SCENE_SEQUENCE[nearest]?.state;
-    const state = name ? this.stateFor(name) : undefined;
+    const state = SCENE_STATES[SCENE_SEQUENCE[nearest]?.state];
     const settled = Math.abs(this.sectionPosition - nearest) < 0.04 && speed < 0.2;
     if (settled && nearest !== this.settledSection) {
       this.settledSection = nearest;
