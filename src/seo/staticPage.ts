@@ -9,6 +9,7 @@ import { FAQ_ITEMS } from '../data/faq';
 import { PRIVACY } from '../data/privacy';
 import { PRODUCTS, getProductBySlug, getProductThumbUrl } from '../data/products';
 import { pageMeta, productFacts, type SeoRoute } from './meta';
+import { FILM, FILM_CHAPTERS } from '../data/film';
 
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -17,6 +18,7 @@ const NAV: Array<[string, string]> = [
   ['/mix', 'Mix your pack'],
   ['/halal-zamzam', 'Halal and Zamzam'],
   ['/stores', 'Find a store'],
+  ['/film', 'The film'],
 ];
 
 /** Minimal inline styling so the first paint is a calm dark page, not unstyled HTML. */
@@ -93,6 +95,8 @@ function body(route: SeoRoute): string {
       return `${header()}<main id="main"><h1>Mix your pack</h1><p>Build a 6, 12 or 24 can pack from any mix of the six flavors.</p>${range()}</main>${footer()}`;
     case 'STORES':
       return `${header()}<main id="main"><h1>Find a store</h1><p>The store list is coming soon. You can order online in the meantime.</p><p><a href="/shop">Shop the range</a></p></main>${footer()}`;
+    case 'FILM':
+      return `${header()}<main id="main"><h1>The film</h1><p>${escapeHtml(BRAND.name)} in ${FILM.duration} seconds, in 16:9 and 9:16, with a ${FILM.teaserDuration} second teaser.</p><video controls preload="none" playsinline poster="${FILM.posters.landscape}" src="${FILM.sources.landscape}" style="width:100%;max-width:60rem;border-radius:.5rem"></video><h2>Chapters</h2><ol>${FILM_CHAPTERS.map((chapter) => `<li>${chapter.start}s · ${escapeHtml(chapter.title)}: ${escapeHtml(chapter.line)}</li>`).join('')}</ol><p><a href="${FILM.sources.landscape}" download>Download the film</a> · <a href="/shop">Shop the range</a></p></main>${footer()}`;
     case 'PRIVACY':
       return `${header()}<main id="main"><h1>${escapeHtml(PRIVACY.title)}</h1><p>${escapeHtml(PRIVACY.intro)}</p>${PRIVACY.sections
         .map((section) => `<h2>${escapeHtml(section.heading)}</h2>${section.items.map((item) => `<p>${escapeHtml(item)}</p>`).join('')}`)

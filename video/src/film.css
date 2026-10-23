@@ -1,0 +1,7 @@
+/* The plate page: just the canvas (the type layer is the Remotion composition in film/). */
+@import '@fontsource/libre-franklin/900-italic.css';
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; overflow: hidden; }
+#frame { position: relative; overflow: hidden; background: #02040a; }
+#gl { position: absolute; inset: 0; display: block; }
+#overlay, #vignette { display: none; }

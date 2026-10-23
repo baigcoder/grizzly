@@ -10,6 +10,7 @@ import { BADGES, BRAND, GRIZZLY_FLAVORS, isTodo } from '../data/brand';
 import { PRIVACY } from '../data/privacy';
 import { FAQ_ITEMS } from '../data/faq';
 import { PRODUCTS, type Product } from '../data/products';
+import { FILM, FILM_CHAPTERS } from '../data/film';
 
 export type SeoRoute =
   | { type: 'HOME' }
@@ -17,6 +18,7 @@ export type SeoRoute =
   | { type: 'MIX' }
   | { type: 'HALAL' }
   | { type: 'STORES' }
+  | { type: 'FILM' }
   | { type: 'PRIVACY' }
   | { type: 'CART' }
   | { type: 'CHECKOUT' }
@@ -119,6 +121,29 @@ function productSchema(product: Product) {
   };
 }
 
+/** The brand film: what it is, where it plays, its length and its chapters (as Clip parts, so search can deep-link). */
+function videoSchema() {
+  return {
+    '@type': 'VideoObject',
+    '@id': `${absolute('/film')}#video`,
+    name: FILM.title,
+    description: `A ${FILM.duration} second product film for ${BRAND.name}: the can built part by part, the six flavors, natural caffeine, electrolytes from sea salt, B vitamins, added Zamzam water and halal certification. ${BRAND.tagline}.`,
+    thumbnailUrl: [absolute(FILM.posters.landscape), absolute(FILM.posters.portrait)],
+    uploadDate: FILM.published,
+    duration: `PT${FILM.duration}S`,
+    contentUrl: absolute(FILM.sources.landscape),
+    embedUrl: absolute('/film'),
+    publisher: { '@id': `${SITE_URL}/#organization` },
+    hasPart: FILM_CHAPTERS.map((chapter) => ({
+      '@type': 'Clip',
+      name: chapter.title,
+      startOffset: chapter.start,
+      endOffset: chapter.end,
+      url: `${absolute('/film')}#t=${chapter.start}`,
+    })),
+  };
+}
+
 function faqSchema() {
   const answered = FAQ_ITEMS.filter((item) => !item.pending);
   return {
@@ -186,6 +211,15 @@ export function pageMeta(route: SeoRoute): PageMeta {
         noindex: false,
         jsonLd: [breadcrumb([{ name: 'Home', path: '/' }, { name: 'Mix your own pack', path: '/mix' }])],
       };
+    case 'FILM':
+      return {
+        path: '/film',
+        title: `The film – ${BRAND.name}`,
+        description: `Watch the ${BRAND.name} film: ${FILM.duration} seconds of the can, the six flavors and what goes into every can. In 16:9 and 9:16, with a ${FILM.teaserDuration} second teaser and a press kit.`,
+        image: imageFor(),
+        noindex: false,
+        jsonLd: [organization(), videoSchema(), breadcrumb([{ name: 'Home', path: '/' }, { name: 'The film', path: '/film' }])],
+      };
     case 'STORES':
       return {
         path: '/stores',
@@ -222,6 +256,7 @@ export function indexableRoutes(): SeoRoute[] {
     { type: 'MIX' },
     { type: 'HALAL' },
     { type: 'STORES' },
+    { type: 'FILM' },
     { type: 'PRIVACY' },
   ];
 }

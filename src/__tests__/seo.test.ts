@@ -4,6 +4,7 @@ import { llmsTxt, robotsTxt, sitemapXml } from '../seo/files';
 import { staticHtml } from '../seo/staticPage';
 import { PRODUCTS } from '../data/products';
 import { FAQ_ITEMS } from '../data/faq';
+import { FILM, FILM_CHAPTERS } from '../data/film';
 
 const everything = () =>
   [
@@ -80,5 +81,17 @@ describe('SEO and AEO output', () => {
         .filter((origin) => !/schema\.org|sitemaps\.org|w3\.org/.test(origin))
     );
     expect([...origins]).toEqual([new URL(SITE_URL).origin]);
+  });
+
+  it('describes the film page with a VideoObject whose length and chapters match the film', () => {
+    const meta = pageMeta({ type: 'FILM' });
+    expect(meta.path).toBe('/film');
+    const video = meta.jsonLd.find((node) => node['@type'] === 'VideoObject') as { duration: string; hasPart: Array<{ startOffset: number; endOffset: number }> };
+    expect(video.duration).toBe(`PT${FILM.duration}S`);
+    expect(video.hasPart).toHaveLength(FILM_CHAPTERS.length);
+    // chapters tile the whole film with no gaps or overlaps
+    FILM_CHAPTERS.forEach((chapter, i) => expect(chapter.start).toBe(i === 0 ? 0 : FILM_CHAPTERS[i - 1].end));
+    expect(FILM_CHAPTERS[FILM_CHAPTERS.length - 1].end).toBe(FILM.duration);
+    expect(sitemapXml()).toContain(`${SITE_URL}/film`);
   });
 });

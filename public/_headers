@@ -38,6 +38,8 @@
 # Fixed names (not hashed): a month, then revalidate in the background.
 /textures/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+/film/*
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
 /basis/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
 /products/thumbs/*
