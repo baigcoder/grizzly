@@ -42,6 +42,7 @@ const PackBuilder = lazy(() => import('./components/PackBuilder').then((m) => ({
 const HalalPage = lazy(() => import('./components/HalalPage').then((m) => ({ default: m.HalalPage })));
 const PrivacyPage = lazy(() => import('./components/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const StoreLocator = lazy(() => import('./components/StoreLocator').then((m) => ({ default: m.StoreLocator })));
+const FilmPage = lazy(() => import('./components/FilmPage').then((m) => ({ default: m.FilmPage })));
 
 /**
  * Starts a download the 3D scene will make anyway, while the loader is up and the scene chunk is still arriving (the
@@ -91,6 +92,7 @@ export type AppRoute =
   | { type: 'MIX' }
   | { type: 'HALAL' }
   | { type: 'STORES' }
+  | { type: 'FILM' }
   | { type: 'PRIVACY' }
   | { type: 'NOT_FOUND' }
   | { type: 'PRODUCT'; slug: string };
@@ -103,6 +105,7 @@ const STATIC_ROUTES: Record<string, AppRoute> = {
   '/mix': { type: 'MIX' },
   '/halal-zamzam': { type: 'HALAL' },
   '/stores': { type: 'STORES' },
+  '/film': { type: 'FILM' },
   '/privacy': { type: 'PRIVACY' },
 };
 
@@ -447,6 +450,7 @@ export const App: React.FC = () => {
     { key: 'finder', href: '/#gamme', onSelect: () => setIsFinderOpen(true) },
     { key: 'halal', href: '/halal-zamzam', onSelect: () => navigate('/halal-zamzam') },
     { key: 'stores', href: '/stores', onSelect: () => navigate('/stores') },
+    { key: 'film', href: '/film', onSelect: () => navigate('/film') },
     { key: 'faq', href: '/#FAQ', onSelect: () => goToSection('FAQ') },
     { key: 'newsletter', href: '/#newsletter', onSelect: () => goToSection('newsletter') },
   ];
@@ -462,7 +466,9 @@ export const App: React.FC = () => {
           ? 'halal'
           : route.type === 'STORES'
             ? 'stores'
-            : isHome
+            : route.type === 'FILM'
+              ? 'film'
+              : isHome
               ? sectionIndex >= 9
                 ? 'newsletter'
                 : sectionIndex === 8
@@ -587,6 +593,10 @@ export const App: React.FC = () => {
       ) : route.type === 'STORES' ? (
         <main id="main" className="page">
           <Suspense fallback={null}><StoreLocator onNavigate={navigate} /></Suspense>
+        </main>
+      ) : route.type === 'FILM' ? (
+        <main id="main" className="page page--film">
+          <Suspense fallback={null}><FilmPage onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'NOT_FOUND' ? (
         <main id="main" className="page">

@@ -1,0 +1,15 @@
+# Dependencies and caches (drive C: is full on the build machine, so caches live here)
+node_modules/
+film/node_modules/
+.cache/
+
+# Everything the pipeline regenerates (see README.md): review stills and sheets, raw renders,
+# the 3D plates and their anchors, the mixes and stems, and the master MP4s.
+# The web-ready cuts the site serves are committed in ../public/film/.
+out/
+film/out/
+film/public/plate-*.mp4
+film/public/anchors-*.json
+film/public/*.wav
+audio/stems/
+brag-output/*.mp4

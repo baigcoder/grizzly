@@ -17,6 +17,7 @@ export const STRINGS = {
   finder: { en: 'Find your flavor', ur: 'اپنا ذائقہ تلاش کریں' },
   halal: { en: 'Halal and Zamzam', ur: 'حلال اور زمزم' },
   stores: { en: 'Find a store', ur: 'دکان تلاش کریں' },
+  film: { en: 'The film', ur: 'فلم' },
   faq: { en: 'FAQ', ur: 'سوالات' },
   newsletter: { en: 'Newsletter', ur: 'نیوز لیٹر' },
   language: { en: 'اردو', ur: 'English' },
