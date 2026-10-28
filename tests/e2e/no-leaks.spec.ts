@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 /** No placeholder, other-brand or broken-value text reaches any page a visitor can open. */
-const ROUTES = ['/', '/shop', '/mix', '/halal-zamzam', '/stores', '/privacy', '/cart', '/checkout', '/products/peach', '/products/blackout-berry', '/nope'];
+const ROUTES = ['/', '/shop', '/mix', '/halal-zamzam', '/about', '/stores', '/privacy', '/cart', '/checkout', '/products/peach', '/products/blackout-berry', '/nope'];
 const BAD = /\bTODO\b|lorem|ipsum|ciao|\bundefined\b|\bNaN\b|\[object |\bnull\b|\{\{|Placeholder text/i;
 
 test('no placeholder, other-brand or broken text on any route (text, alt, aria-label, title)', async ({ page }) => {

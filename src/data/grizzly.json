@@ -761,6 +761,21 @@
     "zamzam": "TODO: confirm the Zamzam water source, how it is sourced and the amount per can",
     "process": "TODO: describe production and quality checks"
   },
+  "aboutPage": {
+    "$comment": "About the company. TODO fields stay hidden on the page until confirmed.",
+    "title": "Our story",
+    "intro": "Grizzly Energy is made in Pakistan by Grizzly Energy Beverage Labs, the company founded by Hassan Baig.",
+    "founder": {
+      "name": "Hassan Baig",
+      "role": "Founder",
+      "photo": "TODO: founder photo (portrait, at least 1200 px tall)",
+      "quote": "TODO: a line from Hassan Baig on why he started Grizzly",
+      "bio": "TODO: a short bio of Hassan Baig"
+    },
+    "founded": "TODO: confirm the year Grizzly Energy Beverage Labs was founded",
+    "hometown": "TODO: confirm the city where Grizzly started",
+    "story": "TODO: the founding story, in a few sentences"
+  },
   "stores": {
     "$comment": "TODO: retail stores (name, city, address, map link). Empty until confirmed; the store page shows a coming-soon state.",
     "items": []

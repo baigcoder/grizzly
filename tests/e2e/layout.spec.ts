@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
  * so the check reads the document width (not a clipped body) and the real position of header controls.
  */
 const WIDTHS = [320, 360, 390, 430, 1366, 1920];
-const ROUTES = ['/', '/shop', '/products/peach', '/mix', '/halal-zamzam', '/stores', '/privacy', '/cart', '/checkout', '/nope'];
+const ROUTES = ['/', '/shop', '/products/peach', '/mix', '/halal-zamzam', '/about', '/stores', '/privacy', '/cart', '/checkout', '/nope'];
 
 async function ready(page: Page) {
   await expect(page.getByRole('progressbar', { name: 'Loading Grizzly Energy' })).toBeHidden({ timeout: 30_000 });

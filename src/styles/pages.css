@@ -392,3 +392,445 @@ body:has(.page-backdrop) .fallback-stage {
       color-mix(in oklab, var(--color-surface-panel) 90%, transparent);
   }
 }
+
+/* ---------- Our story (about the company) ----------
+   The label's roaring bear fills the hero behind the title; then the founder, the numbers, what goes into every can,
+   the range as a row of real cans, and the tagline. Transform and opacity only for motion. */
+.about {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 var(--space-2xl) var(--space-5xl);
+}
+
+.about__eyebrow,
+.about-facts__label,
+.about-values__badges li {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.about__eyebrow {
+  margin-bottom: var(--space-sm);
+  color: var(--color-accent);
+}
+
+.about__section-title {
+  font-size: var(--font-size-3xl);
+  line-height: 1;
+  margin-bottom: var(--space-xl);
+}
+
+/* Hero: the bear art bleeds to the screen edges and fades into the page; the copy sits over its lower left. */
+.about__hero {
+  position: relative;
+  display: grid;
+  align-items: end;
+  min-height: min(100svh, 56rem);
+  padding: var(--layout-page-top) 0 var(--space-3xl);
+  margin-bottom: var(--space-3xl);
+}
+
+.about__art {
+  position: absolute;
+  inset: 0 calc(50% - 50vw);
+  z-index: -1;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, var(--color-black) 30%, transparent 96%);
+}
+
+.about__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 30%;
+  opacity: 0.62;
+  transform: scale(1.06);
+  animation: about-drift 18s var(--ease-in-out) infinite alternate;
+}
+
+.about__art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-surface-base) 0%, color-mix(in oklab, var(--color-surface-base) 70%, transparent) 38%, transparent 70%);
+}
+
+@keyframes about-drift {
+  to { transform: scale(1.12) translate3d(-1.5%, 1%, 0); }
+}
+
+.about__intro {
+  position: relative;
+  max-width: 40rem;
+}
+
+.about__title {
+  display: grid;
+  font-size: min(var(--font-size-4xl), 8vw);
+  line-height: var(--line-height-giant);
+  margin-bottom: var(--space-lg);
+}
+
+.about__title-accent {
+  color: var(--color-accent);
+}
+
+.about__lead {
+  max-width: 32rem;
+  font-size: var(--font-size-xl);
+  color: var(--color-text-secondary);
+}
+
+.about__story {
+  max-width: 32rem;
+  margin-top: var(--space-md);
+  color: var(--color-text-muted);
+}
+
+/* Founder */
+.about-founder {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: var(--space-3xl);
+  margin-bottom: var(--space-3xl);
+}
+
+.about-founder__portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: var(--border-hairline) solid var(--color-line-subtle);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in oklab, var(--color-accent) 30%, transparent) 0%, transparent 62%),
+    repeating-linear-gradient(135deg, transparent 0 calc(var(--space-md) - 1px), var(--color-line-subtle) calc(var(--space-md) - 1px) var(--space-md)),
+    var(--color-surface-raised);
+}
+
+.about-founder__portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Monogram in the hexagon the benefit chapters use, until a portrait is supplied. */
+.about-founder__monogram {
+  display: grid;
+  place-items: center;
+  width: 58%;
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  background: linear-gradient(160deg, var(--color-accent), var(--color-accent-deep));
+  font-family: var(--font-family-display);
+  font-size: clamp(3rem, 9vw, 6rem);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+}
+
+.about-founder__name {
+  font-size: var(--font-size-3xl);
+  line-height: 1;
+  margin-bottom: var(--space-lg);
+}
+
+.about-founder__text {
+  max-width: 34rem;
+  margin-bottom: var(--space-md);
+  font-size: var(--font-size-xl);
+  color: var(--color-text-secondary);
+}
+
+.about-founder__quote {
+  margin-top: var(--space-lg);
+  padding-left: var(--space-lg);
+  border-left: 2px solid var(--color-accent);
+  font-size: var(--font-size-2xl);
+}
+
+.about-founder__quote footer {
+  margin-top: var(--space-xs);
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+/* Numbers */
+.about-facts {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  margin-bottom: var(--space-4xl);
+  border-block: var(--border-hairline) solid var(--color-line-subtle);
+}
+
+.about-facts__item {
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--space-xl) var(--space-lg);
+}
+
+.about-facts__item + .about-facts__item {
+  border-left: var(--border-hairline) solid var(--color-line-subtle);
+}
+
+.about-facts__value {
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.about-facts__label {
+  color: var(--color-text-muted);
+}
+
+/* What goes into every can */
+.about-values {
+  margin-bottom: var(--space-4xl);
+}
+
+.about-values__grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.about-value {
+  display: grid;
+  align-content: start;
+  gap: var(--space-sm);
+  padding: var(--space-xl) var(--space-lg);
+  border: var(--border-hairline) solid var(--color-line-subtle);
+  border-radius: var(--radius-md);
+  background: linear-gradient(170deg, color-mix(in oklab, var(--color-accent) 12%, transparent), transparent 50%), var(--color-surface-raised);
+  transition: border-color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.about-value:hover {
+  border-color: var(--color-line-strong);
+  transform: translateY(calc(var(--space-3xs) * -1));
+}
+
+.about-value__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-round);
+  background: color-mix(in oklab, var(--color-accent) 22%, transparent);
+  color: var(--color-text-primary);
+}
+
+.about-value__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+}
+
+.about-value__text {
+  color: var(--color-text-muted);
+}
+
+.about-values__badges {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.about-values__badges li {
+  padding: var(--space-xs) var(--space-md);
+  border: var(--border-hairline) solid var(--color-line-subtle);
+  border-radius: var(--radius-round);
+  color: var(--color-text-secondary);
+}
+
+/* The range: one row of real cans, each lifting toward the visitor on hover */
+.about-range {
+  margin-bottom: var(--space-4xl);
+}
+
+.about-range__cans {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.about-range__cans a {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-xs) var(--space-md);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-size: var(--font-size-md);
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.about-range__cans a:hover {
+  background: var(--color-surface-raised);
+}
+
+.about-range__cans img {
+  width: auto;
+  height: clamp(9rem, 16vw, 14rem);
+  filter: drop-shadow(0 1rem 1.2rem rgb(0 0 0 / 0.5));
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.about-range__cans a:hover img {
+  transform: translateY(calc(var(--space-xs) * -1)) rotate(-3deg);
+}
+
+/* Tagline */
+.about-cta {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-xl);
+  padding: var(--space-4xl) var(--space-lg);
+  border-radius: var(--radius-md);
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 120%, color-mix(in oklab, var(--color-accent) 38%, transparent) 0%, transparent 62%),
+    var(--color-surface-raised);
+}
+
+.about-cta__title {
+  font-size: min(var(--font-size-4xl), 9vw);
+  line-height: var(--line-height-giant);
+}
+
+.about-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+}
+
+.about-cta__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: var(--control-size);
+  font-size: var(--font-size-md);
+  text-transform: uppercase;
+}
+
+.about-cta__link svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.about-cta__link:hover svg {
+  transform: translateX(var(--space-3xs));
+}
+
+.about__note {
+  margin-top: var(--space-xl);
+  text-align: center;
+  font-size: var(--font-size-md);
+  color: var(--color-text-faint);
+}
+
+@media (max-width: 1023px) {
+  .about-range__cans {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .about {
+    padding: 0 var(--space-md) var(--space-4xl);
+  }
+
+  .about__hero {
+    min-height: 0;
+    padding: calc(var(--layout-page-top) * 1.6) 0 var(--space-xl);
+  }
+
+  .about__art {
+    bottom: 30%;
+  }
+
+  .about__art img {
+    object-position: 70% 20%;
+  }
+
+  .about__art::after {
+    background: linear-gradient(to bottom, transparent 30%, var(--color-surface-base) 100%);
+  }
+
+  .about__title {
+    font-size: var(--font-size-menu);
+  }
+
+  .about__lead,
+  .about-founder__text {
+    font-size: var(--font-size-lg);
+  }
+
+  .about__section-title,
+  .about-founder__name {
+    font-size: var(--font-size-2xl);
+  }
+
+  .about-founder {
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
+
+  .about-founder__portrait {
+    width: min(100%, 16rem);
+    aspect-ratio: 1;
+  }
+
+  .about-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .about-facts__item {
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .about-facts__item:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .about-facts__item:nth-child(n + 3) {
+    border-top: var(--border-hairline) solid var(--color-line-subtle);
+  }
+
+  .about-facts__value,
+  .about-cta__title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .about-range__cans {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-xs);
+  }
+
+  .about-cta {
+    padding: var(--space-2xl) var(--space-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about__art img {
+    animation: none;
+  }
+}
