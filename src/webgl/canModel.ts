@@ -38,6 +38,9 @@ export const createNeutralSurfaceTexture = (): THREE.Texture => createSolidTextu
  * Machined rings for the can ends: a thin strip of roughness values along the lathe profile (uv.y runs along the
  * profile, so every row is one concentric ring of the lid or base). Polished bands alternate with slightly duller
  * tooling marks, so the ends mirror the studio in crisp rings instead of one uniform white band. Generated once.
+ *
+ * Smooth on purpose, and mip-mapped: a random value per row (plus a spike every third row), read without filtering,
+ * turned the small ends of the hero cans into grainy, sparkling noise as each pixel jumped between rows.
  */
 let cachedRingTexture: THREE.Texture | null = null;
 
@@ -45,15 +48,11 @@ function getRingTexture(): THREE.Texture {
   if (cachedRingTexture) return cachedRingTexture;
   const rows = 256;
   const data = new Uint8Array(4 * rows * 4);
-  let seed = 23;
-  const rand = () => {
-    seed = (seed * 16807) % 2147483647;
-    return seed / 2147483647;
-  };
   for (let y = 0; y < rows; y += 1) {
-    // fine tooling marks over a few broader polished / satin bands
+    // a few broad polished / satin bands, with faint fine rings riding on them
     const band = 0.5 + 0.5 * Math.sin(y * 0.21);
-    const value = Math.round(255 * (0.45 + 0.35 * band * (0.7 + 0.3 * rand()) + 0.2 * rand() * (y % 3 === 0 ? 1 : 0)));
+    const fine = 0.5 + 0.5 * Math.sin(y * 1.3);
+    const value = Math.round(255 * (0.5 + 0.3 * band + 0.06 * fine));
     for (let x = 0; x < 4; x += 1) {
       const k = (y * 4 + x) * 4;
       data[k] = value;
@@ -67,6 +66,8 @@ function getRingTexture(): THREE.Texture {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
   texture.needsUpdate = true;
   cachedRingTexture = texture;
   return texture;
