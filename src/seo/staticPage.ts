@@ -4,7 +4,7 @@
  * product facts, FAQ and internal links, with a still can image and no dependence on WebGL.
  * React replaces it as soon as the app mounts. Only confirmed facts appear here.
  */
-import { BADGES, BRAND, GRIZZLY_BENEFITS, NUTRITION, isTodo } from '../data/brand';
+import { ABOUT_PAGE, BADGES, BRAND, GRIZZLY_BENEFITS, NUTRITION, isTodo } from '../data/brand';
 import { FAQ_ITEMS } from '../data/faq';
 import { PRIVACY } from '../data/privacy';
 import { PRODUCTS, getProductBySlug, getProductThumbUrl } from '../data/products';
@@ -17,6 +17,7 @@ const NAV: Array<[string, string]> = [
   ['/mix', 'Mix your pack'],
   ['/halal-zamzam', 'Halal and Zamzam'],
   ['/stores', 'Find a store'],
+  ['/about', 'Our story'],
 ];
 
 /**
@@ -98,6 +99,8 @@ function body(route: SeoRoute): string {
     }
     case 'HALAL':
       return `${header()}<main id="main"><h1>Halal and Zamzam</h1><p>${escapeHtml(BRAND.name)} is halal certified and made with added Zamzam water.</p><p>The certifier, licence and the Zamzam sourcing details will be published here once confirmed.</p></main>${footer()}`;
+    case 'ABOUT':
+      return `${header()}<main id="main"><h1>Our story</h1><p>${escapeHtml(ABOUT_PAGE.intro)}</p><h2>Founder</h2><p>${escapeHtml(ABOUT_PAGE.founder.name)} founded ${escapeHtml(BRAND.company.name)}, the company behind ${escapeHtml(BRAND.name)}.</p><p>${escapeHtml(BRAND.summary)}</p>${range()}</main>${footer()}`;
     case 'MIX':
       return `${header()}<main id="main"><h1>Mix your pack</h1><p>Build a 6, 12 or 24 can pack from any mix of the six flavors.</p>${range()}</main>${footer()}`;
     case 'STORES':

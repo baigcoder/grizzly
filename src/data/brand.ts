@@ -14,6 +14,7 @@ export const POLICIES = grizzly.policies;
 export const COMMERCE = grizzly.commerce;
 export const REVIEWS: Array<{ author: string; rating: number; text: string }> = grizzly.reviews;
 export const HALAL_PAGE = grizzly.halalPage;
+export const ABOUT_PAGE = grizzly.aboutPage;
 export type Store = { name: string; city: string; address: string; mapUrl?: string };
 /** Retail stores: empty until the list is confirmed. */
 export const STORES: Store[] = grizzly.stores.items;

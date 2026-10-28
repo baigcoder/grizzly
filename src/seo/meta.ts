@@ -6,7 +6,7 @@
  * only states what the visible page states: no prices (still placeholders), no caffeine or sugar
  * figures, no reviews, no addresses until they are confirmed.
  */
-import { BADGES, BRAND, GRIZZLY_FLAVORS, isTodo } from '../data/brand';
+import { ABOUT_PAGE, BADGES, BRAND, GRIZZLY_FLAVORS, isTodo } from '../data/brand';
 import { PRIVACY } from '../data/privacy';
 import { FAQ_ITEMS } from '../data/faq';
 import { PRODUCTS, type Product } from '../data/products';
@@ -16,6 +16,7 @@ export type SeoRoute =
   | { type: 'SHOP' }
   | { type: 'MIX' }
   | { type: 'HALAL' }
+  | { type: 'ABOUT' }
   | { type: 'STORES' }
   | { type: 'PRIVACY' }
   | { type: 'CART' }
@@ -177,6 +178,24 @@ export function pageMeta(route: SeoRoute): PageMeta {
         noindex: false,
         jsonLd: [breadcrumb([{ name: 'Home', path: '/' }, { name: 'Halal and Zamzam', path: '/halal-zamzam' }])],
       };
+    case 'ABOUT':
+      return {
+        path: '/about',
+        title: `Our story – ${BRAND.name}`,
+        description: `${BRAND.name} is made in Pakistan by ${BRAND.company.name}, founded by ${ABOUT_PAGE.founder.name}. Who we are and what goes into every can.`,
+        image: imageFor(),
+        noindex: false,
+        jsonLd: [
+          {
+            '@type': 'Organization',
+            name: BRAND.company.name,
+            url: absolute('/'),
+            founder: { '@type': 'Person', name: ABOUT_PAGE.founder.name },
+            brand: { '@type': 'Brand', name: BRAND.name },
+          },
+          breadcrumb([{ name: 'Home', path: '/' }, { name: 'Our story', path: '/about' }]),
+        ],
+      };
     case 'MIX':
       return {
         path: '/mix',
@@ -221,6 +240,7 @@ export function indexableRoutes(): SeoRoute[] {
     ...PRODUCTS.map((product) => ({ type: 'PRODUCT' as const, slug: product.slug })),
     { type: 'MIX' },
     { type: 'HALAL' },
+    { type: 'ABOUT' },
     { type: 'STORES' },
     { type: 'PRIVACY' },
   ];

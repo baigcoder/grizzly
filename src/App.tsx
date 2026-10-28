@@ -40,6 +40,7 @@ const CheckoutPage = lazy(() => import('./components/CheckoutPage').then((m) => 
 const ShopPage = lazy(() => import('./components/ShopPage').then((m) => ({ default: m.ShopPage })));
 const PackBuilder = lazy(() => import('./components/PackBuilder').then((m) => ({ default: m.PackBuilder })));
 const HalalPage = lazy(() => import('./components/HalalPage').then((m) => ({ default: m.HalalPage })));
+const AboutPage = lazy(() => import('./components/AboutPage').then((m) => ({ default: m.AboutPage })));
 const PrivacyPage = lazy(() => import('./components/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const StoreLocator = lazy(() => import('./components/StoreLocator').then((m) => ({ default: m.StoreLocator })));
 
@@ -90,6 +91,7 @@ export type AppRoute =
   | { type: 'SHOP' }
   | { type: 'MIX' }
   | { type: 'HALAL' }
+  | { type: 'ABOUT' }
   | { type: 'STORES' }
   | { type: 'PRIVACY' }
   | { type: 'NOT_FOUND' }
@@ -102,6 +104,7 @@ const STATIC_ROUTES: Record<string, AppRoute> = {
   '/shop': { type: 'SHOP' },
   '/mix': { type: 'MIX' },
   '/halal-zamzam': { type: 'HALAL' },
+  '/about': { type: 'ABOUT' },
   '/stores': { type: 'STORES' },
   '/privacy': { type: 'PRIVACY' },
 };
@@ -447,6 +450,7 @@ export const App: React.FC = () => {
     { key: 'finder', href: '/#gamme', onSelect: () => setIsFinderOpen(true) },
     { key: 'halal', href: '/halal-zamzam', onSelect: () => navigate('/halal-zamzam') },
     { key: 'stores', href: '/stores', onSelect: () => navigate('/stores') },
+    { key: 'about', href: '/about', onSelect: () => navigate('/about') },
     { key: 'faq', href: '/#FAQ', onSelect: () => goToSection('FAQ') },
     { key: 'newsletter', href: '/#newsletter', onSelect: () => goToSection('newsletter') },
   ];
@@ -462,6 +466,8 @@ export const App: React.FC = () => {
           ? 'halal'
           : route.type === 'STORES'
             ? 'stores'
+            : route.type === 'ABOUT'
+              ? 'about'
             : isHome
               ? sectionIndex >= 9
                 ? 'newsletter'
@@ -579,6 +585,10 @@ export const App: React.FC = () => {
       ) : route.type === 'HALAL' ? (
         <main id="main" className="page">
           <Suspense fallback={null}><HalalPage /></Suspense>
+        </main>
+      ) : route.type === 'ABOUT' ? (
+        <main id="main" className="page">
+          <Suspense fallback={null}><AboutPage onNavigate={navigate} /></Suspense>
         </main>
       ) : route.type === 'PRIVACY' ? (
         <main id="main" className="page">

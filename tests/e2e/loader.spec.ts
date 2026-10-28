@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
  * Route-aware loader: only the home story gets the cinematic loader, a product page a short plain one,
  * everything else none. Every route is hit directly (hard load) and must never deadlock.
  */
-const NO_LOADER = ['/shop', '/cart', '/checkout', '/mix', '/halal-zamzam', '/stores', '/privacy', '/definitely-not-a-page'];
+const NO_LOADER = ['/shop', '/cart', '/checkout', '/mix', '/halal-zamzam', '/about', '/stores', '/privacy', '/definitely-not-a-page'];
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => window.localStorage.setItem('grizzly_notice_v1', '1'));

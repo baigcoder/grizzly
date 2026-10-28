@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test';
  */
 test.use({ javaScriptEnabled: false });
 
-const INDEXABLE = ['/', '/shop', '/mix', '/halal-zamzam', '/stores', '/privacy', ...['blue-raspberry', 'mango-fuego', 'watermelon', 'strawberry-kiwi', 'peach', 'blackout-berry'].map((slug) => `/products/${slug}`)];
+const INDEXABLE = ['/', '/shop', '/mix', '/halal-zamzam', '/about', '/stores', '/privacy', ...['blue-raspberry', 'mango-fuego', 'watermelon', 'strawberry-kiwi', 'peach', 'blackout-berry'].map((slug) => `/products/${slug}`)];
 const NOINDEX = ['/cart', '/checkout'];
 const ORIGIN = 'https://www.grizzlyenergy.pk';
 
