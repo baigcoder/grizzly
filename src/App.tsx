@@ -599,7 +599,6 @@ export const App: React.FC = () => {
             onNavigate={navigate}
             onRotate={(dx, dy) => sceneManagerRef.current?.rotateProduct(dx, dy)}
             onFling={(vx) => sceneManagerRef.current?.flingProduct(vx)}
-            onPreviewFlavor={(slug) => sceneManagerRef.current?.previewProductFlavor(slug)}
             onPackChange={handlePackChange}
             onView={(view) => sceneManagerRef.current?.setProductView(view)}
             onHighlightBenefit={highlightBenefit}

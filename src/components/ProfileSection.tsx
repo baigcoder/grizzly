@@ -1,6 +1,7 @@
 import React from 'react';
 import { FLAVORS } from '../data/flavors';
 import { RevealText } from './RevealText';
+import { ButtonLabel } from './ButtonLabel';
 
 interface ProfileSectionProps {
   activeIndex: number;
@@ -28,15 +29,15 @@ export const ProfileSection: React.FC<ProfileSectionProps> = ({ activeIndex, isA
           <p className="section-copy__text">{flavor.description}</p>
         </div>
         <a
-          className="detail-link detail-link--left"
-          aria-label={`View details and order ${flavor.name}`}
+          className="button-primary button-primary--small detail-link--left"
+          aria-label={`View product: ${flavor.name}, details and order`}
           href={`/products/${flavor.id}`}
           onClick={(event) => {
             event.preventDefault();
             onViewDetails(flavor.id);
           }}
         >
-          View details & order
+          <ButtonLabel>View product</ButtonLabel>
         </a>
       </div>
     </section>

@@ -132,8 +132,11 @@ test('store page shows the coming-soon state while no stores are confirmed', asy
   await page.goto('/stores');
   await waitForLoader(page);
   await expect(page.getByRole('heading', { level: 1, name: 'Find Grizzly' })).toBeVisible();
-  await expect(page.getByText('Store list coming soon')).toBeVisible();
-  await expect(page.getByLabel('City or shop name')).toBeDisabled();
+  await expect(page.getByText('Retail partners launching soon')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Shop flavors' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Build a pack' })).toBeVisible();
+  // no search over an empty list
+  await expect(page.getByRole('search')).toHaveCount(0);
 });
 
 test('limited edition shows its badge but no countdown until the end date is confirmed', async ({ page }) => {

@@ -50,7 +50,7 @@ test('phone: sticky Add to bag adds the selected pack, shows success and the bag
   await expect(page.locator('#pdp-status')).toContainText('Peach, 12 cans × 1 added to your bag.');
 });
 
-test('phone: keyboard order stays back, flavors, pack, quantity, add', async ({ page }) => {
+test('phone: keyboard order stays back, pack, quantity, add', async ({ page }) => {
   test.setTimeout(120_000);
   await page.addInitScript(() => window.localStorage.setItem('grizzly_notice_v1', '1'));
   await page.setViewportSize({ width: 390, height: 844 });
@@ -58,7 +58,7 @@ test('phone: keyboard order stays back, flavors, pack, quantity, add', async ({ 
   await ready(page);
   const tops = await page.evaluate(() => {
     const y = (s: string) => document.querySelector(s)?.getBoundingClientRect().top ?? -1;
-    return [y('.pdp-panel .back-link'), y('.flavor-swatches'), y('.pack-picker'), y('.pdp-buy')];
+    return [y('.pdp-panel .back-link'), y('.pack-picker'), y('.pdp-buy')];
   });
   const sorted = [...tops].sort((a, b) => a - b);
   expect(tops, 'visual order matches DOM/keyboard order').toEqual(sorted);

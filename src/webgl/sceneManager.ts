@@ -276,6 +276,8 @@ export class SceneManager {
   private previewIndex = -1;
   /** Product page pack picker: how many cans the chosen pack holds, shown by the pack display (built on first use). */
   private productPackCount = 1;
+  /** The pack count the stage builds: follows productPackCount only while the stage is on screen (see renderProduct). */
+  private stagePackCount = 1;
   private pack: PackDisplay | null = null;
   /** Mix your pack: the chosen size, each slot's flavor index (-1 empty) and the DOM box the pack stands in. */
   private mixSize = 6;
@@ -451,7 +453,8 @@ export class SceneManager {
 
   private setupSceneObjects() {
     this.labels = new LabelTextures(this.renderer);
-    this.labels.maxLod = this.isLowPower || this.dataSaver ? 1 : 2;
+    // (phones: level 2 is the full-quality 2k, for close-ups only; see LabelTextures.phoneLevels)
+    this.labels.maxLod = this.dataSaver ? 1 : 2;
     this.labels.loadNormals = !this.isLowPower;
     this.labels.phoneLevels = this.isLowPower;
     this.labels.onChange = (flavorIndex) => this.applyLabelMaps(flavorIndex);
@@ -528,6 +531,9 @@ export class SceneManager {
     }
     [1, count - 1].forEach((step) => void this.labels.ensureSurface((focusFlavor + step) % count));
     if (closeUp && this.wantsDetail4k()) void this.labels.ensureAlbedo(focusFlavor, 2);
+    // Phones: the benefit close-ups blow the label up past what the light ETC1S 2k holds (its text turned soft and
+    // blocky), so a close-up takes the full-quality 2k.
+    if (closeUp && this.isLowPower && !this.dataSaver) void this.labels.ensureAlbedo(focusFlavor, 2);
     if (this.isLowPower || this.dataSaver) return;
     // Prefetch the next flavor's 2k only once the visitor has engaged (a bounce never pays for it), and only
     // when the browser is idle.
@@ -1008,6 +1014,7 @@ export class SceneManager {
     this.routeSet = true;
     if (mode === 'HOME' || mode === 'MIX') FLAVORS.forEach((_, index) => void this.labels.ensureAlbedo(index, 0));
     this.pack?.reset();
+    this.stagePackCount = 1;
     if (mode === 'MIX') {
       // any flavor can land in the pack: every 1k label now, and the sharper level for each as it is chosen
       FLAVORS.forEach((_, index) => void this.labels.ensureSurface(index));
@@ -1586,7 +1593,8 @@ export class SceneManager {
     // finale row stays sharp. (a strong blur read as low-quality cans: the ring keeps only a gentle depth cue; the
     // fast-scroll blur and cinema bars are gone: the reference keeps the frame open and sharp while scrolling)
     // (the ring's depth blur is light: blurred side cans read as low-resolution labels, the reference keeps them sharp)
-    const lens = 0.12 * this.data.wave + 0.18 * (1 - this.data.wave) * (1 - this.data.swirl);
+    // Benefit close-ups (labelDim) take none: the can fills the frame and its label text must read crisp edge to edge.
+    const lens = (0.12 * this.data.wave + 0.18 * (1 - this.data.wave) * (1 - this.data.swirl)) * (1 - this.data.labelDim);
     this.post?.setFocus(this.focusScreen.x, this.focusScreen.y, lens * (1 - 0.8 * this.pickBlend));
     this.renderScene(time);
   }
@@ -1693,9 +1701,9 @@ export class SceneManager {
           featScale *= k;
           featY = featY * k + 1.75 * (1 - tagline); // copy sits at the bottom, so the can rides higher
           featX = 0.3 * (1 - tagline);
-          // the flavor intro's big cropped can rides higher still and a little smaller, clear of the copy below it
+          // the flavor intro's big tilted can rides higher still and smaller, its base clear of the copy below it
           const profile = Math.max(0, 1 - Math.abs(this.sectionPosition - 1));
-          featScale *= 1 - 0.15 * profile;
+          featScale *= 1 - 0.32 * profile;
           featY += 1.1 * profile;
         } else {
           featX = this.fitFeatureX(featX);
@@ -1713,10 +1721,10 @@ export class SceneManager {
         const toState = SCENE_STATES[SCENE_SEQUENCE[Math.floor(section) + 1]?.state];
         // only between two single-can poses: out of the hero ring or into the finale row the layout switches branch
         const singleToSingle = !!fromState && !!toState && fromState.wave === 0 && toState.wave === 0 && fromState.swirl === 0 && toState.swirl === 0;
-        // Between benefit chapters 1 → 2 → 3 the can holds its pose and steps while the lit block slides down the label
-        // (a full turn there spun a dark can through an empty frame). The turn stays for the flavor intro, Zamzam and
+        // Between benefit chapters 1 → 2 → 3 → Zamzam the can holds its pose and steps while the lit block slides down
+        // the label (a full turn there spun a dark can through an empty frame). The turn stays for the flavor intro and
         // the tagline.
-        const betweenBenefits = Math.floor(section) === 2 || Math.floor(section) === 3;
+        const betweenBenefits = Math.floor(section) >= 2 && Math.floor(section) <= 4;
         if (!this.reducedMotion && singleToSingle && !betweenBenefits) {
           const local = THREE.MathUtils.clamp((section - Math.floor(section) - 0.15) / 0.7, 0, 1);
           const turn = local * local * (3 - 2 * local);
@@ -2032,7 +2040,10 @@ export class SceneManager {
     const shownIndex = this.previewIndex < 0 ? this.activeProductIndex : this.previewIndex;
     pack.setFlavorLabel(shownIndex, this.labels.get(shownIndex));
     pack.setProductFlavor(shownIndex, FLAVORS[shownIndex].theme.secondary, FLAVORS[shownIndex].name);
-    pack.update(delta, this.routeBlend > 0.9 && this.benefitGlowIndex < 0 ? this.productPackCount : 1, this.reducedMotion);
+    // A pick made with the stage scrolled away (phones: the pack sizes sit below it) waits until the stage is back on
+    // screen, so the pack always assembles in view instead of finishing off-screen.
+    if (isNarrow ? this.productScroll < 0.35 : this.productExit < 0.2) this.stagePackCount = this.productPackCount;
+    pack.update(delta, this.routeBlend > 0.9 && this.benefitGlowIndex < 0 ? this.stagePackCount : 1, this.reducedMotion);
     if (pack.isAnimating) this.lastActivityAt = performance.now();
     if (pack.group.visible) {
       // the pack fits between the hotspot dots (left) and the purchase panel (wide) or the screen edge (narrow),

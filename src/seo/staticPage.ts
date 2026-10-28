@@ -19,9 +19,15 @@ const NAV: Array<[string, string]> = [
   ['/stores', 'Find a store'],
 ];
 
-/** Minimal inline styling so the first paint is a calm dark page, not unstyled HTML. */
+/**
+ * Minimal inline styling. With scripts on, the static page is only for crawlers: the first paint is the plain black
+ * screen the loader opens on (its content would otherwise flash up for a moment before the app replaces it). Without
+ * scripts NOSCRIPT_CSS shows it as a calm dark page, not unstyled HTML.
+ */
 export const STATIC_CSS = `
-.pre{box-sizing:border-box;min-height:100vh;background:black url(/brand/night-stage.jpg) center/cover fixed;color:white;font-family:Geist,Arial,sans-serif;font-weight:300;line-height:1.5;padding:2rem 1.25rem 4rem}
+html,body{background:black}
+.pre{box-sizing:border-box;min-height:100vh;background:black;color:white;font-family:Geist,Arial,sans-serif;font-weight:300;line-height:1.5;padding:2rem 1.25rem 4rem}
+.pre__in{visibility:hidden}
 .pre *{box-sizing:border-box}.pre a{color:inherit}.pre__in{max-width:60rem;margin:0 auto}
 .pre__bar{display:flex;flex-wrap:wrap;gap:1rem 2rem;align-items:baseline;justify-content:space-between;margin-bottom:3rem}
 .pre__brand{font:italic 900 1.5rem/1 'Libre Franklin',Arial Black,sans-serif;text-decoration:none;text-transform:uppercase}
@@ -36,6 +42,9 @@ export const STATIC_CSS = `
 .pre dl{display:grid;grid-template-columns:max-content 1fr;gap:.35rem 1.5rem;margin:1rem 0}.pre dt{color:rgba(255,255,255,.6)}.pre dd{margin:0}
 .pre table{border-collapse:collapse;width:100%;max-width:32rem}.pre td{border-bottom:1px solid rgba(255,255,255,.18);padding:.35rem 0}
 `;
+
+/** Without scripts the static page is the page: shown, over the night stage. */
+export const NOSCRIPT_CSS = `.pre{background:black url(/brand/night-stage.jpg) center/cover fixed}.pre__in{visibility:visible}`;
 
 function header(): string {
   return `<header class="pre__bar"><a class="pre__brand" href="/">${escapeHtml(BRAND.name)}</a><nav aria-label="Primary">${NAV.map(([href, label]) => `<a href="${href}">${escapeHtml(label)}</a>`).join('')}</nav></header>`;

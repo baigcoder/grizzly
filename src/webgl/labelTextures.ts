@@ -41,9 +41,12 @@ export class LabelTextures {
   private ktx2 = canEvaluateStrings();
   /** Called with the flavor index whenever one of its maps is replaced. */
   public onChange: ((flavorIndex: number) => void) | null = null;
-  /** Highest level this device may use (mobile stays at 2k). */
+  /** Highest level this device may use (mobile stays at 2k: its level 2 is the full 2k, not 4k). */
   public maxLod = 2;
-  /** Phones: the 2k level comes as ETC1S ("2k-lite", about a quarter of the UASTC download, same 2k sharpness). */
+  /**
+   * Phones: level 1 is the 2k as ETC1S ("2k-lite", about a quarter of the UASTC download) and level 2 the full-quality
+   * UASTC 2k, which only close-ups ask for (never 4k on a phone).
+   */
   public phoneLevels = false;
   /** Low-power cans have no normal map, so their emboss maps are never downloaded. */
   public loadNormals = true;
@@ -73,7 +76,7 @@ export class LabelTextures {
     const pending = this.requested.get(key);
     if (pending) return pending;
     const slug = FLAVORS[index].id;
-    const size = ['1k', this.phoneLevels ? '2k-lite' : '2k', '4k'][target];
+    const size = (this.phoneLevels ? ['1k', '2k-lite', '2k'] : ['1k', '2k', '4k'])[target];
     const promise = this.loadTexture(`${BASE}/ktx2/${slug}-${size}.ktx2`, `${BASE}/${slug}.webp`, true)
       .then((texture) => {
         if (this.disposed) return texture.dispose();

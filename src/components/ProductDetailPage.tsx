@@ -4,7 +4,6 @@ import {
   getProductBySlug,
   getProductThumbUrl,
   getRelatedProducts,
-  PRODUCTS,
   PLACEHOLDER_PRICING,
   type PackOption,
 } from '../data/products';
@@ -22,14 +21,14 @@ import { prefersReducedMotion } from '../hooks/useSmoothScroll';
 
 /** Phones and narrow tablets (the stacked layout, the 3D stage above the purchase panel). */
 const isStacked = () => typeof window !== 'undefined' && window.innerWidth < 1024;
-/** The pack shown first: one can on phones (the stage is small and the can is the hero), the six-pack on desktop. */
-const defaultPackId = (): PackOption['id'] => (isStacked() ? 'single' : 'pack-6');
+/** The pack shown first: one can everywhere (the can is the hero; a picked pack then assembles in its place). */
+const defaultPackId = (): PackOption['id'] => 'single';
 
 /**
  * Glides the page to the top over `duration` ms (ease in-out), driven here rather than by native smooth scrolling,
  * which some browsers skip or cut short. Returns a cancel function; a touch or wheel from the visitor cancels it too.
  */
-function glideToTop(duration: number, onArrive: () => void): () => void {
+function glideToTop(duration: number): () => void {
   const from = window.scrollY;
   const start = performance.now();
   let frame = 0;
@@ -43,10 +42,7 @@ function glideToTop(duration: number, onArrive: () => void): () => void {
     const eased = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
     window.scrollTo(0, Math.round(from * (1 - eased)));
     if (t < 1) frame = requestAnimationFrame(step);
-    else {
-      stop();
-      onArrive();
-    }
+    else stop();
   };
   window.addEventListener('touchstart', stop, { passive: true });
   window.addEventListener('wheel', stop, { passive: true });
@@ -63,8 +59,6 @@ interface ProductDetailPageProps {
   onRotate: (deltaX: number, deltaY: number) => void;
   /** Release speed of a drag (px per ms): the can keeps spinning and slows down. */
   onFling: (velocityX: number) => void;
-  /** Hover / focus on a flavor swatch previews that label on the 3D can (null restores). */
-  onPreviewFlavor: (slug: string | null) => void;
   /** The chosen pack's can count: the 3D scene shows that many cans in a tray behind the hero can. */
   onPackChange: (count: number) => void;
   onView: (view: 'FRONT' | 'BACK') => void;
@@ -81,7 +75,7 @@ const ADD_LABEL: Record<AddState, string> = {
   error: 'Add to bag',
 };
 
-export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNavigate, onRotate, onFling, onPreviewFlavor, onPackChange, onView, onHighlightBenefit, isWebglAvailable }) => {
+export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNavigate, onRotate, onFling, onPackChange, onView, onHighlightBenefit, isWebglAvailable }) => {
   const product = getProductBySlug(slug);
   const { addItem, persistent } = useCart();
   const [packId, setPackId] = useState<PackOption['id']>(defaultPackId);
@@ -131,40 +125,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
 
   // the 3D scene shows the chosen pack (the selected option's can count); back to a single can when the page closes
   const chosenCount = product?.packOptions.find((option) => option.id === packId)?.count ?? 1;
-  // On phones the pack options sit below the 3D stage: a pick scrolls back up first and the pack builds once the
-  // stage is in view, so the visitor watches it assemble (1.2 s at most; at once on wide screens or near the top).
-  const [stageCount, setStageCount] = useState(chosenCount);
+  // On phones the pack options sit below the 3D stage: a pick scrolls back up to it. The scene holds the new pack
+  // until the stage is on screen (sceneManager.renderProduct), so the visitor always watches it assemble, even when
+  // the glide is interrupted or slow.
   useEffect(() => {
+    onPackChange(chosenCount);
     const picked = packPickedRef.current;
     packPickedRef.current = false;
-    if (!picked || !isStacked() || window.scrollY < 60) {
-      setStageCount(chosenCount);
-      return;
-    }
+    if (!picked || !isStacked() || window.scrollY < 60) return;
     if (prefersReducedMotion()) {
       window.scrollTo(0, 0);
-      setStageCount(chosenCount);
       return;
     }
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      window.clearTimeout(timer);
-      setStageCount(chosenCount);
-    };
-    // the pack builds as the stage arrives (never later than 1.2 s, even if the glide is interrupted)
-    const timer = window.setTimeout(finish, 1200);
-    const cancelGlide = glideToTop(Math.min(900, 380 + window.scrollY * 0.5), finish);
-    return () => {
-      done = true;
-      cancelGlide();
-      window.clearTimeout(timer);
-    };
-  }, [chosenCount]);
-  useEffect(() => {
-    onPackChange(stageCount);
-  }, [stageCount, onPackChange]);
+    return glideToTop(Math.min(900, 380 + window.scrollY * 0.5));
+  }, [chosenCount, onPackChange]);
   useEffect(() => () => onPackChange(1), [onPackChange]);
 
   useEffect(() => {
@@ -283,31 +257,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({ slug, onNa
           {product.edition && <p className="pdp-price__note pdp-panel__edition">{product.edition}</p>}
           <LimitedCountdown slug={product.slug} />
           <p className="pdp-panel__tagline">{product.tagline}</p>
-
-          <p className="flavor-swatches__label" aria-hidden="true">
-            Flavor <span className="flavor-swatches__name">{product.name}</span>
-          </p>
-          <nav className="flavor-swatches" aria-label="Switch flavor">
-            {PRODUCTS.map((item) => (
-              <a
-                key={item.slug}
-                href={`/products/${item.slug}`}
-                className="flavor-swatch"
-                style={{ '--swatch': `var(--color-flavor-${item.accentToken})` } as React.CSSProperties}
-                aria-label={item.name}
-                aria-current={item.slug === product.slug ? 'page' : undefined}
-                title={item.name}
-                onPointerEnter={(event) => event.pointerType === 'mouse' && onPreviewFlavor(item.slug)}
-                onPointerLeave={(event) => event.pointerType === 'mouse' && onPreviewFlavor(null)}
-                onFocus={() => onPreviewFlavor(item.slug)}
-                onBlur={() => onPreviewFlavor(null)}
-                onClick={(event) => {
-                  event.preventDefault();
-                  if (item.slug !== product.slug) onNavigate(`/products/${item.slug}`);
-                }}
-              />
-            ))}
-          </nav>
 
           <ul className="trust-badges" aria-label="Certifications">
             <li className="trust-badge">

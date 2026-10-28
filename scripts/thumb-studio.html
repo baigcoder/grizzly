@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Can thumbnail studio</title>
+    <style>
+      body { margin: 0; background: #444; color: #fff; font: 14px system-ui, sans-serif; }
+      #out { display: flex; gap: 12px; padding: 12px; flex-wrap: wrap; }
+      #out img { height: 360px; background: repeating-conic-gradient(#666 0 25%, #555 0 50%) 0 0 / 16px 16px; }
+    </style>
+  </head>
+  <body>
+    <p id="status">Rendering…</p>
+    <div id="out"></div>
+    <script type="module" src="./thumb-studio.ts"></script>
+  </body>
+</html>

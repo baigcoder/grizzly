@@ -59,20 +59,26 @@ const STAGE_CLOSE = { floorY: -9, reflect: 0, mountains: 0, moon: 0, mistFg: 0.1
 const BENEFIT_SCALE = 2.4;
 const SHELL_HEIGHT = CAN.shellHeight;
 const panelCentreU = (LABEL.panels.right[0] + LABEL.panels.right[1]) / 2;
-/** The Zamzam chapter's upright can (world units); its base sits on the water line. */
-const ZAMZAM_CAN = { scale: 1.45, x: 3.3, y: 0.55 };
 const BENEFIT_ROT_Y = (0.5 - panelCentreU) * Math.PI * 2;
 
 /**
- * As in the reference: one huge dark can, centred and leaning, cropped by the frame, the chapter's lit block held at
- * mid-screen. The can steps up chapter by chapter as the lit block moves down the label.
+ * Where each chapter's lit block sits on screen (world units above the centre): high for the first chapter, one
+ * step lower for each next one. The step is a little longer than the blocks' spacing on the label, so the can itself
+ * also moves down as the page scrolls (it used to step up to hold every block at mid-screen, against the scroll).
+ */
+const BENEFIT_BLOCK_SCREEN_Y = (chapter: number) => 0.9 - chapter * 1.15;
+
+/**
+ * As in the reference: one huge dark can, centred and leaning, cropped by the frame, the chapter's lit block in view.
+ * All four chapters, Zamzam included, share this close-up; chapter by chapter the lit block reads down the screen.
  */
 const benefit = (rotZ: number, chapter: number): SceneStateConfig => {
   const [, v0, , v1] = LABEL.benefitBlocks[chapter];
   const blockY = ((v0 + v1) / 2 - 0.5) * SHELL_HEIGHT; // local height of the block's centre on the can
+  const posY = BENEFIT_BLOCK_SCREEN_Y(chapter) - blockY * BENEFIT_SCALE * Math.cos(rotZ);
   return {
     camera: cam(0, 0, 27, 0, 0, 0),
-    product: { scale: BENEFIT_SCALE, posX: 0.35, posY: -blockY * BENEFIT_SCALE * Math.cos(rotZ), posZ: 0, rotX: 7 * DEG, rotY: BENEFIT_ROT_Y, rotZ, spin: 0 },
+    product: { scale: BENEFIT_SCALE, posX: 0.35, posY, posZ: 0, rotX: 7 * DEG, rotY: BENEFIT_ROT_Y, rotZ, spin: 0 },
     lighting: { ...LIGHT, pointerInfluence: 0, labelDim: 1 },
     stage: STAGE_CLOSE,
     spacing: CAROUSEL_CONFIG.spacing,
@@ -116,21 +122,13 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
     swirl: 0,
   },
 
-  // Benefits: the camera pushes closer chapter by chapter; the can steps up so the active block stays mid-screen.
+  // Benefits: the can holds its close-up and steps a little lower each chapter as the lit block reads down the label.
   benefit01: benefit(12 * DEG, 0),
   benefit02: benefit(9 * DEG, 1),
   benefit03: benefit(11 * DEG, 2),
-  // Zamzam: the camera pulls back and the whole can stands upright over still, lit water (see moments/zamzamPool.ts):
-  // the label is lit again and the can's base meets its own reflection on the water line.
-  benefit04: {
-    camera: cam(0, 0.2, 28, 0.02, 0, 0),
-    product: { scale: ZAMZAM_CAN.scale, posX: ZAMZAM_CAN.x, posY: ZAMZAM_CAN.y, posZ: 0, rotX: 4 * DEG, rotY: -0.3, rotZ: 0, spin: 0 },
-    lighting: { ...LIGHT, pointerInfluence: 0.1, labelDim: 0 },
-    stage: { ...STAGE_CLOSE, floorY: ZAMZAM_CAN.y - (SHELL_HEIGHT / 2 + CAN.bottomHeight) * ZAMZAM_CAN.scale, reflect: 0.9, field: 0.5 },
-    spacing: CAROUSEL_CONFIG.spacing,
-    wave: 0,
-    swirl: 0,
-  },
+  // Zamzam: the same close-up as the other benefits, its block lit (the dawn light and rosette of
+  // moments/zamzamPool.ts glow behind the can).
+  benefit04: benefit(10 * DEG, 3),
 
   // The tagline: an upright can in front of the giant headline.
   argument: {

@@ -14,20 +14,41 @@ export { CAN };
 const RADIAL_SEGMENTS = 128;
 const SHELL_HALF = CAN.shellHeight / 2;
 
-/** (radius, y) pairs relative to the shell edge, ordered so lathe normals face outward. */
+/**
+ * (radius, y) pairs relative to the shell edge, ordered so lathe normals face outward. Top, as on a real slim can:
+ * the shoulder necks in over two small die ridges, rolls over into the rounded double-seam rim, drops down the
+ * chuck wall into the countersink groove and rises to the lid panel, which carries one raised expansion bead.
+ * The lid panel stays at LID_Y (the tab rests on it).
+ */
 const TOP_PROFILE: Array<[number, number]> = [
-  [0.795, 0.0], [0.791, 0.03], [0.772, 0.08], [0.738, 0.135], [0.704, 0.185], [0.69, 0.215], [0.69, 0.245],
-  [0.7, 0.265], [0.694, 0.282], [0.676, 0.29], [0.654, 0.283], [0.642, 0.262], [0.628, 0.218], [0.61, 0.2],
-  [0.56, 0.198], [0.32, 0.204], [0.0, 0.214],
+  // shoulder and necking (two soft die ridges)
+  [0.795, 0.0], [0.794, 0.02], [0.787, 0.044], [0.774, 0.068], [0.762, 0.084], [0.757, 0.093], [0.752, 0.106],
+  [0.74, 0.124], [0.727, 0.14], [0.721, 0.15], [0.716, 0.162], [0.704, 0.18], [0.695, 0.196], [0.691, 0.212],
+  // double seam: the rolled rim, its outer face a little proud of the neck
+  [0.692, 0.226], [0.699, 0.239], [0.704, 0.254], [0.704, 0.269], [0.699, 0.281], [0.689, 0.288], [0.676, 0.29],
+  [0.664, 0.287], [0.656, 0.278],
+  // chuck wall down into the countersink groove
+  [0.652, 0.26], [0.647, 0.238], [0.641, 0.214], [0.634, 0.197], [0.626, 0.189], [0.617, 0.191], [0.611, 0.199],
+  // lid panel with its expansion bead, very slightly domed toward the centre
+  [0.602, 0.205], [0.58, 0.206], [0.535, 0.206], [0.512, 0.209], [0.498, 0.214], [0.484, 0.209], [0.462, 0.206],
+  [0.32, 0.207], [0.16, 0.209], [0.0, 0.21],
 ];
+/**
+ * Bottom, centre outward: the domed base (recessed up into the can), the reinforcing dome wall, a narrow rounded
+ * stand ring the can rests on, then the heel sweeping out and up to the body.
+ */
 const BOTTOM_PROFILE: Array<[number, number]> = [
-  [0.0, -0.082], [0.3, -0.11], [0.47, -0.15], [0.56, -0.18], [0.606, -0.214], [0.631, -0.24], [0.655, -0.245],
-  [0.676, -0.235], [0.69, -0.215], [0.69, -0.19], [0.726, -0.15], [0.766, -0.09], [0.791, -0.03], [0.795, 0.0],
+  [0.0, -0.072], [0.16, -0.077], [0.3, -0.09], [0.4, -0.106], [0.462, -0.124],
+  [0.5, -0.146], [0.52, -0.172], [0.534, -0.2], [0.545, -0.225],
+  [0.556, -0.239], [0.571, -0.245], [0.588, -0.244], [0.601, -0.237],
+  [0.613, -0.222], [0.63, -0.2], [0.656, -0.171], [0.69, -0.135], [0.729, -0.095], [0.764, -0.055], [0.785, -0.022],
+  [0.795, 0.0],
 ];
 
 function latheFromProfile(profile: Array<[number, number]>, offsetY: number): THREE.LatheGeometry {
   const curve = new THREE.SplineCurve(profile.map(([r, y]) => new THREE.Vector2(r, y + offsetY)));
-  const points = curve.getPoints(profile.length * 5);
+  // the control points are dense where the profile turns sharply, so a few samples between each keep it crisp
+  const points = curve.getPoints(profile.length * 3);
   return new THREE.LatheGeometry(points, RADIAL_SEGMENTS);
 }
 
