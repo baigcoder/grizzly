@@ -67,6 +67,7 @@ function render(route) {
     `<meta name="twitter:image" content="${meta.image}" />`,
     ...preloads,
     `<style>${seo.STATIC_CSS}</style>`,
+    `<noscript><style>${seo.NOSCRIPT_CSS}</style></noscript>`,
     meta.jsonLd.length ? `<script type="application/ld+json" data-seo="jsonld">${JSON.stringify({ '@context': 'https://schema.org', '@graph': meta.jsonLd })}</script>` : '',
   ].join('\n    ');
   html = html.replace('</head>', `    ${head}\n  </head>`);

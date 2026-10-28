@@ -36,10 +36,15 @@
   Cache-Control: public, max-age=31536000, immutable
 
 # Fixed names (not hashed): a month, then revalidate in the background.
+# The 3D label textures (.ktx2) and their decoder (.wasm) are page data, never files to save: a plain "inline" with no
+# filename (Vercel adds one on its own), which download managers such as Neat Download Manager otherwise read as a
+# download and grab when the page fetches them.
 /textures/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+  Content-Disposition: inline
 /basis/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
+  Content-Disposition: inline
 /products/thumbs/*
   Cache-Control: public, max-age=2592000, stale-while-revalidate=86400
 /brand/*

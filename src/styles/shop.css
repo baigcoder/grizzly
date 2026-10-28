@@ -893,8 +893,6 @@ html.is-locked {
   .pdp-panel > .countdown { order: 2; }
   .pdp-panel > .pdp-price { order: 3; margin-bottom: var(--space-sm); }
   .pdp-panel > .trust-badges { order: 4; margin-bottom: var(--space-sm); }
-  .pdp-panel > .flavor-swatches,
-  .pdp-panel > .flavor-swatches__label { order: 5; } /* the label travels with its swatches */
   .pdp-panel > .pack-picker { order: 6; }
   .pdp-panel > .pdp-buy { order: 7; }
   .pdp-panel > .pdp-status { order: 8; }
@@ -980,63 +978,6 @@ html[data-pdp-end] .pdp-buybar {
 /* Room under the last row so the floating buy bar never covers content. */
 .page--product {
   padding-bottom: calc(var(--control-size) + var(--space-3xl));
-}
-
-/* ---------- Flavor switcher (by the title) ---------- */
-/* The current flavor's name above the swatches, so the choice never relies on colour alone. */
-.flavor-swatches__label {
-  margin-bottom: var(--space-2xs);
-  font-size: var(--font-size-xs);
-  letter-spacing: var(--letter-spacing-label);
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-
-.flavor-swatches__name {
-  margin-left: var(--space-2xs);
-  color: var(--color-text-primary);
-}
-
-.flavor-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2xs);
-  margin-bottom: var(--space-md);
-}
-
-.flavor-swatch {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--control-size);
-  height: var(--control-size);
-  border-radius: var(--radius-round);
-  border: var(--border-hairline) solid var(--color-line-subtle);
-  transition:
-    border-color var(--motion-fast) var(--ease-out),
-    transform var(--motion-fast) var(--ease-out);
-}
-
-.flavor-swatch::before {
-  content: '';
-  width: 45%;
-  height: 45%;
-  border-radius: var(--radius-round);
-  background: var(--swatch);
-  box-shadow: 0 0 var(--space-sm) 0 var(--swatch);
-}
-
-.flavor-swatch:hover {
-  border-color: var(--color-line-strong);
-  transform: translateY(calc(var(--space-3xs) * -1));
-}
-
-.flavor-swatch:active {
-  transform: scale(var(--scale-shrink));
-}
-
-.flavor-swatch[aria-current='page'] {
-  border-color: var(--swatch);
 }
 
 /* ---------- Sticky buy bar: appears once the main Add to bag button scrolls away ---------- */

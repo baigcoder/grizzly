@@ -211,8 +211,10 @@
 }
 
 /* ---------- Hero ---------- */
+/* The hero title and arrows hold their place while the page scrolls (they fade and swell away with the dive) rather
+   than riding up the screen with the hero section. */
 .hero-arrow {
-  position: absolute;
+  position: fixed;
   top: var(--layout-arrow-top);
   display: grid;
   place-items: center;
@@ -252,7 +254,7 @@
 }
 
 .hero__hud {
-  position: absolute;
+  position: fixed;
   left: 50%;
   /* clear of the frame's bottom edge on short windows (at --space-xl the scroll hint was clipped) */
   bottom: calc(var(--space-2xl) + var(--notice-h, 0px));
@@ -1063,15 +1065,20 @@
   .hero__title { transform: none; }
 }
 
-/* Scroll aesthetics: the body of each chapter rises into place line by line behind a mask once the chapter is in
-   view (the titles already reveal per character), then stays. Transform, clip-path and opacity only. */
+/* Scroll aesthetics: the pinned copy of each chapter drops into place from above, line by line behind a mask, once
+   the chapter is in view (the titles drop in per character), then stays. It moves with the scroll's direction of
+   travel for the can (down), never up across it. Transform, clip-path and opacity only. */
+.home-section .section-copy {
+  --reveal-distance: -105%;
+}
+
 .home-section .replaced-tag,
 .home-section .section-copy__text,
 .home-section .section-copy__body,
 .home-section .detail-link--left {
   clip-path: inset(0 0 100% 0);
   opacity: 0;
-  transform: translateY(0.9em);
+  transform: translateY(-0.9em);
   transition:
     clip-path 900ms var(--ease-out),
     transform 900ms var(--ease-out),
@@ -1139,10 +1146,13 @@
   .home-loop__cue-line { animation: none; }
 }
 
-/* ---------- Benefit chapters: one pinned copy panel ----------
-   The four chapters share one spot on screen: the active chapter's copy is pinned there and the next one swaps in
+/* ---------- Story chapters: one pinned copy panel ----------
+   The flavor intro is pinned the same way, so its copy reveals in place instead of scrolling up from the foot of
+   the screen.
+   The four benefit chapters share one spot on screen: the active chapter's copy is pinned there and the next one swaps in
    (its title per character, the rest rising behind a mask), so the frame is never empty between chapters while the
    can steps and its lit block slides down the label. Inactive copy is hidden from view and from pointer input. */
+.flavor-intro .section-copy,
 .benefit .section-copy {
   position: fixed;
   z-index: var(--z-content);
@@ -1153,6 +1163,7 @@
     visibility 0s linear 450ms;
 }
 
+.flavor-intro.is-active .section-copy,
 .benefit.is-active .section-copy {
   opacity: 1;
   visibility: visible;
@@ -1215,6 +1226,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .flavor-intro .section-copy,
   .benefit .section-copy,
   .benefit-count__now,
   .benefit-rail__list::after { transition: none; }
