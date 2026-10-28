@@ -637,17 +637,27 @@ body:has(.loader) {
   }
 }
 
+/* Only the marks take clicks: the hidden chapter names used to widen the rail (to the longest, "Added Zamzam water")
+   and its invisible box sat over the chapter copy, swallowing clicks on its links ("View product"). The names now
+   float beside their mark and take no room. */
+.chapter-rail {
+  pointer-events: none;
+}
+
 .chapter-rail ol {
   display: grid;
+  justify-items: start;
   gap: var(--space-2xs);
   list-style: none;
 }
 
 .chapter-rail__mark {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  min-width: var(--space-2xl);
   min-height: var(--space-lg);
+  pointer-events: auto;
   color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
@@ -670,9 +680,13 @@ body:has(.loader) {
 }
 
 .chapter-rail__label {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--space-lg) + var(--space-xs));
   opacity: 0;
-  transform: translateX(calc(-1 * var(--space-2xs)));
+  transform: translate(calc(-1 * var(--space-2xs)), -50%);
   white-space: nowrap;
+  pointer-events: none;
   transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
 }
 
@@ -689,7 +703,7 @@ body:has(.loader) {
 .chapter-rail__mark:hover .chapter-rail__label,
 .chapter-rail__mark:focus-visible .chapter-rail__label {
   opacity: 1;
-  transform: none;
+  transform: translate(0, -50%);
 }
 
 .chapter-rail__mark:hover {
