@@ -46,17 +46,20 @@ const StoreLocator = lazy(() => import('./components/StoreLocator').then((m) => 
 
 /**
  * Starts a download the 3D scene will make anyway, while the loader is up and the scene chunk is still arriving (the
- * texture transcoder and the first label used to wait until the scene was built). Same request mode as three's
- * loaders (fetch, same-origin credentials), so the browser reuses the preloaded response.
+ * texture transcoder and the first label used to wait until the scene was built). The responses land in the HTTP
+ * cache (these files are cached for a month), where three's loaders find them.
+ *
+ * A plain fetch, not <link rel="preload">: browsers report preloads to extensions as type "other", and download
+ * managers (Neat Download Manager among them) grab any "other" request whose extension is not a web page type, so
+ * every visit popped a download of the .ktx2 label. Script fetches they leave alone (except audio and video).
  */
+const warmed = new Set<string>();
 function preloadForScene(href: string) {
-  if (document.head.querySelector(`link[rel="preload"][href="${href}"]`)) return;
-  const link = document.createElement('link');
-  link.rel = 'preload';
-  link.as = 'fetch';
-  link.crossOrigin = 'anonymous';
-  link.href = href;
-  document.head.appendChild(link);
+  if (warmed.has(href)) return;
+  warmed.add(href);
+  void fetch(href, { credentials: 'same-origin' })
+    .then((response) => response.arrayBuffer())
+    .catch(() => undefined);
 }
 
 /** Home loader minimum: long enough for the mark to fill as a moment (the reference counts up visibly). */

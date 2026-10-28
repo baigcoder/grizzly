@@ -17,7 +17,7 @@ const NAV: Array<[string, string]> = [
   ['/mix', 'Mix your pack'],
   ['/halal-zamzam', 'Halal and Zamzam'],
   ['/stores', 'Find a store'],
-  ['/about', 'Our story'],
+  ['/about', 'About us'],
 ];
 
 /**
