@@ -544,6 +544,18 @@
   min-height: 100svh;
 }
 
+/* Phones: each chapter is a screen and a quarter of scroll, as in the reference, so a flick's coast settles inside a
+   chapter instead of carrying past it, and each 3D move has room to play out under the thumb. */
+@media (max-width: 767px) and (pointer: coarse) {
+  .hero,
+  .flavor-intro,
+  .benefit,
+  .argument,
+  .lineup {
+    min-height: 125svh;
+  }
+}
+
 /* ---------- FAQ ---------- */
 .faq {
   padding: var(--layout-faq-lead) var(--layout-gutter) var(--space-5xl);
