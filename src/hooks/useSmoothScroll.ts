@@ -11,7 +11,8 @@ export function prefersReducedMotion(): boolean {
  * assistive tech keep working). Inertial (lerp) rather than fixed-duration, so a
  * flick glides and slows like a physical page. A light snap only settles a page
  * that comes to rest very near a chapter start, after a pause, so it never grabs
- * the scroll mid-gesture. Disabled under prefers-reduced-motion.
+ * the scroll mid-gesture (desktop only). On touch screens Lenis drives the finger too (syncTouch), as the reference
+ * does. Disabled under prefers-reduced-motion.
  *
  * `wrapAtEnd`: when a downward scroll reaches the very bottom of the page (the home loop segment, which renders the same
  * frame as the hero), the page wraps to the top, as in the reference. Only with Lenis (never under reduced motion).
@@ -27,7 +28,40 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtE
     let cleanup: () => void = () => {};
     void Promise.all([import('lenis'), import('lenis/snap')]).then(([{ default: LenisCtor }, { default: SnapCtor }]) => {
       if (cancelled) return;
-      const lenis = new LenisCtor({ lerp: 0.075, wheelMultiplier: 0.9, touchMultiplier: 1.3, smoothWheel: true });
+      const touch = window.matchMedia('(pointer: coarse)').matches;
+      // Touch: Lenis owns the finger as in the reference (syncTouch). The page tracks the finger 1:1, then a flick
+      // coasts with weight (velocity^1.7, eased at 0.075) instead of the phone's native fling, and the 3D scene, the
+      // pinned copy and the page move on the same frame instead of the canvas trailing a compositor scroll.
+      // A gesture that starts sideways (hero carousel, turning a can) is locked to that axis and never scrolls.
+      let axis: 'x' | 'y' | null = null;
+      let travelX = 0;
+      let travelY = 0;
+      const lenis = new LenisCtor({
+        lerp: 0.075,
+        wheelMultiplier: 0.9,
+        touchMultiplier: 1,
+        smoothWheel: true,
+        syncTouch: touch,
+        syncTouchLerp: 0.075,
+        touchInertiaExponent: 1.7,
+        // the menu and drawers scroll themselves; the flavor slider is dragged sideways
+        prevent: (node) => node.classList.contains('site-menu') || node.classList.contains('drawer') || node.classList.contains('flavor-slider'),
+        virtualScroll: ({ deltaX, deltaY, event }) => {
+          if (!event.type.startsWith('touch')) return true;
+          if (event.type === 'touchstart') {
+            axis = null;
+            travelX = 0;
+            travelY = 0;
+            return true;
+          }
+          if (axis === null) {
+            travelX += Math.abs(deltaX);
+            travelY += Math.abs(deltaY);
+            if (Math.max(travelX, travelY) > 6) axis = travelX > travelY ? 'x' : 'y';
+          }
+          return axis !== 'x';
+        },
+      });
       lenisRef.current = lenis;
       let frame = 0;
       const loop = (time: number) => {
@@ -38,8 +72,7 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtE
 
       let snap: Snap | null = null;
       // No snap on touch screens: it waited for the native momentum to end and then pulled the page with its own
-      // 1.2 s animation, which fought the finger and read as lag. A flick ends where the phone's own physics take it.
-      const touch = window.matchMedia('(pointer: coarse)').matches;
+      // 1.2 s animation, which fought the finger and read as lag. A flick ends where its own coast takes it.
       if (snapSelector && !touch) {
         snap = new SnapCtor(lenis, {
           type: 'proximity',
