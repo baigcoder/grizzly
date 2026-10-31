@@ -188,9 +188,11 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           #endif
           vec3 silver = vec3(0.86, 0.87, 0.9) * (0.88 + 0.24 * gzBrush);
           diffuseColor.rgb = mix(deepInk, max(deepInk, silver * 0.92), gzMetal);
-          // Benefit spotlight: the rest of the label drops to ~25%, the active block stays at full brightness.
-          float gzSpot = gzRect(vMapUv, uGlowRect, 0.008) * step(0.001, uGlowStrength);
-          diffuseColor.rgb *= mix(1.0, 0.1, uLabelDim * (1.0 - gzSpot)) * (1.0 + 0.7 * uLabelDim * gzSpot);
+          // Benefit spotlight, as in the reference: the can goes dark and a soft pool of light rests on the active
+          // block (feathered well past its edges), lifting it a little rather than blowing it out. A hard 1.7× box
+          // read as a pasted rectangle on the flat colour labels.
+          float gzSpot = gzRect(vMapUv, uGlowRect + vec4(-0.012, -0.02, 0.012, 0.02), 0.03) * step(0.001, uGlowStrength);
+          diffuseColor.rgb *= mix(1.0, 0.14, uLabelDim * (1.0 - gzSpot)) * (1.0 + 0.18 * uLabelDim * gzSpot);
         #endif
         // out-of-focus cans fall to near-black silhouettes; their chrome ends and edges stay lit
         diffuseColor.rgb *= mix(0.07, 1.0, uFocus * uFocus);
@@ -224,11 +226,13 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         }
         #ifdef USE_MAP
           if (uGlowStrength > 0.001) {
+            // only the white type glows (its weakest channel is high; a bright flavor field's is not), with a faint
+            // tinted haze around the block
             vec3 gzTexel = texture2D(map, vMapUv).rgb;
-            float gzText = max(gzTexel.r, max(gzTexel.g, gzTexel.b));
-            float core = gzRect(vMapUv, uGlowRect, 0.006);
-            float halo = gzRect(vMapUv, uGlowRect + vec4(-0.03, -0.04, 0.03, 0.04), 0.04);
-            totalEmissiveRadiance += uGlowColor * uGlowStrength * (core * 4.5 * gzText * gzText * gzText + halo * 0.07);
+            float gzWhite = smoothstep(0.55, 0.92, min(gzTexel.r, min(gzTexel.g, gzTexel.b)));
+            float core = gzRect(vMapUv, uGlowRect, 0.012);
+            float halo = gzRect(vMapUv, uGlowRect + vec4(-0.04, -0.05, 0.04, 0.05), 0.06);
+            totalEmissiveRadiance += uGlowColor * uGlowStrength * (core * 1.6 * gzWhite + halo * 0.035);
           }
         #endif`
       );
@@ -292,7 +296,7 @@ export function createCanMaterials(
         roughness: 0.42,
         roughnessMap: getRingTexture(),
         anisotropy: 0.08,
-        envMapIntensity: 0.6,
+        envMapIntensity: 0.85,
       });
   return { bodyMat, aluminumMat };
 }
@@ -302,8 +306,14 @@ function getBaseMaterial(aluminum: THREE.Material): THREE.Material {
   let base = baseMaterials.get(aluminum);
   if (!base) {
     base = aluminum.clone();
-    (base as THREE.MeshStandardMaterial).roughness = 0.46;
-    (base as THREE.MeshStandardMaterial).color.setHex(SCENE_COLOR.baseRim);
+    const metal = base as THREE.MeshStandardMaterial;
+    // The base faces the dark studio floor: as a plain mirror it reflected nothing and read as a black hole, the can
+    // an open tube. Satin aluminium, a fuller reflection and a faint fill of its own keep the dome and stand ring
+    // reading as metal (the fill dims with the can's focus, see setCanFocus).
+    metal.roughness = 0.34;
+    metal.color.setHex(SCENE_COLOR.baseRim);
+    metal.envMapIntensity = 1.15;
+    metal.emissive.setHex(SCENE_COLOR.baseFill).multiplyScalar(0.07);
     baseMaterials.set(aluminum, base);
   }
   return base;
@@ -336,15 +346,17 @@ export function setCanFocus(can: THREE.Object3D, focus: number) {
       }
     } else if (material.color) {
       // machined aluminium: dim it with the label, relative to its authored colour and reflectance
-      const base = (material.userData.base ??= { color: material.color.clone(), env: material.envMapIntensity, roughness: material.roughness }) as {
-        color: THREE.Color;
-        env: number;
-        roughness: number;
-      };
+      const base = (material.userData.base ??= {
+        color: material.color.clone(),
+        emissive: material.emissive?.clone(),
+        env: material.envMapIntensity,
+        roughness: material.roughness,
+      }) as { color: THREE.Color; emissive?: THREE.Color; env: number; roughness: number };
       // the machined ends drop to a dark, satin metal grey on side cans, as in the reference (never blown white or
       // glinting): darker, and rougher so their rims stop catching crisp highlights
       const lit = focus * focus;
       material.color.copy(base.color).multiplyScalar(0.16 + 0.84 * lit);
+      if (base.emissive) material.emissive.copy(base.emissive).multiplyScalar(lit);
       material.envMapIntensity = base.env * (0.1 + 0.9 * lit);
       material.roughness = base.roughness + 0.3 * (1 - focus);
     }

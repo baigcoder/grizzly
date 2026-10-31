@@ -280,12 +280,22 @@
   margin: 0;
 }
 
+/* the link keeps a full-size tap area through padding the line does not see (a 44px line-height made every line of
+   the notice 44px tall, a two-line card over the bottom of the page on phones) */
 .cookie-notice a {
   display: inline-block;
-  min-height: var(--control-size);
-  line-height: var(--control-size);
+  padding-block: 0.7em;
+  margin-block: -0.7em;
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
+}
+
+@media (max-width: 767px) {
+  .cookie-notice {
+    font-size: var(--font-size-xs);
+    line-height: 1.4;
+    padding-left: var(--space-sm);
+  }
 }
 
 .cookie-notice .button-outline {

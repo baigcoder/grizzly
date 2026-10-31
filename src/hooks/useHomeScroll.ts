@@ -43,6 +43,10 @@ export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject
     const diveVar = scrollVar('--dive', '.hero__title');
     let ticking = false;
     let lastSection = -1;
+    // Touch screens hand the copy over early, as the reference does: the next chapter's copy comes in as soon as its
+    // section starts to rise into view (a fifth of the way there), so it is in place when the can arrives. Halfway
+    // read as late on a phone, with the thumb already past.
+    const handover = window.matchMedia('(pointer: coarse)').matches ? 0.8 : 0.5;
     let tops: number[] = [];
 
     const measure = () => {
@@ -78,7 +82,7 @@ export function useHomeScroll(enabled: boolean, sceneRef: React.MutableRefObject
       diveVar.set(Math.min(1, position).toFixed(3));
       sceneRef.current?.seekProgress(progress);
 
-      const sectionIndex = Math.min(last, Math.round(position));
+      const sectionIndex = Math.min(last, Math.floor(position + handover));
       const sectionId = SCENE_SEQUENCE[sectionIndex].sectionId;
       const scene = SCENE_BY_SECTION[sectionId];
       const chapter = scene === 'benefit' ? sectionIndex - 2 : -1;

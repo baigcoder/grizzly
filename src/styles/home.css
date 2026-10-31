@@ -721,7 +721,11 @@
   color: var(--color-text-muted);
 }
 
+/* an inline link with a full-size tap area (padding the line does not see) */
 .newsletter__legal a {
+  display: inline-block;
+  padding: 0.8em 0.2em;
+  margin: -0.8em -0.2em;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -1237,6 +1241,89 @@
   transition: transform 700ms var(--ease-out), background-color var(--motion-slow) var(--ease-out);
 }
 
+/* Phones, as in the reference: the copy hands over quickly (half a second, short staggers) so it keeps pace with the
+   thumb, and sits compact at the foot of the screen over a dark falloff, clear of the can. */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .flavor-intro .section-copy,
+  .benefit .section-copy {
+    transition:
+      opacity 300ms var(--ease-out),
+      visibility 0s linear 300ms;
+  }
+
+  .flavor-intro.is-active .section-copy,
+  .benefit.is-active .section-copy {
+    transition-delay: 0s, 0s;
+  }
+
+  .home-section .replaced-tag,
+  .home-section .section-copy__text,
+  .home-section .section-copy__body,
+  .home-section .detail-link--left {
+    transition:
+      clip-path 550ms var(--ease-out),
+      transform 550ms var(--ease-out),
+      opacity 350ms var(--ease-out);
+  }
+
+  .home-section.is-active .replaced-tag { transition-delay: 0ms; }
+  .home-section.is-active .section-copy__text,
+  .home-section.is-active .section-copy__body { transition-delay: 80ms; }
+  .home-section.is-active .detail-link--left { transition-delay: 160ms; }
+
+  .benefit.is-active .benefit-count__now { transition-delay: 0ms; }
+}
+
+@media (max-width: 767px) {
+  /* centred at the foot of the screen, as in the reference: tag, title, line, nothing beside them (the chapter's
+     icon is already lit on the rail, so the hex emblem stays a desktop detail) */
+  .flavor-intro .section-copy,
+  .benefit .section-copy {
+    text-align: center;
+  }
+
+  .benefit .hex-emblem {
+    display: none;
+  }
+
+  .benefit-count,
+  .halal-seal--inline {
+    justify-content: center;
+  }
+
+  .zamzam-script {
+    margin: 0 auto var(--space-2xs);
+    font-size: calc(var(--size-hex-emblem) * 1.5);
+  }
+
+  /* pinned copy never scrolls through its view timeline, so the drift would hold the title off centre */
+  .flavor-intro .section-copy__title {
+    animation: none;
+    translate: none;
+  }
+
+  .flavor-intro .section-copy__title,
+  .benefit .section-copy__title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .flavor-intro .section-copy__text,
+  .benefit .section-copy__text {
+    font-size: var(--font-size-md);
+  }
+
+  /* the falloff runs to the screen's foot, so the can's base fades out behind the copy instead of crossing it */
+  .flavor-intro .section-copy::before,
+  .benefit .section-copy::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--space-3xl) * -1) calc(var(--space-md) * -1) calc(var(--space-2xl) * -1);
+    z-index: -1;
+    background: linear-gradient(to bottom, transparent, var(--color-surface-overlay) 45%);
+    pointer-events: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .flavor-intro .section-copy,
   .benefit .section-copy,
@@ -1265,14 +1352,16 @@
   --color-accent: var(--color-zamzam-gold);
 }
 
+/* the name is the chapter's hero: large, on its own line above the title, with a soft gold glow */
 .zamzam-script {
-  position: absolute;
-  top: calc(var(--size-hex-emblem) * -0.2);
-  left: calc(var(--size-hex-emblem) + var(--space-md));
+  display: block;
+  width: max-content;
+  margin: calc(var(--space-sm) * -1) 0 var(--space-xs);
   font-family: 'Amiri', 'Traditional Arabic', 'Geeza Pro', serif;
   font-weight: 700;
-  font-size: calc(var(--size-hex-emblem) * 0.95);
-  line-height: 1.25;
+  font-size: calc(var(--size-hex-emblem) * 2.1);
+  line-height: 1.3;
+  filter: drop-shadow(0 0 1.2rem color-mix(in oklab, var(--color-zamzam-gold) 45%, transparent));
   white-space: nowrap;
   background: linear-gradient(
     100deg,
@@ -1294,6 +1383,18 @@
 .benefit--zamzam.is-active .zamzam-script {
   clip-path: inset(0 0 0 0);
   animation: zamzam-sheen 7s linear 1.8s infinite;
+}
+
+/* the seal reads in gold here */
+.benefit--zamzam .halal-seal__line,
+.benefit--zamzam .halal-seal__line--fine {
+  stroke: var(--color-zamzam-gold);
+}
+
+.benefit--zamzam .halal-seal__latin,
+.benefit--zamzam .halal-seal__caption {
+  fill: var(--color-zamzam-gold);
+  color: var(--color-zamzam-gold);
 }
 
 @keyframes zamzam-sheen {

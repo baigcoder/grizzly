@@ -163,7 +163,14 @@ export const App: React.FC = () => {
 
   const { isOpen: isCartOpen, toggleCart } = useCart();
   const isHome = route.type === 'HOME';
-  const { scrollToElement } = useSmoothScroll(isHome && isReady, '.home > .home-section:not(.faq)', isHome && webGlAvailable);
+  // phones page one chapter per swipe from the hero to the lineup, then scroll freely (useSmoothScroll)
+  const { scrollToElement } = useSmoothScroll(
+    isHome && isReady,
+    '.home > .home-section:not(.faq)',
+    isHome && webGlAvailable,
+    '.home > .home-section',
+    '#full-gamme'
+  );
   const { scene, chapter, sectionIndex } = useHomeScroll(isHome, sceneManagerRef);
   useCanKeys(isHome ? 'HOME' : route.type === 'PRODUCT' ? 'PRODUCT' : 'OTHER', sceneManagerRef);
 
