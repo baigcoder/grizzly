@@ -1291,9 +1291,12 @@
     justify-content: center;
   }
 
-  .zamzam-script {
-    margin: 0 auto var(--space-2xs);
-    font-size: calc(var(--size-hex-emblem) * 1.5);
+  /* phones: the copy sits over the can's lower body, so the name stays a heading, not a hero (at 1.5× it covered
+     the can). Scoped to .benefit so it outranks the chapter's own rule further down the sheet. */
+  .benefit .zamzam-script {
+    margin: 0 auto;
+    font-size: calc(var(--size-hex-emblem) * 0.85);
+    line-height: 1.15;
   }
 
   /* pinned copy never scrolls through its view timeline, so the drift would hold the title off centre */

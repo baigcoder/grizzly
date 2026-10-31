@@ -58,12 +58,13 @@
   height: 100%;
   padding: var(--space-md);
   overflow: hidden;
-  border: var(--border-hairline) solid var(--color-line-subtle);
+  border: var(--border-hairline) solid color-mix(in oklab, var(--color-accent) 70%, white);
   border-radius: var(--radius-md);
+  /* each card is its can: the flat flavor field of the label, with the label's tone-on-tone claw slashes behind it */
   background:
-    radial-gradient(circle at 20% 50%, color-mix(in oklab, var(--color-accent) 34%, transparent), transparent 62%),
-    var(--color-surface-raised);
-  color: var(--color-text-primary);
+    radial-gradient(circle at 22% 55%, color-mix(in oklab, white 22%, transparent), transparent 58%),
+    linear-gradient(160deg, var(--color-accent), color-mix(in oklab, var(--color-accent) 78%, var(--color-accent-deep)));
+  color: var(--color-white);
   text-decoration: none;
   transition:
     border-color var(--motion-fast) var(--ease-out),
@@ -71,8 +72,32 @@
     background-color var(--motion-fast) var(--ease-out);
 }
 
+.shop-card::before {
+  content: '';
+  position: absolute;
+  inset: -20% 40% -20% -10%;
+  background: repeating-linear-gradient(105deg, transparent 0 14%, color-mix(in oklab, var(--color-accent-deep) 22%, transparent) 14% 19%);
+  pointer-events: none;
+}
+
+.shop-card > * {
+  position: relative;
+}
+
 .shop-card:hover {
-  border-color: var(--color-accent);
+  border-color: var(--color-white);
+}
+
+.shop-card .shop-card__taste,
+.shop-card .shop-card__note {
+  color: var(--color-accent-deep);
+}
+
+.shop-card .shop-card__cta {
+  justify-self: start;
+  padding: var(--space-2xs) var(--space-sm);
+  background: var(--color-accent-deep);
+  color: var(--color-white);
 }
 
 .shop-card:active {

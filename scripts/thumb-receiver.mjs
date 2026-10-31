@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = resolve(root, 'assets_label-art/thumbs');
-const EXPECTED = 6;
+const EXPECTED = Number(process.argv[2] ?? 6); // node scripts/thumb-receiver.mjs [count]
 let saved = 0;
 
 const server = createServer(async (request, response) => {

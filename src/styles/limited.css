@@ -1,0 +1,401 @@
+/* ============================================================
+   LIMITED EDITIONS — a cinematic hero and one panel per edition, each in its can's own world.
+   Transforms and opacity only; still under reduced motion.
+   ============================================================ */
+
+.limited {
+  --limited-gutter: clamp(1.25rem, 5vw, 6rem);
+  overflow-x: clip;
+}
+
+/* ---------- Hero ---------- */
+.limited__hero {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  min-height: 100svh;
+  padding: calc(var(--layout-header-height, 6rem) + var(--space-xl)) var(--limited-gutter) var(--space-4xl);
+  text-align: center;
+  isolation: isolate;
+}
+
+.limited__glows {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.limited__glows span {
+  position: absolute;
+  left: calc(22% + var(--i) * 28%);
+  bottom: 8%;
+  width: min(48vw, 40rem);
+  aspect-ratio: 1;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--glow) 55%, transparent), transparent);
+  filter: blur(2rem);
+  opacity: 0.75;
+  animation: limited-breathe 7s var(--ease-in-out) calc(var(--i) * -2.3s) infinite alternate;
+}
+
+.limited__eyebrow,
+.edition__tag {
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.limited__eyebrow {
+  color: var(--color-text-muted);
+}
+
+.limited__title {
+  display: grid;
+  margin: var(--space-sm) 0 var(--space-md);
+  font-size: clamp(3.4rem, 13vw, 11.5rem);
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.limited__title-outline {
+  color: transparent;
+  -webkit-text-stroke: max(1.5px, 0.012em) var(--color-white);
+}
+
+.limited__lead {
+  max-width: 34ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xl);
+}
+
+.limited__fan {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin: var(--space-2xl) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.limited__fan li {
+  margin-inline: clamp(-2.2rem, -3vw, -1rem);
+  transform: rotate(calc(var(--i) * 9deg)) translateY(calc(var(--i) * var(--i) * 1.2rem));
+  transform-origin: 50% 110%;
+  z-index: calc(2 - var(--i) * var(--i));
+}
+
+.limited__fan img {
+  width: clamp(6.5rem, 17vw, 13rem);
+  height: auto;
+  filter: drop-shadow(0 1.5rem 2.5rem color-mix(in oklab, var(--glow) 55%, black));
+  animation: limited-float 5s var(--ease-in-out) calc(var(--i) * 0.8s) infinite alternate;
+}
+
+.limited__scroll {
+  margin-top: var(--space-2xl);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: var(--space-sm);
+}
+
+.limited__scroll::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 3rem;
+  margin: var(--space-sm) auto 0;
+  background: linear-gradient(var(--color-text-muted), transparent);
+}
+
+/* ---------- One panel per edition ---------- */
+.edition {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: center;
+  gap: var(--space-2xl);
+  min-height: 100svh;
+  padding: var(--space-4xl) var(--limited-gutter);
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--color-white);
+  background:
+    radial-gradient(60% 70% at 72% 50%, color-mix(in oklab, white 16%, transparent), transparent 70%),
+    linear-gradient(160deg, var(--field), color-mix(in oklab, var(--field) 70%, var(--ink) 30%));
+}
+
+/* the label's tone-on-tone claw slashes */
+.edition::before {
+  content: '';
+  position: absolute;
+  inset: -10%;
+  z-index: -1;
+  background: repeating-linear-gradient(105deg, transparent 0 11%, color-mix(in oklab, var(--ink) 16%, transparent) 11% 14.5%);
+}
+
+.edition--flip {
+  grid-template-columns: 0.95fr 1.05fr;
+}
+
+.edition--flip .edition__copy {
+  order: 2;
+}
+
+.edition__copy {
+  position: relative;
+  max-width: 34rem;
+}
+
+.edition__number {
+  position: absolute;
+  top: -0.55em;
+  left: -0.08em;
+  z-index: -1;
+  font-size: clamp(7rem, 20vw, 17rem);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 2px color-mix(in oklab, var(--metal) 60%, transparent);
+  opacity: 0.6;
+}
+
+.edition__tag {
+  display: inline-block;
+  padding: var(--space-2xs) var(--space-sm);
+  background: var(--ink);
+  color: var(--color-white);
+}
+
+.edition__name {
+  margin: var(--space-md) 0;
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  line-height: 0.88;
+  text-transform: uppercase;
+  color: var(--metal);
+  text-shadow: 0 0.04em 0 color-mix(in oklab, var(--ink) 55%, transparent);
+}
+
+.edition__story {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-body);
+  max-width: 32ch;
+}
+
+.edition__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: var(--space-lg) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.edition__facts li {
+  padding: var(--space-2xs) var(--space-sm);
+  border: 1px solid color-mix(in oklab, var(--color-white) 55%, transparent);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.edition .countdown {
+  margin-bottom: var(--space-md);
+}
+
+.edition__soon {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-md);
+  border: 2px solid var(--metal);
+  color: var(--metal);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.edition__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+}
+
+/* a ring of light turning slowly round the can, in the edition's metal */
+.edition__ring {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 62%, color-mix(in oklab, var(--metal) 85%, white) 74%, transparent 86%);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 3px), black calc(100% - 2px));
+  mask: radial-gradient(closest-side, transparent calc(100% - 3px), black calc(100% - 2px));
+  animation: limited-turn 9s linear infinite;
+}
+
+.edition__stage::before {
+  content: '';
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--metal) 35%, transparent);
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--metal) 22%, transparent), transparent);
+}
+
+.edition__can {
+  position: relative;
+  width: min(38%, 15rem);
+  height: auto;
+  rotate: -8deg;
+  filter: drop-shadow(0 2rem 2.5rem color-mix(in oklab, var(--ink) 75%, black));
+  animation: limited-float 6s var(--ease-in-out) infinite alternate;
+}
+
+.edition--flip .edition__can {
+  rotate: 8deg;
+}
+
+/* ---------- Outro ---------- */
+.limited__outro {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-4xl) var(--limited-gutter);
+  text-align: center;
+}
+
+.limited__outro-title {
+  font-size: clamp(2.4rem, 6vw, 4.5rem);
+  text-transform: uppercase;
+}
+
+/* ---------- Phones: stacked, the can first ---------- */
+@media (max-width: 767px) {
+  .edition,
+  .edition--flip {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    min-height: auto;
+    padding-block: var(--space-3xl);
+  }
+
+  .edition__copy,
+  .edition--flip .edition__copy {
+    order: 2;
+  }
+
+  .edition__stage {
+    width: min(100%, 22rem);
+    justify-self: center;
+  }
+}
+
+@keyframes limited-float {
+  from { translate: 0 -0.6rem; }
+  to { translate: 0 0.6rem; }
+}
+
+@keyframes limited-breathe {
+  from { opacity: 0.55; scale: 0.94; }
+  to { opacity: 0.85; scale: 1.04; }
+}
+
+@keyframes limited-turn {
+  to { rotate: 1turn; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .limited__glows span,
+  .limited__fan img,
+  .edition__ring,
+  .edition__can {
+    animation: none;
+  }
+}
+
+/* ---------- Home teaser (components/LimitedTeaser.tsx) ---------- */
+.limited-teaser {
+  position: fixed;
+  right: var(--layout-gutter, 1.5rem);
+  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  z-index: var(--z-notice);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-2xl) var(--space-sm) var(--space-md);
+  border: 1px solid color-mix(in oklab, #e6c47e 45%, transparent);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(120% 140% at 0% 100%, color-mix(in oklab, #9b5de5 40%, transparent), transparent 60%),
+    color-mix(in oklab, var(--color-surface-panel) 92%, transparent);
+  box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 0.45);
+  animation: limited-teaser-in 700ms var(--ease-out);
+}
+
+.limited-teaser__cans {
+  display: flex;
+  align-items: flex-end;
+}
+
+.limited-teaser__cans img {
+  width: 2.4rem;
+  height: auto;
+  margin-inline: -0.35rem;
+  transform: rotate(calc(var(--i) * 10deg)) translateY(calc(var(--i) * var(--i) * 0.2rem));
+  filter: drop-shadow(0 0.4rem 0.6rem rgb(0 0 0 / 0.5));
+}
+
+.limited-teaser__copy {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.limited-teaser__eyebrow {
+  color: #e6c47e;
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.limited-teaser__title {
+  font-size: var(--font-size-2xl);
+  text-transform: uppercase;
+}
+
+.limited-teaser__link {
+  display: inline-block;
+  padding-block: 0.6em;
+  margin-block: -0.6em;
+  color: var(--color-white);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.limited-teaser__close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--control-size, 44px);
+  height: var(--control-size, 44px);
+  color: var(--color-text-muted);
+  font-size: 1.4rem;
+}
+
+@media (max-width: 767px) {
+  .limited-teaser {
+    left: var(--space-sm);
+    right: var(--space-sm);
+  }
+}
+
+@keyframes limited-teaser-in {
+  from { opacity: 0; translate: 0 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .limited-teaser { animation: none; }
+}

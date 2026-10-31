@@ -26,6 +26,8 @@ import { NotFoundPage } from './components/NotFoundPage';
 import { FlavorFinder } from './components/FlavorFinder';
 import { PointerFX } from './components/PointerFX';
 import { CookieNotice } from './components/CookieNotice';
+import { LimitedTeaser } from './components/LimitedTeaser';
+import './styles/limited.css';
 import type { MenuItem } from './components/MenuDrawer';
 import { useCart } from './store/cart';
 import { useSmoothScroll, prefersReducedMotion } from './hooks/useSmoothScroll';
@@ -40,6 +42,7 @@ const CheckoutPage = lazy(() => import('./components/CheckoutPage').then((m) => 
 const ShopPage = lazy(() => import('./components/ShopPage').then((m) => ({ default: m.ShopPage })));
 const PackBuilder = lazy(() => import('./components/PackBuilder').then((m) => ({ default: m.PackBuilder })));
 const HalalPage = lazy(() => import('./components/HalalPage').then((m) => ({ default: m.HalalPage })));
+const LimitedPage = lazy(() => import('./components/LimitedPage').then((m) => ({ default: m.LimitedPage })));
 const AboutPage = lazy(() => import('./components/AboutPage').then((m) => ({ default: m.AboutPage })));
 const PrivacyPage = lazy(() => import('./components/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const StoreLocator = lazy(() => import('./components/StoreLocator').then((m) => ({ default: m.StoreLocator })));
@@ -94,6 +97,7 @@ export type AppRoute =
   | { type: 'SHOP' }
   | { type: 'MIX' }
   | { type: 'HALAL' }
+  | { type: 'LIMITED' }
   | { type: 'ABOUT' }
   | { type: 'STORES' }
   | { type: 'PRIVACY' }
@@ -107,6 +111,7 @@ const STATIC_ROUTES: Record<string, AppRoute> = {
   '/shop': { type: 'SHOP' },
   '/mix': { type: 'MIX' },
   '/halal-zamzam': { type: 'HALAL' },
+  '/limited': { type: 'LIMITED' },
   '/about': { type: 'ABOUT' },
   '/stores': { type: 'STORES' },
   '/privacy': { type: 'PRIVACY' },
@@ -455,6 +460,7 @@ export const App: React.FC = () => {
 
   const menuItems: MenuItem[] = [
     { key: 'range', href: '/shop', onSelect: () => navigate('/shop') },
+    { key: 'limited', href: '/limited', onSelect: () => navigate('/limited') },
     { key: 'benefits', href: '/#benefits-1', onSelect: () => goToSection('benefits-1') },
     { key: 'mix', href: '/mix', onSelect: () => navigate('/mix') },
     { key: 'finder', href: '/#gamme', onSelect: () => setIsFinderOpen(true) },
@@ -474,6 +480,8 @@ export const App: React.FC = () => {
         ? 'mix'
         : route.type === 'HALAL'
           ? 'halal'
+          : route.type === 'LIMITED'
+            ? 'limited'
           : route.type === 'STORES'
             ? 'stores'
             : route.type === 'ABOUT'
@@ -592,6 +600,10 @@ export const App: React.FC = () => {
             <PackBuilder onNavigate={navigate} show3d={webGlAvailable && sceneWanted} onMixChange={handleMixChange} onStage={handleMixStage} />
           </Suspense>
         </main>
+      ) : route.type === 'LIMITED' ? (
+        <main id="main" className="page">
+          <Suspense fallback={null}><LimitedPage onNavigate={navigate} /></Suspense>
+        </main>
       ) : route.type === 'HALAL' ? (
         <main id="main" className="page">
           <Suspense fallback={null}><HalalPage /></Suspense>
@@ -660,6 +672,7 @@ export const App: React.FC = () => {
       <PointerFX onTilt={handleTilt} />
       {showDebugHud && <DebugHud />}
       <CookieNotice isReady={isReady} />
+      <LimitedTeaser isReady={isReady} isHome={isHome} onNavigate={navigate} />
     </>
   );
 };

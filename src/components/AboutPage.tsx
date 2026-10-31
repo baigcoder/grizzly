@@ -46,7 +46,7 @@ export const AboutPage: React.FC<{ onNavigate: (url: string) => void }> = ({ onN
     <article className="about" aria-labelledby="about-title">
       <header className="about__hero">
         <div className="about__art" aria-hidden="true">
-          <img src="/textures/grizzly/bear/blue-raspberry.webp" alt="" width="1024" height="614" decoding="async" />
+          <img src="/brand/bear-mark.webp" alt="" width="1200" height="1068" decoding="async" />
         </div>
         <div className="about__intro">
           <p className="about__eyebrow">{ABOUT_PAGE.title}</p>

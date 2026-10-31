@@ -16,6 +16,7 @@ export const STRINGS = {
   mix: { en: 'Mix a pack', ur: 'اپنا پیک بنائیں' },
   finder: { en: 'Find your flavor', ur: 'اپنا ذائقہ تلاش کریں' },
   halal: { en: 'Halal and Zamzam', ur: 'حلال اور زمزم' },
+  limited: { en: 'Limited editions', ur: 'محدود ایڈیشن' },
   stores: { en: 'Find a store', ur: 'دکان تلاش کریں' },
   about: { en: 'About us', ur: 'ہمارے بارے میں' },
   faq: { en: 'FAQ', ur: 'سوالات' },
