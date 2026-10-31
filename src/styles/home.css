@@ -1237,6 +1237,90 @@
   transition: transform 700ms var(--ease-out), background-color var(--motion-slow) var(--ease-out);
 }
 
+/* Phones, as in the reference: the copy hands over quickly (half a second, short staggers) so it keeps pace with the
+   thumb, and sits compact at the foot of the screen over a dark falloff, clear of the can. */
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  .flavor-intro .section-copy,
+  .benefit .section-copy {
+    transition:
+      opacity 300ms var(--ease-out),
+      visibility 0s linear 300ms;
+  }
+
+  .flavor-intro.is-active .section-copy,
+  .benefit.is-active .section-copy {
+    transition-delay: 0s, 0s;
+  }
+
+  .home-section .replaced-tag,
+  .home-section .section-copy__text,
+  .home-section .section-copy__body,
+  .home-section .detail-link--left {
+    transition:
+      clip-path 550ms var(--ease-out),
+      transform 550ms var(--ease-out),
+      opacity 350ms var(--ease-out);
+  }
+
+  .home-section.is-active .replaced-tag { transition-delay: 0ms; }
+  .home-section.is-active .section-copy__text,
+  .home-section.is-active .section-copy__body { transition-delay: 80ms; }
+  .home-section.is-active .detail-link--left { transition-delay: 160ms; }
+
+  .benefit.is-active .benefit-count__now { transition-delay: 0ms; }
+}
+
+@media (max-width: 767px) {
+  /* centred at the foot of the screen, as in the reference: tag, title, line, nothing beside them (the chapter's
+     icon is already lit on the rail, so the hex emblem stays a desktop detail) */
+  .flavor-intro .section-copy,
+  .benefit .section-copy {
+    text-align: center;
+  }
+
+  .benefit .hex-emblem {
+    display: none;
+  }
+
+  .benefit-count,
+  .halal-seal--inline {
+    justify-content: center;
+  }
+
+  .zamzam-script {
+    position: static;
+    display: block;
+    margin-bottom: var(--space-2xs);
+  }
+
+  /* pinned copy never scrolls through its view timeline, so the drift would hold the title off centre */
+  .flavor-intro .section-copy__title {
+    animation: none;
+    translate: none;
+  }
+
+  .flavor-intro .section-copy__title,
+  .benefit .section-copy__title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .flavor-intro .section-copy__text,
+  .benefit .section-copy__text {
+    font-size: var(--font-size-md);
+  }
+
+  /* the falloff runs to the screen's foot, so the can's base fades out behind the copy instead of crossing it */
+  .flavor-intro .section-copy::before,
+  .benefit .section-copy::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--space-3xl) * -1) calc(var(--space-md) * -1) calc(var(--space-2xl) * -1);
+    z-index: -1;
+    background: linear-gradient(to bottom, transparent, var(--color-surface-overlay) 45%);
+    pointer-events: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .flavor-intro .section-copy,
   .benefit .section-copy,

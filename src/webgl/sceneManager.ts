@@ -310,6 +310,8 @@ export class SceneManager {
   private timelineKeys: string[] = [];
   private timelineSeekedAt = -1;
   private targetTimelineProgress = 0;
+  /** Touch screens, where Lenis drives the finger scroll (useSmoothScroll). */
+  private readonly touchScroll = window.matchMedia('(pointer: coarse)').matches;
   private currentTimelineProgress = 0;
   /** Section position 0..9 (continuous), for the stage's slow drift. */
   public sectionPosition = 0;
@@ -669,13 +671,14 @@ export class SceneManager {
     if (!this.govStart) this.govStart = time;
     this.govFrames += 1;
     const elapsed = time - this.govStart;
-    if (elapsed < 2000) return;
+    // phones measure 1 s windows: with Lenis driving touch, a slow frame is a stuttering scroll, so step down sooner
+    if (elapsed < (this.isLowPower ? 1000 : 2000)) return;
     const fps = (this.govFrames * 1000) / elapsed;
     this.govStart = time;
     this.govFrames = 0;
     if (time < 4000 || this.govStep >= 3) return; // startup (shader compiles, texture uploads) never counts
     this.govSlowWindows = fps >= 40 ? 0 : this.govSlowWindows + 1;
-    // phones step down after one slow 2 s window (two let a struggling phone stutter through the first scrolls)
+    // phones step down after one slow window (two let a struggling phone stutter through the first scrolls)
     if (this.govSlowWindows < (this.isLowPower ? 1 : 2)) return;
     this.govSlowWindows = 0;
     this.govStep += 1;
@@ -717,10 +720,11 @@ export class SceneManager {
       this.labels.loadNormals = false;
     }
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    // HIGH renders up to 2x for crisp labels; MEDIUM up to 2x on phone-sized screens (375×812 at 2x is fewer pixels
-    // than a laptop at 1.25x, and at 1.25x a 3x phone showed every can soft) and 1.5x on larger ones. The frame-rate
+    // HIGH renders up to 2x for crisp labels; MEDIUM up to 1.75x on phone-sized screens (375×812 at 2x is fewer pixels
+    // than a laptop at 1.25x, and at 1.25x a 3x phone showed every can soft; 2x cost phones their scroll frame rate once
+    // Lenis drove touch) and 1.5x on larger ones. The frame-rate
     // governor steps down on slow GPUs.
-    const cap = level === 'LOW' ? 1 : level === 'MEDIUM' ? (window.innerWidth < 768 ? 2 : 1.5) : 2;
+    const cap = level === 'LOW' ? 1 : level === 'MEDIUM' ? (window.innerWidth < 768 ? 1.75 : 1.5) : 2;
     this.setPixelRatio(Math.min(dpr, cap));
     this.applyQuality(level);
   }
@@ -1271,8 +1275,9 @@ export class SceneManager {
       this.scrollVelocity += (target - this.scrollVelocity) * (1 - Math.exp(-5 * delta));
     }
 
-    // the camera trails the scroll a little (cinematic follow), never snapping to it
-    const timelineBlend = damp(MOTION_RATE.transition, delta);
+    // the camera trails the scroll a little (cinematic follow), never snapping to it. On touch Lenis already eases
+    // the page (syncTouch), so a second full trail left the can a beat behind the thumb: follow it more closely there.
+    const timelineBlend = damp(this.touchScroll ? MOTION_RATE.transition * 2.2 : MOTION_RATE.transition, delta);
     this.currentTimelineProgress += (this.targetTimelineProgress - this.currentTimelineProgress) * timelineBlend;
     if (Math.abs(this.targetTimelineProgress - this.currentTimelineProgress) <= 0.0001) {
       this.currentTimelineProgress = this.targetTimelineProgress;

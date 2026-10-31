@@ -17,7 +17,97 @@ export function prefersReducedMotion(): boolean {
  * `wrapAtEnd`: when a downward scroll reaches the very bottom of the page (the home loop segment, which renders the same
  * frame as the hero), the page wraps to the top, as in the reference. Only with Lenis (never under reduced motion).
  */
-export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtEnd = false) {
+const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+/** One chapter per swipe: the reference's glide to the next chapter top. */
+const PAGE_DURATION = 1.5;
+/** A vertical drag shorter than this (CSS px) settles back on the chapter it started on. */
+const PAGE_THRESHOLD = 24;
+
+/**
+ * Phone paging, as in the reference: from the hero to `lastPageSelector`, a vertical swipe does not drag the page;
+ * on release it glides exactly one chapter on (or back), 1.5 s ease-out, so every swipe lands the can and its copy
+ * squarely on the next step. A short drag returns to the chapter it started on; a sideways one is left to the
+ * carousel and can turns. Past the last paged chapter (FAQ, footer) the page scrolls freely under the finger again.
+ */
+function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?: string) {
+  let startX = 0;
+  let startY = 0;
+  let anchor = 0;
+  let axis: 0 | 1 | 2 = 0; // 0 undecided, 1 sideways, 2 vertical
+  let active = false;
+  let tops: number[] = [];
+
+  const excluded = (target: EventTarget | null) =>
+    target instanceof Element && target.closest('.site-menu, .drawer, .flavor-slider') !== null;
+
+  const onStart = (event: TouchEvent) => {
+    active = false;
+    axis = 0;
+    if (event.touches.length !== 1 || excluded(event.target)) return;
+    const pages = Array.from(document.querySelectorAll<HTMLElement>(pageSelector));
+    const last = lastPageSelector ? pages.findIndex((page) => page.matches(lastPageSelector)) : pages.length - 1;
+    if (last < 0) return;
+    tops = pages.map((page) => page.getBoundingClientRect().top + window.scrollY);
+    const position = lenis.animatedScroll;
+    anchor = 0;
+    tops.forEach((top, index) => {
+      if (Math.abs(top - position) < Math.abs(tops[anchor] - position)) anchor = index;
+    });
+    active = anchor <= last;
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+  };
+
+  // capture: decides before Lenis's own handler, so the page never moves under the finger
+  const onMove = (event: TouchEvent) => {
+    if (!active) return;
+    const touch = event.touches[0];
+    if (axis === 0) {
+      const dx = Math.abs(touch.clientX - startX);
+      const dy = Math.abs(touch.clientY - startY);
+      if (dx > 2 || dy > 2) axis = dx > dy ? 1 : 2;
+    }
+    if (axis === 2) {
+      if (event.cancelable) event.preventDefault();
+      lenis.stop();
+    }
+  };
+
+  // registered after Lenis, so Lenis (stopped) adds no coast of its own before the glide starts
+  const onEnd = (event: TouchEvent) => {
+    if (!active || axis !== 2) return;
+    active = false;
+    const endY = event.changedTouches[0]?.clientY ?? startY;
+    const delta = endY - startY;
+    const target = Math.max(0, Math.min(tops.length - 1, Math.abs(delta) > PAGE_THRESHOLD ? anchor + (delta < 0 ? 1 : -1) : anchor));
+    lenis.start();
+    lenis.scrollTo(tops[target], { duration: PAGE_DURATION, easing: easeOutCubic });
+  };
+
+  const onCancel = () => {
+    if (active && axis === 2) lenis.start();
+    active = false;
+  };
+
+  window.addEventListener('touchstart', onStart, { passive: true });
+  window.addEventListener('touchmove', onMove, { passive: false, capture: true });
+  window.addEventListener('touchend', onEnd, { passive: true });
+  window.addEventListener('touchcancel', onCancel, { passive: true });
+  return () => {
+    window.removeEventListener('touchstart', onStart);
+    window.removeEventListener('touchmove', onMove, { capture: true });
+    window.removeEventListener('touchend', onEnd);
+    window.removeEventListener('touchcancel', onCancel);
+  };
+}
+
+export function useSmoothScroll(
+  enabled: boolean,
+  snapSelector?: string,
+  wrapAtEnd = false,
+  pageSelector?: string,
+  lastPageSelector?: string
+) {
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
@@ -83,6 +173,7 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtE
         });
         snap.addElements(Array.from(document.querySelectorAll<HTMLElement>(snapSelector)), { align: 'start' });
       }
+      const stopPaging = pageSelector && touch && window.innerWidth < 1024 ? startTouchPaging(lenis, pageSelector, lastPageSelector) : null;
       if (wrapAtEnd) {
         let wrapping = false;
         lenis.on('scroll', (instance: Lenis) => {
@@ -96,6 +187,7 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtE
       }
       cleanup = () => {
         cancelAnimationFrame(frame);
+        stopPaging?.();
         snap?.destroy();
         lenis.destroy();
         lenisRef.current = null;
@@ -105,7 +197,7 @@ export function useSmoothScroll(enabled: boolean, snapSelector?: string, wrapAtE
       cancelled = true;
       cleanup();
     };
-  }, [enabled, snapSelector, wrapAtEnd]);
+  }, [enabled, snapSelector, wrapAtEnd, pageSelector, lastPageSelector]);
 
   /** Scrolls to an element, smoothly when Lenis is active. */
   const scrollToElement = (element: HTMLElement) => {
