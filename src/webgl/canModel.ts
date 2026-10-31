@@ -278,7 +278,7 @@ export function createCanMaterials(
         anisotropyRotation: 0,
         // printed cans are varnished: a crisp clear coat gives the long vertical studio highlight
         clearcoat: 1,
-        clearcoatRoughness: 0.08, // a glossy varnish: one crisp streak down the key side, as in the reference
+        clearcoatRoughness: 0.16, // a glossy varnish with a soft streak (0.08 mirrored the key strip as a hard line)
         envMapIntensity: 1,
       });
   applyCanSurfaceShader(bodyMat);
@@ -348,7 +348,7 @@ export function setCanFocus(can: THREE.Object3D, focus: number) {
       if (physical.isMeshPhysicalMaterial) {
         physical.clearcoat = 0.06 + 0.94 * lit; // never 0: avoids a shader recompile
         // side cans' varnish goes soft, so the key strip reads as a gentle sheen, not a sharp white line
-        physical.clearcoatRoughness = 0.08 + 0.32 * (1 - focus);
+        physical.clearcoatRoughness = 0.16 + 0.24 * (1 - focus);
       }
     } else if (material.color) {
       // machined aluminium: dim it with the label, relative to its authored colour and reflectance
