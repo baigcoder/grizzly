@@ -31,6 +31,8 @@ const install = process.argv.includes('--install');
 const only = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
 const previewDir = resolve(root, 'assets/label-flat');
 const runtimeDir = resolve(root, 'public/textures/grizzly');
+// concept editions (not in grizzly.json) get their maps here, for the thumb studio only: never shipped with the site
+const conceptDir = resolve(root, 'assets/label-flat/maps');
 await mkdir(previewDir, { recursive: true });
 
 const [W, H] = data.label.size;
@@ -277,15 +279,17 @@ for (const [slug, spec] of Object.entries(FLAVORS)) {
   const maskPng = await page.screenshot({ type: 'png' });
 
   await sharp(albedo).png().toFile(resolve(previewDir, `${slug}.png`));
-  if (install && flavor) {
+  if (install) {
+    const dir = flavor ? runtimeDir : conceptDir;
+    await mkdir(dir, { recursive: true });
     const mask = await sharp(maskPng).greyscale().raw().toBuffer();
     const surface = Buffer.alloc(W * H * 3);
     for (let i = 0; i < W * H; i += 1) {
       const t = mask[i] / 255;
       for (let c = 0; c < 3; c += 1) surface[i * 3 + c] = Math.round(BODY_SURFACE[c] + (METAL_SURFACE[c] - BODY_SURFACE[c]) * t);
     }
-    await sharp(albedo).webp({ quality: 92 }).toFile(resolve(runtimeDir, `${slug}.webp`));
-    await sharp(surface, { raw: { width: W, height: H, channels: 3 } }).png().toFile(resolve(runtimeDir, `${slug}-surface.png`));
+    await sharp(albedo).webp({ quality: 92 }).toFile(resolve(dir, `${slug}.webp`));
+    await sharp(surface, { raw: { width: W, height: H, channels: 3 } }).png().toFile(resolve(dir, `${slug}-surface.png`));
     // emboss: the metal sits slightly raised (half-size normal map from the blurred mask)
     const NW = W / 2;
     const NH = Math.round(H / 2);
@@ -303,8 +307,8 @@ for (const [slug, spec] of Object.entries(FLAVORS)) {
         normal[k + 2] = Math.round((1 / len * 0.5 + 0.5) * 255);
       }
     }
-    await sharp(normal, { raw: { width: NW, height: NH, channels: 3 } }).png().toFile(resolve(runtimeDir, `${slug}-normal.png`));
+    await sharp(normal, { raw: { width: NW, height: NH, channels: 3 } }).png().toFile(resolve(dir, `${slug}-normal.png`));
   }
-  console.log(`✓ ${slug}${install && flavor ? ' (installed)' : ''}`);
+  console.log(`✓ ${slug}${install ? (flavor ? ' (installed)' : ' (concept maps)') : ''}`);
 }
 await browser.close();

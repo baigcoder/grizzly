@@ -186,8 +186,14 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           #else
             vec3 deepInk = mix(gzInk, vec3(gzLum), 0.18) * 0.78;
           #endif
-          vec3 silver = vec3(0.86, 0.87, 0.9) * (0.88 + 0.24 * gzBrush);
-          diffuseColor.rgb = mix(deepInk, max(deepInk, silver * 0.92), gzMetal);
+          #ifdef USE_METALNESSMAP
+            // bare metal keeps the label's own metal colour (silver, or the gold / copper of a limited edition),
+            // brushed; lifting it toward a fixed silver turned every tinted metal white
+            vec3 bare = gzInk * (0.88 + 0.24 * gzBrush);
+          #else
+            vec3 bare = max(deepInk, vec3(0.86, 0.87, 0.9) * (0.88 + 0.24 * gzBrush) * 0.92);
+          #endif
+          diffuseColor.rgb = mix(deepInk, bare, gzMetal);
           // Benefit spotlight, as in the reference: the can goes dark and a soft pool of light rests on the active
           // block (feathered well past its edges), lifting it a little rather than blowing it out. A hard 1.7× box
           // read as a pasted rectangle on the flat colour labels.

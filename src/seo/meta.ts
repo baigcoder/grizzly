@@ -16,6 +16,7 @@ export type SeoRoute =
   | { type: 'SHOP' }
   | { type: 'MIX' }
   | { type: 'HALAL' }
+  | { type: 'LIMITED' }
   | { type: 'ABOUT' }
   | { type: 'STORES' }
   | { type: 'PRIVACY' }
@@ -178,6 +179,15 @@ export function pageMeta(route: SeoRoute): PageMeta {
         noindex: false,
         jsonLd: [breadcrumb([{ name: 'Home', path: '/' }, { name: 'Halal and Zamzam', path: '/halal-zamzam' }])],
       };
+    case 'LIMITED':
+      return {
+        path: '/limited',
+        title: `Limited editions – ${BRAND.name}`,
+        description: `Small batches, bold flavors: ${BRAND.name} limited editions. Blackout Berry on sale now; Falsa Frost and Cold Coffee coming soon.`,
+        image: imageFor(),
+        noindex: false,
+        jsonLd: [breadcrumb([{ name: 'Home', path: '/' }, { name: 'Limited editions', path: '/limited' }])],
+      };
     case 'ABOUT':
       return {
         path: '/about',
@@ -240,6 +250,7 @@ export function indexableRoutes(): SeoRoute[] {
     ...PRODUCTS.map((product) => ({ type: 'PRODUCT' as const, slug: product.slug })),
     { type: 'MIX' },
     { type: 'HALAL' },
+    { type: 'LIMITED' },
     { type: 'ABOUT' },
     { type: 'STORES' },
     { type: 'PRIVACY' },

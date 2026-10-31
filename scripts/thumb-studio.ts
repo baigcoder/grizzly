@@ -65,12 +65,15 @@ const load = (url: string, srgb: boolean) =>
 const status = document.getElementById('status')!;
 const out = document.getElementById('out')!;
 
-for (const flavor of FLAVORS) {
-  const slug = flavor.id;
+// ?slugs=a,b renders only those; a slug outside the range (a limited-edition concept) loads its maps from
+// assets/label-flat/maps (scripts/build-flat-labels.mjs --install), which the dev server serves but the site does not ship
+const slugs = new URLSearchParams(location.search).get('slugs')?.split(',') ?? FLAVORS.map((flavor) => flavor.id);
+for (const slug of slugs) {
+  const base = FLAVORS.some((flavor) => flavor.id === slug) ? TEXTURES : '/assets/label-flat/maps';
   const [albedo, surface, normal] = await Promise.all([
-    load(`${TEXTURES}/${slug}.webp`, true),
-    load(`${TEXTURES}/${slug}-surface.png`, false),
-    load(`${TEXTURES}/${slug}-normal.png`, false),
+    load(`${base}/${slug}.webp`, true),
+    load(`${base}/${slug}-surface.png`, false),
+    load(`${base}/${slug}-normal.png`, false),
   ]);
   const can = createCanMesh(albedo, surface, false, normal);
   setCanFocus(can, 1);
@@ -98,5 +101,5 @@ for (const flavor of FLAVORS) {
     status.textContent = `Rendered, but the receiver at ${RECEIVER} is not running`;
   }
 }
-if (status.textContent === 'Rendering…') status.textContent = `Done: ${FLAVORS.length} cans sent to ${RECEIVER}`;
+if (status.textContent === 'Rendering…') status.textContent = `Done: ${slugs.length} cans sent to ${RECEIVER}`;
 document.documentElement.dataset.done = 'true';

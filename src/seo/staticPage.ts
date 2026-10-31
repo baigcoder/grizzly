@@ -15,6 +15,7 @@ const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g,
 const NAV: Array<[string, string]> = [
   ['/shop', 'Shop'],
   ['/mix', 'Mix your pack'],
+  ['/limited', 'Limited editions'],
   ['/halal-zamzam', 'Halal and Zamzam'],
   ['/stores', 'Find a store'],
   ['/about', 'About us'],
@@ -99,6 +100,8 @@ function body(route: SeoRoute): string {
     }
     case 'HALAL':
       return `${header()}<main id="main"><h1>Halal and Zamzam</h1><p>${escapeHtml(BRAND.name)} is halal certified and made with added Zamzam water.</p><p>The certifier, licence and the Zamzam sourcing details will be published here once confirmed.</p></main>${footer()}`;
+    case 'LIMITED':
+      return `${header()}<main id="main"><h1>Limited editions</h1><p>Small batches. Bold flavors. Gone when they're gone.</p><h2>Blackout Berry</h2><p>Drop 01, on sale now. <a href="/products/blackout-berry">Get it now</a></p><h2>Falsa Frost</h2><p>Batch 001, coming soon.</p><h2>Cold Coffee</h2><p>Café batch, coming soon. Contains milk.</p></main>${footer()}`;
     case 'ABOUT':
       return `${header()}<main id="main"><h1>Our story</h1><p>${escapeHtml(ABOUT_PAGE.intro)}</p><h2>Founder</h2><p>${escapeHtml(ABOUT_PAGE.founder.name)} founded ${escapeHtml(BRAND.company.name)}, the company behind ${escapeHtml(BRAND.name)}.</p><p>${escapeHtml(BRAND.summary)}</p>${range()}</main>${footer()}`;
     case 'MIX':
