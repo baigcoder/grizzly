@@ -1409,3 +1409,24 @@
   .zamzam-script { transition: none; }
   .benefit--zamzam.is-active .zamzam-script { animation: none; background-position: 50% 0; }
 }
+
+/* The loop's glide (useSmoothScroll): the newsletter and footer step aside so the can sweeps back into the hero ring
+   over a clear frame, then the page wraps to the top. */
+.newsletter,
+.site-footer,
+.home-loop__cue {
+  transition: opacity 700ms var(--ease-out), translate 900ms var(--ease-out);
+}
+
+html[data-looping] .newsletter,
+html[data-looping] .site-footer,
+html[data-looping] .home-loop__cue {
+  opacity: 0;
+  translate: 0 -2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newsletter,
+  .site-footer,
+  .home-loop__cue { transition: none; }
+}

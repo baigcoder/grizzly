@@ -370,7 +370,13 @@ export const App: React.FC = () => {
       const sm = sceneManagerRef.current;
       if (!stage || !sm) return;
       const rect = stage.getBoundingClientRect();
-      sm.setProductStage(window.innerWidth < 1024 ? { top: rect.top + window.scrollY, height: rect.height } : null);
+      // the can fits below the header's dark fade (it runs over the stage's top), not under it: fitted to the whole
+      // stage, its lid sat inside the header band on phones
+      const header = document.querySelector('.site-header');
+      const scrim = header ? parseFloat(getComputedStyle(header, '::before').height) || 0 : 0;
+      const top = Math.max(rect.top, scrim + 6) + window.scrollY;
+      const bottom = rect.bottom + window.scrollY;
+      sm.setProductStage(window.innerWidth < 1024 ? { top, height: Math.max(120, bottom - top) } : null);
     };
     // The stage mounts with the page and the scene may still be loading: retry for a few frames.
     let tries = 0;
