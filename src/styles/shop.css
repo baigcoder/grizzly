@@ -739,6 +739,36 @@ html.is-locked {
   padding: var(--space-xl) 0;
 }
 
+.bag__empty-cans {
+  display: flex;
+  align-items: flex-end;
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  list-style: none;
+}
+
+.bag__empty-cans li {
+  margin-inline: -0.6rem;
+  transform: rotate(calc(var(--i) * 5deg)) translateY(calc(var(--i) * var(--i) * 0.25rem));
+  transform-origin: 50% 100%;
+}
+
+.bag__empty-cans a {
+  display: block;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.bag__empty-cans a:hover,
+.bag__empty-cans a:focus-visible {
+  transform: translateY(calc(-1 * var(--space-sm)));
+}
+
+.bag__empty-cans img {
+  width: clamp(2.6rem, 9vw, 4.2rem);
+  height: auto;
+  filter: drop-shadow(0 var(--space-xs) var(--space-sm) var(--color-black-a40));
+}
+
 .bag__empty-title {
   font-size: var(--font-size-2xl);
 }

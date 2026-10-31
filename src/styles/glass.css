@@ -33,16 +33,9 @@
   animation-timing-function: var(--ease-glass);
 }
 
-/* Shop cards: the same glass, keeping their flavor glow; hover lifts the card and lights its edge. */
+/* Shop cards: their flavor colour (shop-page.css) under a glass sheen; hover lifts the card and lights its edge. */
 .shop-card {
-  border-color: var(--glass-edge);
-  background:
-    radial-gradient(circle at 20% 50%, color-mix(in oklab, var(--color-accent) 34%, transparent), transparent 62%),
-    var(--glass-sheen),
-    var(--glass-fill);
   box-shadow: var(--glass-highlight), var(--glass-shadow-soft);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   transition:
     border-color var(--motion-fast) var(--ease-out),
     box-shadow var(--motion-standard) var(--ease-out),

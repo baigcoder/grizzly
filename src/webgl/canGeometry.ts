@@ -8,7 +8,7 @@ import * as THREE from 'three';
  * Ends: a tapered neck, double-seam chime, countersunk lid with a stay-on tab at the top,
  * and a domed base with a foot ring at the bottom. Total height ≈ 4.5 world units.
  */
-import { CAN } from './canDimensions';
+import { CAN, END_STRETCH } from './canDimensions';
 export { CAN };
 
 const RADIAL_SEGMENTS = 128;
@@ -45,8 +45,9 @@ const BOTTOM_PROFILE: Array<[number, number]> = [
   [0.795, 0.0],
 ];
 
-function latheFromProfile(profile: Array<[number, number]>, offsetY: number): THREE.LatheGeometry {
-  const curve = new THREE.SplineCurve(profile.map(([r, y]) => new THREE.Vector2(r, y + offsetY)));
+function latheFromProfile(profile: Array<[number, number]>, offsetY: number, stretch: number): THREE.LatheGeometry {
+  // the profile's heights are stretched (END_STRETCH) so the shoulder and the base taper read at a real can's scale
+  const curve = new THREE.SplineCurve(profile.map(([r, y]) => new THREE.Vector2(r, y * stretch + offsetY)));
   // the control points are dense where the profile turns sharply, so a few samples between each keep it crisp
   const points = curve.getPoints(profile.length * 3);
   return new THREE.LatheGeometry(points, RADIAL_SEGMENTS);
@@ -101,8 +102,8 @@ export function getCanGeometry(): CanGeometryParts {
   const shell = new THREE.CylinderGeometry(CAN.radius, CAN.radius, CAN.shellHeight, RADIAL_SEGMENTS, 1, true, -Math.PI, Math.PI * 2);
   cachedParts = {
     shell,
-    top: latheFromProfile(TOP_PROFILE, SHELL_HALF),
-    bottom: latheFromProfile(BOTTOM_PROFILE, -SHELL_HALF),
+    top: latheFromProfile(TOP_PROFILE, SHELL_HALF, END_STRETCH.top),
+    bottom: latheFromProfile(BOTTOM_PROFILE, -SHELL_HALF, END_STRETCH.bottom),
     tab: createTabGeometry(),
     opening: createOpeningGeometry(),
   };
@@ -116,6 +117,6 @@ export function disposeCanGeometry() {
 }
 
 /** World Y of the lid panel (where the tab sits) relative to the can origin. */
-export const LID_Y = SHELL_HALF + 0.205;
+export const LID_Y = SHELL_HALF + 0.205 * END_STRETCH.top;
 /** Rivet position on the lid panel: the tab pivots about this point. */
 export const TAB_PIVOT = new THREE.Vector3(0, LID_Y + 0.012, 0.02);

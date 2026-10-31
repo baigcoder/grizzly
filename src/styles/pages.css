@@ -380,12 +380,6 @@ body:has(.page-backdrop) .fallback-stage {
     background: color-mix(in oklab, var(--color-surface-panel) 96%, transparent);
   }
 
-  .shop-card {
-    background:
-      radial-gradient(circle at 20% 50%, color-mix(in oklab, var(--color-accent) 30%, transparent), transparent 62%),
-      color-mix(in oklab, var(--color-surface-panel) 92%, transparent);
-  }
-
   .story--halal .story-block {
     background:
       linear-gradient(160deg, color-mix(in oklab, var(--color-zamzam-gold) 7%, transparent), transparent 60%),
@@ -438,15 +432,31 @@ body:has(.page-backdrop) .fallback-stage {
   z-index: -1;
   overflow: hidden;
   mask-image: linear-gradient(to bottom, var(--color-black) 30%, transparent 96%);
+  /* the can's claw slashes, tone on tone */
+  background: repeating-linear-gradient(105deg, transparent 0 9%, color-mix(in oklab, var(--color-accent) 10%, transparent) 9% 12%);
 }
 
+/* the can's flat bear mark, whole, in the brand accent (tinted through the image's own shape) */
 .about__art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 62% 30%;
-  opacity: 0.62;
-  transform: scale(1.06);
+  position: absolute;
+  right: 4%;
+  top: 8%;
+  width: min(58%, 46rem);
+  height: auto;
+  opacity: 0;
+}
+
+.about__art::before {
+  content: '';
+  position: absolute;
+  right: 4%;
+  top: 8%;
+  width: min(58%, 46rem);
+  aspect-ratio: 1200 / 1068;
+  background: linear-gradient(160deg, var(--color-accent), color-mix(in oklab, var(--color-accent) 60%, white));
+  -webkit-mask: url('/brand/bear-mark.webp') center / contain no-repeat;
+  mask: url('/brand/bear-mark.webp') center / contain no-repeat;
+  opacity: 0.85;
   animation: about-drift 18s var(--ease-in-out) infinite alternate;
 }
 

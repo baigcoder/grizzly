@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react';
-import { formatPrice, getProductBySlug, getProductThumbUrl, PLACEHOLDER_PRICING } from '../data/products';
+import { formatPrice, getProductBySlug, getProductThumbUrl, PLACEHOLDER_PRICING, PRODUCTS } from '../data/products';
 import { MIX_SLUG, useCart } from '../store/cart';
 import { QuantityStepper } from './QuantityStepper';
 import { ButtonLabel } from './ButtonLabel';
@@ -56,6 +56,23 @@ export const CartContents: React.FC<CartContentsProps> = ({ onNavigate, headingI
 
       {items.length === 0 ? (
         <div className="bag__empty">
+          {/* the range, fanned out: each can opens its flavor */}
+          <ul className="bag__empty-cans">
+            {PRODUCTS.map((product, index) => (
+              <li key={product.slug} style={{ '--i': index - (PRODUCTS.length - 1) / 2 } as React.CSSProperties}>
+                <a
+                  href={`/products/${product.slug}`}
+                  aria-label={product.name}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onNavigate(`/products/${product.slug}`);
+                  }}
+                >
+                  <img src={getProductThumbUrl(product)} alt="" width={187} height={491} loading="lazy" decoding="async" />
+                </a>
+              </li>
+            ))}
+          </ul>
           <p className="bag__empty-title">Your bag is empty.</p>
           <p className="bag__empty-text">Pick a flavor to get started.</p>
           <a
