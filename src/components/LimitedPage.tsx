@@ -3,6 +3,7 @@ import { getProductBySlug } from '../data/products';
 import { LimitedCountdown } from './LimitedCountdown';
 import { ButtonLabel } from './ButtonLabel';
 import { versioned } from '../data/assetVersion';
+import { Can3D } from './Can3D';
 
 
 interface Edition {
@@ -134,7 +135,7 @@ export const LimitedPage: React.FC<{ onNavigate: (url: string) => void }> = ({ o
             </div>
             <div className="edition__stage" aria-hidden="true">
               <span className="edition__ring" />
-              <img className="edition__can" src={thumb(edition.slug)} alt="" width={187} height={491} loading="lazy" decoding="async" />
+              <Can3D slug={edition.slug} fallbackSrc={thumb(edition.slug)} className="edition__can" />
             </div>
           </section>
         );
