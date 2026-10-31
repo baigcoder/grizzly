@@ -28,6 +28,8 @@ export { CAROUSEL_CONFIG };
 export type { SceneMode, SceneStateConfig };
 
 /** UV rects (u0, v0, u1, v1) of the four benefit blocks on the label's side panel (grizzly.json). */
+const LINEUP_PHONE_LIFT = 0.9;
+const ZAMZAM_GOLD = new THREE.Color(0xf2c879);
 const BENEFIT_GLOW_RECTS = LABEL.benefitBlocks.map(([u0, v0, u1, v1]) => new THREE.Vector4(u0, v0, u1, v1));
 
 /** Product page framing (same lens as the home scene). */
@@ -310,6 +312,10 @@ export class SceneManager {
   private timelineKeys: string[] = [];
   private timelineSeekedAt = -1;
   private targetTimelineProgress = 0;
+  /** How far the Zamzam chapter's dawn has come in (0–1, set by moments/zamzamPool.ts each frame). */
+  public zamzamLight = 0;
+  /** Scratch for phoneSinglePose (no allocation per frame). */
+  private readonly phonePose = { x: 0, y: 0, scale: 1 };
   /** Touch screens, where Lenis drives the finger scroll (useSmoothScroll). */
   private readonly touchScroll = window.matchMedia('(pointer: coarse)').matches;
   private currentTimelineProgress = 0;
@@ -1128,7 +1134,8 @@ export class SceneManager {
     const tiltLift = Math.tan(0.04) * PRODUCT_CAMERA.z;
     const centerPx = stage.top + stage.height / 2;
     const canHeight = CAN.shellHeight + CAN.topHeight + CAN.bottomHeight;
-    const scale = THREE.MathUtils.clamp((0.86 * stage.height * unitsPerPx) / canHeight, 0.6, PRODUCT_POSE_NARROW.scale * 1.3);
+    // the can fills its stage (capped at 1.3× it rendered small in the top strip of a phone, the stage half empty)
+    const scale = THREE.MathUtils.clamp((0.88 * stage.height * unitsPerPx) / canHeight, 0.6, PRODUCT_POSE_NARROW.scale * 2.2);
     this.narrowPose = { ...PRODUCT_POSE_NARROW, y: (this.viewHeight / 2 - centerPx) * unitsPerPx + tiltLift, scale };
   }
 
@@ -1388,7 +1395,8 @@ export class SceneManager {
     this.stageParams.accentPrev.copy(this.accentFrom);
     this.stageParams.accent.copy(this.accentTo);
     this.stageParams.wipeOrigin.copy(this.focusScreen);
-    this.glowColor.copy(this.accentTo);
+    // in the Zamzam chapter the lit block takes the dawn's gold, not the flavor colour
+    this.glowColor.copy(this.accentTo).lerp(ZAMZAM_GOLD, this.zamzamLight);
   }
 
   private applyCamera(isMobile: boolean, time: number) {
@@ -1401,7 +1409,9 @@ export class SceneManager {
     this.camera.position.set(
       this.data.camPosX * lateral + this.cameraOffset.x,
       this.data.camPosY + this.cameraOffset.y,
-      (isMobile ? this.data.camPosZ + (this.data.wave > 0.5 ? 6.5 : 2) : this.data.camPosZ) + this.cameraOffset.z + this.ringDolly
+      // phones pull back for the ring and come in for a single can; blended, not stepped at wave 0.5 (the step
+      // lunged the camera 4.5 units in one frame mid-transition, ballooning the can)
+      (isMobile ? this.data.camPosZ + 2 + 4.5 * THREE.MathUtils.smoothstep(this.data.wave, 0.2, 0.8) : this.data.camPosZ) + this.cameraOffset.z + this.ringDolly
     );
     // A whisper of idle sway keeps the camera alive without ever reading as motion.
     const sway = this.reducedMotion ? 0 : 1;
@@ -1646,7 +1656,7 @@ export class SceneManager {
         const isFeatured = p > 0.4;
         const fromScale = isFeatured ? this.data.canScale : 0;
         can.visible = isFeatured || s > 0.25;
-        const mobileK = isMobile ? 0.3 : 1; // phones: the whole row fits the narrow frame, raised to mid-screen
+        const mobileK = isMobile ? 0.3 : 1; // phones: a big row across the middle of the frame, running off both edges as in the reference (it sat small in the top third, the lower half empty)
         // narrower desktop frames: the whole row grows (up to 1.35×; at 2× only three cans fit a narrow frame) so it still fills the frame and runs past both
         // edges, as in the reference, instead of floating small with empty space below
         // (only around the line-up itself: by the FAQ the row is back to 1×, so it still hangs into the top of the frame)
@@ -1655,7 +1665,7 @@ export class SceneManager {
         // Spacing from the cans' real size: neighbours keep about 12% of a diameter of air between them at any width
         // (the fixed 1.68-unit step was narrower than a can, so tilted neighbours passed through each other, worst on
         // phones where the row's positions shrank more than its cans).
-        const finalScale = this.data.canScale * (isMobile ? 0.46 : rowK);
+        const finalScale = this.data.canScale * (isMobile ? 0.62 : rowK);
         const posK = mobileK * rowK;
         const spread = Math.max(1, (2 * CAN.radius * finalScale * 1.12) / (1.72 * posK));
         // Each can drops in on its own beat (back row first), with a small settle.
@@ -1665,7 +1675,7 @@ export class SceneManager {
         const breath = this.reducedMotion ? 0 : Math.sin(time * 0.0008 + phase) * 0.014;
         can.position.set(
           this.data.canPosX * (1 - s) + slot.x * posK * spread * s,
-          this.data.canPosY * (1 - s) + ((1 + (slot.y - 1) * spread) * posK + (isMobile ? 2.2 : 0) + breath + drop) * s,
+          this.data.canPosY * (1 - s) + ((1 + (slot.y - 1) * spread) * posK + (isMobile ? LINEUP_PHONE_LIFT : 0) + breath + drop) * s,
           this.data.canPosZ * (1 - s) + slot.z * rowK * spread * s
         );
         can.rotation.set(
@@ -1695,24 +1705,16 @@ export class SceneManager {
         let featRotX = this.data.canRotX;
         let featRotY = this.data.canRotY + this.data.canSpin;
         if (isMobile) {
-          // Phones shrink the can (benefit close-ups most, blended through labelDim). The
-          // vertical pose scales with it, so the lit benefit block keeps its place on screen
-          // instead of the can for the lowest block leaving the top of the frame.
-          // (the desktop intro can is very large; phones keep it to the old on-screen size)
-          // The tagline section has no copy at the bottom, so there the can returns to near full size, centred.
-          const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
-          // every single-can pose now shows the whole can (≈1.5 scale): phones show it whole too, in the upper half
-          const k = 0.7 + 0.25 * tagline;
-          featScale *= k;
-          featY = featY * k + 1.75 * (1 - tagline); // copy sits at the bottom, so the can rides higher
-          featX = 0.3 * (1 - tagline);
-          // the flavor intro's big tilted can rides higher still and smaller, its base clear of the copy below it
-          const profile = Math.max(0, 1 - Math.abs(this.sectionPosition - 1));
-          featScale *= 1 - 0.32 * profile;
-          featY += 1.1 * profile;
+          const pose = this.phoneSinglePose();
+          featScale = pose.scale;
+          featY = pose.y;
+          featX = pose.x;
         } else {
           featX = this.fitFeatureX(featX);
         }
+        // the ring hands this can over at wave 0.15: inertia and the idle float grow from zero there, so the
+        // handover has no jump (they used to switch on at full strength, popping the can up mid-transition)
+        const handover = THREE.MathUtils.smoothstep(0.15 - this.data.wave, 0, 0.12);
         featRotY += (this.pointer.smoothX / 1280) * this.tilt() + this.spinOffset;
         featRotY += this.userTurn.yaw;
         featRotX = featRotX + this.userTurn.pitch;
@@ -1740,12 +1742,12 @@ export class SceneManager {
           featRotZ += swing * 0.12 * dir;
         }
         // inertia: the can leans back against a fast scroll and trails it slightly, then settles
-        featRotX -= this.scrollVelocity * 0.07;
-        featY += this.scrollVelocity * 0.12;
+        featRotX -= this.scrollVelocity * 0.07 * handover;
+        featY += this.scrollVelocity * 0.12 * handover;
         featRotX += (this.pointer.smoothY / 1280) * this.tilt();
         // A whole-can pose floats: a slow bob and a lazy quarter-sway of the label, so the can feels held in the air.
         // Benefit close-ups (labelDim) stay still so the lit block holds its place on screen.
-        const float = this.reducedMotion ? 0 : 1 - this.data.labelDim;
+        const float = this.reducedMotion ? 0 : (1 - this.data.labelDim) * handover;
         featY += Math.sin(time * 0.0009) * 0.09 * float;
         featRotY += Math.sin(time * 0.00045) * 0.16 * float;
         featRotZ += Math.sin(time * 0.0007 + 1.3) * 0.025 * float;
@@ -1812,13 +1814,14 @@ export class SceneManager {
       let targetSectionScale = this.data.canScale;
       let targetSectionPosY = this.data.canPosY;
       let targetSectionPosX = this.data.canPosX;
-      if (isMobile && this.data.wave < 0.5) {
-        // Phones shrink and raise the can for the sections with copy at the bottom. The tagline section has
-        // no copy, so there the can returns to its full size and centre (it used to stay a small can at the top).
-        const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
-        targetSectionScale *= 0.65 + 0.35 * tagline;
-        targetSectionPosY += 1.0 * (1 - tagline);
-        targetSectionPosX *= 0.2;
+      if (isMobile) {
+        // the same phone pose the single-can branch uses, for the whole collapse: the can lands where that branch
+        // takes over. (Gated at wave < 0.5, the first half of the collapse aimed at the unshrunk desktop pose: the can
+        // swelled to fill the screen, then snapped back small and high as wave crossed 0.5.)
+        const pose = this.phoneSinglePose();
+        targetSectionScale = pose.scale;
+        targetSectionPosY = pose.y;
+        targetSectionPosX = pose.x;
       } else if (!isMobile) {
         targetSectionPosX = this.fitFeatureX(targetSectionPosX);
       }
@@ -1945,6 +1948,25 @@ export class SceneManager {
       }
     }
     this.cans.forEach((can) => can.updateMatrixWorld(true));
+  }
+
+  /**
+   * The phone pose of the single featured can, shared by the ring's collapse and the single-can branch so the
+   * handover between them is seamless. Phones shrink the can and raise it above the copy at the foot of the screen
+   * (benefit poses scale with it, so the lit block keeps its place); the tagline has no copy, so there the can
+   * returns near full size and centre; the flavor intro's tilted can rides higher and smaller still.
+   */
+  private phoneSinglePose() {
+    const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
+    // coming out of the hero the can is bound for the flavor-intro pose, so that pose holds the whole way in (ramping it
+    // with the scroll while the camera eased in ballooned the can mid-transition); it hands over to the benefits after
+    const profile = this.sectionPosition <= 1 ? 1 : Math.max(0, 2 - this.sectionPosition);
+    const k = 0.7 + 0.25 * tagline;
+    const pose = this.phonePose;
+    pose.scale = this.data.canScale * k * (1 - 0.32 * profile);
+    pose.y = this.data.canPosY * k + 1.75 * (1 - tagline) + 1.1 * profile;
+    pose.x = 0.3 * (1 - tagline);
+    return pose;
   }
 
   /**

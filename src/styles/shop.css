@@ -878,7 +878,8 @@ html.is-locked {
    still matches what you see. */
 @media (max-width: 767px) {
   .pdp-stage {
-    height: clamp(var(--size-pdp-stage-min), 38svh, var(--size-pdp-stage-max));
+    /* tall enough for the can to read as the hero (at 38svh it sat small under the header); price still above the fold */
+    height: clamp(var(--size-pdp-stage-min), 46svh, var(--size-pdp-stage-max));
   }
 
   .pdp-panel {

@@ -721,7 +721,11 @@
   color: var(--color-text-muted);
 }
 
+/* an inline link with a full-size tap area (padding the line does not see) */
 .newsletter__legal a {
+  display: inline-block;
+  padding: 0.8em 0.2em;
+  margin: -0.8em -0.2em;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -1288,9 +1292,8 @@
   }
 
   .zamzam-script {
-    position: static;
-    display: block;
-    margin-bottom: var(--space-2xs);
+    margin: 0 auto var(--space-2xs);
+    font-size: calc(var(--size-hex-emblem) * 1.5);
   }
 
   /* pinned copy never scrolls through its view timeline, so the drift would hold the title off centre */
@@ -1349,14 +1352,16 @@
   --color-accent: var(--color-zamzam-gold);
 }
 
+/* the name is the chapter's hero: large, on its own line above the title, with a soft gold glow */
 .zamzam-script {
-  position: absolute;
-  top: calc(var(--size-hex-emblem) * -0.2);
-  left: calc(var(--size-hex-emblem) + var(--space-md));
+  display: block;
+  width: max-content;
+  margin: calc(var(--space-sm) * -1) 0 var(--space-xs);
   font-family: 'Amiri', 'Traditional Arabic', 'Geeza Pro', serif;
   font-weight: 700;
-  font-size: calc(var(--size-hex-emblem) * 0.95);
-  line-height: 1.25;
+  font-size: calc(var(--size-hex-emblem) * 2.1);
+  line-height: 1.3;
+  filter: drop-shadow(0 0 1.2rem color-mix(in oklab, var(--color-zamzam-gold) 45%, transparent));
   white-space: nowrap;
   background: linear-gradient(
     100deg,
@@ -1378,6 +1383,18 @@
 .benefit--zamzam.is-active .zamzam-script {
   clip-path: inset(0 0 0 0);
   animation: zamzam-sheen 7s linear 1.8s infinite;
+}
+
+/* the seal reads in gold here */
+.benefit--zamzam .halal-seal__line,
+.benefit--zamzam .halal-seal__line--fine {
+  stroke: var(--color-zamzam-gold);
+}
+
+.benefit--zamzam .halal-seal__latin,
+.benefit--zamzam .halal-seal__caption {
+  fill: var(--color-zamzam-gold);
+  color: var(--color-zamzam-gold);
 }
 
 @keyframes zamzam-sheen {

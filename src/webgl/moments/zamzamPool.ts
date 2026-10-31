@@ -68,7 +68,10 @@ const FRAGMENT = /* glsl */ `
   // The gold rosette: line art from the canvas, lit by a slow sweep travelling round it.
   float rosette(vec2 uv) {
     vec2 q = (uv - uRosetteAt.xy) * vec2(uAspect, 1.0) / (2.0 * uRosetteAt.z);
-    if (abs(q.x) > 0.5 || abs(q.y) > 0.5) return 0.0;
+    if (length(q) > 0.5) return 0.0;
+    // it turns, very slowly (one revolution in about three and a half minutes)
+    float turn = uTime * 0.03;
+    q = mat2(cos(turn), -sin(turn), sin(turn), cos(turn)) * q;
     float art = texture2D(uRosette, q + 0.5).r;
     float sweep = pow(0.5 + 0.5 * cos(atan(q.y, q.x) - uTime * 0.18), 10.0);
     return art * (0.5 + 1.1 * sweep);
@@ -86,24 +89,24 @@ const FRAGMENT = /* glsl */ `
     float up = clamp((uv.y - shore) / (1.0 - shore + 0.001), 0.0, 1.0);
     vec3 col = mix(vec3(0.085, 0.062, 0.042), vec3(0.016, 0.034, 0.056), smoothstep(0.0, 0.28, up));
     col = mix(col, vec3(0.003, 0.005, 0.014), smoothstep(0.25, 0.95, up));
-    col += vec3(0.42, 0.26, 0.11) * exp(-up * 16.0) * 0.22; // the fajr band on the horizon
+    col += vec3(0.5, 0.3, 0.12) * exp(-up * 12.0) * 0.42; // the fajr band on the horizon, warm and wide
 
-    // light from above, falling through the lattice onto the can
+    // light from above, falling through the lattice onto the can: shafts you can see in the air
     float spread = 0.1 + 0.5 * (1.0 - uv.y);
     float s = x / spread;
     float cone = exp(-s * s);
     float shafts = 0.5 + 0.5 * sin(s * 7.0 + uTime * 0.22) * sin(s * 3.1 - uTime * 0.15);
-    col += dawn * cone * (0.04 + 0.075 * shafts) * smoothstep(shore - 0.1, shore + 0.25, uv.y);
+    col += dawn * cone * (0.05 + 0.13 * shafts) * smoothstep(shore - 0.1, shore + 0.25, uv.y);
     vec2 hq = vec2(x, uv.y - uBase.y - 0.32) * vec2(1.0, 1.3);
-    col += vec3(0.5, 0.42, 0.3) * exp(-dot(hq, hq) * 5.0) * 0.09; // a soft halo behind the can
+    col += vec3(0.62, 0.46, 0.26) * exp(-dot(hq, hq) * 4.0) * 0.17; // a warm halo behind the can
 
-    // the carved screen high in the frame: barely there, lit where the light passes through it
+    // the carved screen high in the frame, lit gold where the light passes through it
     float screen = lattice(vec2((uv.x - 0.5) * uAspect, uv.y) * 13.0);
     float screenMask = smoothstep(0.3, 0.62, up) * (1.0 - smoothstep(0.92, 1.0, uv.y));
-    col += gold * screen * screenMask * (0.014 + 0.07 * cone);
+    col += gold * screen * screenMask * (0.02 + 0.13 * cone);
 
-    // the rosette behind the can
-    col += gold * rosette(uv) * 0.13 * smoothstep(shore - 0.01, shore + 0.04, uv.y);
+    // the rosette behind the can: gold line art with a travelling gleam
+    col += gold * rosette(uv) * 0.32 * smoothstep(shore - 0.01, shore + 0.04, uv.y);
 
     // the pool
     float water = smoothstep(shore + 0.012, shore - 0.012, uv.y);
@@ -112,12 +115,12 @@ const FRAGMENT = /* glsl */ `
       vec3 pool = mix(vec3(0.02, 0.072, 0.088), vec3(0.002, 0.011, 0.017), pow(depth, 0.7)) + uAccent * 0.004;
       float swell = vnoise(vec2(uv.x * uAspect * 6.0 + uTime * 0.05, depth * 70.0 - uTime * 0.6));
       // the dawn band and the rosette mirrored in the still water, broken up by the swell
-      pool += vec3(0.42, 0.26, 0.11) * exp(-depth * 12.0) * 0.12;
+      pool += vec3(0.5, 0.3, 0.12) * exp(-depth * 10.0) * 0.24;
       vec2 mirrored = vec2(uv.x + (swell - 0.5) * 0.012, 2.0 * shore - uv.y);
-      pool += gold * rosette(mirrored) * 0.07 * (1.0 - smoothstep(0.0, 0.5, depth));
-      // the overhead light on the water: a broken vertical streak under the can
+      pool += gold * rosette(mirrored) * 0.15 * (1.0 - smoothstep(0.0, 0.5, depth));
+      // the overhead light on the water: a broken vertical streak of gold under the can
       float streak = exp(-abs(x + (swell - 0.5) * 0.04) / (0.03 + 0.12 * depth));
-      pool += dawn * 0.55 * streak * (0.04 + 0.1 * smoothstep(0.45, 0.85, swell)) * (1.0 - depth * 0.6);
+      pool += dawn * 0.75 * streak * (0.06 + 0.14 * smoothstep(0.45, 0.85, swell)) * (1.0 - depth * 0.6);
       // calm rings from the can's base, one set every few seconds, and the drop's rings beside it
       float calm = rings(uv, uBase, mod(uTime, 4.0), 0.09, 2.0) * 0.5 + rings(uv, uBase, mod(uTime + 2.0, 4.0), 0.09, 1.0) * 0.35;
       vec2 dropAt = vec2(uBase.x - 0.2 / uAspect, uBase.y - 0.035);
@@ -271,6 +274,7 @@ export class ZamzamPool implements SceneMoment {
     this.amount += (target - this.amount) * 0.08;
     const a = this.amount;
     this.mesh.visible = a > 0.003;
+    scene.zamzamLight = a;
     if (!this.mesh.visible) {
       this.dropStart = -1;
       return;
@@ -301,8 +305,11 @@ export class ZamzamPool implements SceneMoment {
       u.uRosetteAt.value.set(this.base.x * 0.5 + 0.5, this.base.y * 0.5 + 0.5 + height * 0.6, height * 0.78);
     }
 
-    // the night behind the pool rests
+    // the night behind the pool rests, and the flavor's colour field and grey studio give way to the dawn (left on,
+    // they washed the chapter flat blue and the gold barely showed)
     const d = scene.data;
+    d.field *= 1 - a;
+    d.studio *= 1 - a;
     d.mountains *= 1 - a;
     d.moon *= 1 - a;
     d.stars *= 1 - a;
