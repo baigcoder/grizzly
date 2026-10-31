@@ -33,26 +33,38 @@
 }
 
 /* Halal and Zamzam: first light in gold over still water, and the mashrabiya lattice (eight-point stars) up top */
+/* Golden hour over still water, as in the home page's Zamzam chapter: night above, a warm amber horizon with the
+   sun low behind the content, its glow and a soft band on the water below, a faint glitter path. */
 .page-backdrop[data-variant='halal'] {
   background:
-    radial-gradient(75% 50% at 50% -10%, color-mix(in oklab, var(--color-zamzam-gold-light) 14%, transparent), transparent 70%),
-    radial-gradient(90% 38% at 50% 104%, color-mix(in oklab, var(--color-zamzam-gold) 30%, transparent), transparent 70%),
-    linear-gradient(180deg, var(--color-page-top) 0%, var(--color-zamzam-night) 55%, var(--color-zamzam-water) 100%);
+    radial-gradient(22% 14% at 50% 62%, color-mix(in oklab, #ffe2b0 70%, transparent), transparent 70%),
+    radial-gradient(70% 22% at 50% 63%, color-mix(in oklab, var(--color-zamzam-gold) 55%, transparent), transparent 75%),
+    linear-gradient(180deg, #03060b 0%, #0b1a22 34%, #5a3a1f 58%, #c88a4a 63%, #3a2a1c 64.5%, #10161b 80%, #05090c 100%);
 }
 
+/* faint rays fanning up from the sun */
 .page-backdrop[data-variant='halal']::before {
   content: '';
   position: absolute;
-  inset: 0 0 45%;
-  background-image: var(--image-mashrabiya);
-  background-size: 4.5rem 4.5rem;
-  opacity: 0.09;
-  mask-image: linear-gradient(180deg, var(--color-black) 0%, transparent 100%);
+  inset: 0 0 37%;
+  background: repeating-conic-gradient(from 180deg at 50% 100%, color-mix(in oklab, #ffd9a0 9%, transparent) 0deg 2deg, transparent 2deg 9deg);
+  mask-image: radial-gradient(70% 90% at 50% 100%, var(--color-black), transparent 75%);
+  opacity: 0.6;
 }
 
+/* the glitter path on the water */
 .page-backdrop[data-variant='halal']::after {
-  background: linear-gradient(90deg, transparent, var(--color-zamzam-gold), transparent);
-  opacity: 0.4;
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 64%;
+  bottom: 0;
+  width: 26%;
+  translate: -50% 0;
+  background: repeating-linear-gradient(180deg, color-mix(in oklab, #ffd9a0 45%, transparent) 0 2px, transparent 2px 11px);
+  mask-image: linear-gradient(180deg, var(--color-black), transparent), radial-gradient(closest-side, var(--color-black), transparent);
+  mask-composite: intersect;
+  opacity: 0.5;
 }
 
 /* Plain pages hide the 3D canvas and the old ridge still behind this backdrop. */
@@ -753,7 +765,7 @@ body:has(.page-backdrop) .fallback-stage {
   margin-top: var(--space-xl);
   text-align: center;
   font-size: var(--font-size-md);
-  color: var(--color-text-faint);
+  color: var(--color-text-muted); /* faint (#4d4d4d) failed contrast on black, 2.5:1 */
 }
 
 @media (max-width: 1023px) {
@@ -843,4 +855,76 @@ body:has(.page-backdrop) .fallback-stage {
   .about__art img {
     animation: none;
   }
+}
+
+/* Halal: the six cans fanned on the water line, lit gold from behind */
+.story__cans {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin: var(--space-2xl) 0 var(--space-3xl);
+  padding: 0;
+  list-style: none;
+}
+
+.story__cans li {
+  margin-inline: clamp(-1.6rem, -2.2vw, -0.7rem);
+  transform: rotate(calc(var(--i) * 6deg)) translateY(calc(var(--i) * var(--i) * 0.45rem));
+  transform-origin: 50% 120%;
+  z-index: calc(10 - var(--i) * var(--i) * 2);
+}
+
+.story__cans img {
+  width: clamp(4.2rem, 10vw, 8rem);
+  height: auto;
+  filter:
+    drop-shadow(0 0 1.4rem color-mix(in oklab, var(--color-zamzam-gold) 45%, transparent))
+    drop-shadow(0 1.2rem 1.4rem rgb(0 0 0 / 0.55));
+  animation: halal-float 6s var(--ease-in-out) calc(var(--i) * 0.6s) infinite alternate;
+}
+
+@keyframes halal-float {
+  from { translate: 0 -0.35rem; }
+  to { translate: 0 0.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story__cans img { animation: none; }
+}
+
+/* Mix: the empty pack's stage shows three faint ghost cans and a prompt; they fade as the first can lands */
+.builder__ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 500ms var(--ease-out);
+}
+
+.builder__stage.is-empty .builder__ghost {
+  opacity: 1;
+}
+
+.builder__ghost img {
+  width: clamp(3.5rem, 7vw, 5.5rem);
+  height: auto;
+  margin-inline: -0.4rem;
+  opacity: 0.3;
+  filter: grayscale(0.4) drop-shadow(0 1rem 1.2rem rgb(0 0 0 / 0.5));
+  transform: rotate(calc(var(--i) * 8deg)) translateY(calc(var(--i) * var(--i) * 0.4rem));
+  transform-origin: 50% 110%;
+}
+
+.builder__ghost-hint {
+  flex-basis: 100%;
+  margin-top: var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

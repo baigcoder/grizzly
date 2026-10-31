@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { FLAVORS } from './data/flavors';
 import { getProductBySlug } from './data/products';
 import { applyHead } from './seo/applyHead';
@@ -27,6 +28,7 @@ import { FlavorFinder } from './components/FlavorFinder';
 import { PointerFX } from './components/PointerFX';
 import { CookieNotice } from './components/CookieNotice';
 import { LimitedTeaser } from './components/LimitedTeaser';
+import { HomeReviews } from './components/HomeReviews';
 import './styles/limited.css';
 import type { MenuItem } from './components/MenuDrawer';
 import { useCart } from './store/cart';
@@ -132,6 +134,19 @@ function parseCurrentRoute(): AppRoute {
  * checkout, mix, halal, stores, privacy, 404) only use it as a backdrop, so phones skip it there: the buying funnel
  * loads no WebGL. If the visitor then opens the home page or a product, the scene is created on demand.
  */
+/**
+ * A route change as a short cross-fade (View Transitions) instead of a hard cut, where the browser supports it and
+ * motion is allowed; the state update runs synchronously inside the transition so the new page is what gets captured.
+ */
+const withPageTransition = (update: () => void) => {
+  const doc = document as Document & { startViewTransition?: (callback: () => void) => unknown };
+  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update();
+    return;
+  }
+  doc.startViewTransition(() => flushSync(update));
+};
+
 const wantsScene = (route: AppRoute) => route.type === 'HOME' || route.type === 'PRODUCT' || route.type === 'MIX' || !isLowPowerDevice();
 
 /** Scene mode per route: the home story, a single product can, or nothing (plain pages). */
@@ -193,10 +208,15 @@ export const App: React.FC = () => {
         setActiveIndex(index);
       }
     }
-    setRoute(next);
-    if (wantsScene(next)) setSceneWanted(true);
-    sm?.setRoute(sceneRoute(next), next.type === 'PRODUCT' ? next.slug : undefined);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    const update = () => {
+      setRoute(next);
+      if (wantsScene(next)) setSceneWanted(true);
+      sm?.setRoute(sceneRoute(next), next.type === 'PRODUCT' ? next.slug : undefined);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    // a new page fades in; a jump within the same page (a home section) stays instant
+    if (previous.type !== next.type || (previous.type === 'PRODUCT' && next.type === 'PRODUCT')) withPageTransition(update);
+    else update();
     const hash = new URL(targetUrl, window.location.origin).hash.slice(1);
     if (hash) {
       // Wait for the target route to render, then jump to the section.
@@ -583,6 +603,7 @@ export const App: React.FC = () => {
         onToggleMenu={() => setIsMenuOpen((open) => !open)}
         onNavigateHome={() => (isHome ? scrollToSection('gamme') : navigate('/'))}
         onOpenBag={() => toggleCart(true)}
+        onShop={() => navigate('/shop')}
       />
       <MenuDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} items={menuItems} activeKey={menuActiveKey} />
       <FlavorFinder isOpen={isFinderOpen} onClose={() => setIsFinderOpen(false)} onRecommend={handleRecommend} />
@@ -661,11 +682,12 @@ export const App: React.FC = () => {
           />
           <ArgumentSection isActive={scene === 'argument'} />
           <FullGammeSection isActive={scene === 'lineup'} onShop={() => navigate('/shop')} />
+          <HomeReviews />
           <FaqSection isActive={sectionIndex >= 8} />
           <NewsletterFooter />
         </main>
       )}
-      <SiteFooter />
+      <SiteFooter onNavigate={navigate} />
       {/* The loop segment: the scene returns to the hero here, then the page wraps to the top (useSmoothScroll). */}
       {isHome && (
         <div id="loop" className="home-loop" aria-hidden="true">

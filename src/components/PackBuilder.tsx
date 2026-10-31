@@ -140,7 +140,14 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate, show3d = f
 
         <div className="builder__pack">
           {show3d && (
-            <div className={`builder__stage ${isFull ? 'is-full' : ''}`} ref={onStage} aria-hidden="true">
+            <div className={`builder__stage ${isFull ? 'is-full' : ''} ${filled === 0 ? 'is-empty' : ''}`} ref={onStage} aria-hidden="true">
+              {/* empty pack: three ghost cans and a prompt, gone as the first can lands */}
+              <span className="builder__ghost">
+                {['blue-raspberry', 'mango-fuego', 'strawberry-kiwi'].map((slug, index) => (
+                  <img key={slug} src={versioned(`/products/thumbs/${slug}.webp`)} alt="" width={187} height={491} style={{ '--i': index - 1 } as React.CSSProperties} />
+                ))}
+                <span className="builder__ghost-hint">Tap a flavor to drop it in</span>
+              </span>
               <span className="builder__stage-label">{isFull ? `${pack.count}-pack ready` : `${filled} / ${pack.count}`}</span>
             </div>
           )}

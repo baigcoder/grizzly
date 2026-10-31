@@ -132,3 +132,20 @@ a {
     scroll-behavior: auto !important;
   }
 }
+
+/* Page transitions (App.tsx withPageTransition): the old page fades out as the new one rises in, quickly */
+::view-transition-old(root) {
+  animation: page-out 220ms var(--ease-out, ease-out) both;
+}
+
+::view-transition-new(root) {
+  animation: page-in 380ms var(--ease-out, ease-out) both;
+}
+
+@keyframes page-out {
+  to { opacity: 0; }
+}
+
+@keyframes page-in {
+  from { opacity: 0; translate: 0 1.25rem; }
+}

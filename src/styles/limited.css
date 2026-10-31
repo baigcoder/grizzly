@@ -415,10 +415,53 @@
   font-size: 1.4rem;
 }
 
+/* Phones: a slim one-line pill, centred low, so it never covers the hero's flavor name (as a card it did) */
 @media (max-width: 767px) {
   .limited-teaser {
-    left: var(--space-sm);
-    right: var(--space-sm);
+    left: 50%;
+    right: auto;
+    translate: -50% 0;
+    gap: var(--space-xs);
+    padding: 0 var(--space-2xl) 0 var(--space-md);
+    min-height: 2.75rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .limited-teaser__cans,
+  .limited-teaser__eyebrow {
+    display: none;
+  }
+
+  .limited-teaser__copy {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .limited-teaser__title {
+    font-size: var(--font-size-md);
+  }
+
+  .limited-teaser__link {
+    font-size: 0;
+  }
+
+  .limited-teaser__link::after {
+    content: '→';
+    font-size: var(--font-size-lg);
+  }
+
+  /* the whole pill opens the page */
+  .limited-teaser__link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  .limited-teaser__close {
+    z-index: 1;
   }
 }
 

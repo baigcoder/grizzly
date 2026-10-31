@@ -2,6 +2,7 @@ import React from 'react';
 import { HALAL_PAGE, BRAND, isTodo } from '../data/brand';
 import { BenefitIcon } from './BenefitIcons';
 import { HalalSeal } from './HalalSeal';
+import { PRODUCTS, getProductThumbUrl } from '../data/products';
 
 /**
  * Halal and Zamzam story, in the dawn gold of the home page's Zamzam chapter. Only confirmed facts are shown: each
@@ -24,6 +25,15 @@ export const HalalPage: React.FC = () => {
         </div>
         <div className="story__seal"><HalalSeal /></div>
       </header>
+
+      {/* the range, fanned on the water line in the golden light: every one of them halal, every one with Zamzam */}
+      <ul className="story__cans" aria-hidden="true">
+        {PRODUCTS.map((product, index) => (
+          <li key={product.slug} style={{ '--i': index - (PRODUCTS.length - 1) / 2 } as React.CSSProperties}>
+            <img src={getProductThumbUrl(product)} alt="" width={187} height={491} loading="lazy" decoding="async" />
+          </li>
+        ))}
+      </ul>
 
       <div className="story__grid">
         <section className="story-block">

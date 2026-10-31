@@ -11,6 +11,8 @@ interface SiteHeaderProps {
   onToggleMenu: () => void;
   onNavigateHome: () => void;
   onOpenBag: () => void;
+  /** Opens the shop (the header's one always-visible way to buy). */
+  onShop?: () => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface SiteHeaderProps {
  * plus the hairline scroll progress with a glowing head. Progress width is read
  * from the --scroll-progress custom property, so scrolling never re-renders this.
  */
-export const SiteHeader: React.FC<SiteHeaderProps> = ({ isMenuOpen, onToggleMenu, onNavigateHome, onOpenBag }) => {
+export const SiteHeader: React.FC<SiteHeaderProps> = ({ isMenuOpen, onToggleMenu, onNavigateHome, onOpenBag, onShop }) => {
   const [isMuted, setIsMuted] = useState<boolean>(audioManager.isMuted());
   const { totalCount, isOpen: isBagOpen } = useCart();
   const { t } = useLocale();
@@ -67,6 +69,19 @@ export const SiteHeader: React.FC<SiteHeaderProps> = ({ isMenuOpen, onToggleMenu
         </button>
 
         <div className="site-header__actions">
+          {onShop && (
+            <a
+              className="header-shop"
+              href="/shop"
+              onClick={(event) => {
+                event.preventDefault();
+                audioManager.play('click');
+                onShop();
+              }}
+            >
+              Shop
+            </a>
+          )}
           <button
             type="button"
             className="menu-toggle"

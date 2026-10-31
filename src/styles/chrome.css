@@ -647,7 +647,7 @@ body:has(.loader) {
 .chapter-rail ol {
   display: grid;
   justify-items: start;
-  gap: var(--space-2xs);
+  gap: 0;
   list-style: none;
 }
 
@@ -656,7 +656,8 @@ body:has(.loader) {
   display: flex;
   align-items: center;
   min-width: var(--space-2xl);
-  min-height: var(--space-lg);
+  /* a full 40 px tap area per chapter (the marks stay small; the gap between them became the hit area) */
+  min-height: 2.5rem;
   pointer-events: auto;
   color: var(--color-text-muted);
   font-family: var(--font-family-mono);
@@ -732,4 +733,33 @@ body:has(.loader) {
 
 .debug-hud[data-slow='true'] {
   color: #ffb09c;
+}
+
+/* Header Shop: the one always-visible way to buy (desktop; phones keep the bag and the menu) */
+.header-shop {
+  display: none;
+  align-items: center;
+  min-height: var(--control-size);
+  padding: 0 var(--space-md);
+  border: var(--border-hairline) solid color-mix(in oklab, var(--color-accent) 70%, white);
+  border-radius: 999px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  pointer-events: auto;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+
+.header-shop:hover,
+.header-shop:focus-visible {
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+@media (min-width: 768px) {
+  .header-shop {
+    display: inline-flex;
+  }
 }
