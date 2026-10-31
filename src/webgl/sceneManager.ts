@@ -47,8 +47,13 @@ const CAN_COUNT = 12;
 /**
  * On-screen height of the tilted desktop hero can per unit of scale, in world units (lid to base with its lean and the
  * step toward the camera). Was 5.0, which left about a sixth of the space between the header and the title unused.
+ * Measured at the can's original 4.415-unit height and scaled with the real height, so taller ends (END_STRETCH)
+ * stay framed instead of pushing the lid into the header logo.
  */
-const HERO_CAN_SPAN = 4.55;
+const CAN_TOTAL = CAN.shellHeight + CAN.topHeight + CAN.bottomHeight;
+const HERO_CAN_SPAN = 4.55 * (CAN_TOTAL / 4.415);
+/** Centre → base of the tilted hero can per unit of scale (2.15 at the original 0.245 base). */
+const HERO_BASE_DROP = 2.15 + (CAN.bottomHeight - 0.245);
 const wrap = (value: number, min: number, max: number) => {
   const range = max - min;
   return ((((value - min) % range) + range) % range) + min;
@@ -640,15 +645,17 @@ export class SceneManager {
     const marginPx = 40;
     const safeY = (height / 2 - (titleTopPx - marginPx)) * unitsPerPx;
     const baseScale = isMobile ? CAROUSEL_CONFIG.heroScaleMobile : CAROUSEL_CONFIG.heroScale;
-    const topY = (height / 2 - (headerBottomPx + marginPx * 0.5)) * unitsPerPx;
+    // and a clear gap under the header: the lid never meets the logo, even leaning or lifted toward the pointer
+    const topY = (height / 2 - (headerBottomPx + marginPx * 0.8)) * unitsPerPx;
     const available = headerBottomPx > 0 ? topY - safeY : Number.POSITIVE_INFINITY;
     // phones keep the roomier span: their can stands closer to upright under a smaller header
     const span = isMobile ? 5.0 : HERO_CAN_SPAN;
-    this.heroFit = Math.min(1, Math.max(0.6, available / (span * baseScale)));
+    // short laptop windows (1280×720) need the can well under 0.6×, or its lid rides into the header logo
+    this.heroFit = Math.min(1, Math.max(0.4, available / (span * baseScale)));
     const scale = baseScale * this.heroFit;
     // the base sits about 2.15 scaled units below the can's centre once tilted (2.6 lifted the can ~60 px too high,
     // into the header logo)
-    const canBottom = CAROUSEL_CONFIG.yBase + (isMobile ? 0.7 : 0) - (isMobile ? 2.6 : 2.15) * scale;
+    const canBottom = CAROUSEL_CONFIG.yBase + (isMobile ? 0.7 : 0) - (isMobile ? 2.6 : HERO_BASE_DROP) * scale;
     // The hero camera looks slightly up and sits a little low: both move the can down the screen.
     const heroCamera = SCENE_STATES.hero.camera;
     this.heroLift = safeY - canBottom + distance * Math.tan(heroCamera.rotX) + heroCamera.posY;
