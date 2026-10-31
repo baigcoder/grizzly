@@ -4,6 +4,7 @@
  * PLACEHOLDERS until real pricing is supplied (labelled as such in the UI).
  */
 import { BRAND, COMMERCE, GRIZZLY_BENEFITS, GRIZZLY_FLAVORS, NUTRITION } from './brand';
+import { versioned } from './assetVersion';
 
 export const PLACEHOLDER_PRICING = COMMERCE.placeholderPricing;
 
@@ -84,7 +85,7 @@ export function getProductBySlug(slug: string): Product | undefined {
 
 /** Small transparent packshot for the bag and related flavors. */
 export function getProductThumbUrl(product: Pick<Product, 'slug'>): string {
-  return `/products/thumbs/${product.slug}.webp`;
+  return versioned(`/products/thumbs/${product.slug}.webp`);
 }
 
 /** PKR, no decimals ("Rs 1,400"); Urdu digits stay Latin for price legibility. */

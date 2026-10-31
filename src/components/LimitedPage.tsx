@@ -2,6 +2,7 @@ import React from 'react';
 import { getProductBySlug } from '../data/products';
 import { LimitedCountdown } from './LimitedCountdown';
 import { ButtonLabel } from './ButtonLabel';
+import { versioned } from '../data/assetVersion';
 
 
 interface Edition {
@@ -57,7 +58,7 @@ const EDITIONS: Edition[] = [
   },
 ];
 
-const thumb = (slug: string) => `/products/thumbs/${slug}.webp`;
+const thumb = (slug: string) => versioned(`/products/thumbs/${slug}.webp`);
 
 /**
  * Limited editions: a cinematic hero (the three cans fanned over their colour glows), then one panel per edition in

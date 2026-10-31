@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { versioned } from '../data/assetVersion';
 
 const SEEN_KEY = 'grizzly_limited_teaser_v1';
 const DELAY_MS = 7000;
@@ -60,7 +61,7 @@ export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavi
     <aside className="limited-teaser" aria-label="Limited editions">
       <span className="limited-teaser__cans" aria-hidden="true">
         {SLUGS.map((slug, index) => (
-          <img key={slug} src={`/products/thumbs/${slug}.webp`} alt="" width={187} height={491} style={{ '--i': index - 1 } as React.CSSProperties} />
+          <img key={slug} src={versioned(`/products/thumbs/${slug}.webp`)} alt="" width={187} height={491} style={{ '--i': index - 1 } as React.CSSProperties} />
         ))}
       </span>
       <span className="limited-teaser__copy">
