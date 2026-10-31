@@ -35,6 +35,7 @@ import { useHomeScroll } from './hooks/useHomeScroll';
 import { useCanKeys } from './hooks/useCanKeys';
 import { isLowPowerDevice, pickQuality, readDeviceSignals } from './webgl/devicePower';
 import { scrollVar } from './hooks/scrollVar';
+import { versioned } from './data/assetVersion';
 
 // Secondary routes load on demand (their own chunks), so the home story's first download stays small.
 const CartPage = lazy(() => import('./components/CartPage').then((m) => ({ default: m.CartPage })));
@@ -240,7 +241,7 @@ export const App: React.FC = () => {
     const startRoute = parseCurrentRoute();
     const productFlavor = startRoute.type === 'PRODUCT' ? FLAVORS.find((flavor) => flavor.id === startRoute.slug)?.id : undefined;
     const firstFlavor = productFlavor ?? FLAVORS[initialFlavorIndexRef.current % FLAVORS.length].id;
-    ['/basis/basis_transcoder.js', '/basis/basis_transcoder.wasm', `/textures/grizzly/ktx2/${firstFlavor}-1k.ktx2`].forEach(preloadForScene);
+    ['/basis/basis_transcoder.js', '/basis/basis_transcoder.wasm', versioned(`/textures/grizzly/ktx2/${firstFlavor}-1k.ktx2`)].forEach(preloadForScene);
     performance.mark('grizzly:scene-import-start');
     import('./webgl/sceneManager')
       .then(async ({ SceneManager }) => {

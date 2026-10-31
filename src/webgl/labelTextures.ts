@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { FLAVORS } from '../data/flavors';
 import { createFlatNormalTexture, createNeutralSurfaceTexture, createPlaceholderLabel } from './canModel';
+import { versioned } from '../data/assetVersion';
 
 /**
  * Label artwork streaming. Each flavor has GPU-compressed (KTX2/Basis) levels of detail:
@@ -77,7 +78,7 @@ export class LabelTextures {
     if (pending) return pending;
     const slug = FLAVORS[index].id;
     const size = (this.phoneLevels ? ['1k', '2k-lite', '2k'] : ['1k', '2k', '4k'])[target];
-    const promise = this.loadTexture(`${BASE}/ktx2/${slug}-${size}.ktx2`, `${BASE}/${slug}.webp`, true)
+    const promise = this.loadTexture(versioned(`${BASE}/ktx2/${slug}-${size}.ktx2`), versioned(`${BASE}/${slug}.webp`), true)
       .then((texture) => {
         if (this.disposed) return texture.dispose();
         const maps = this.maps[index];
@@ -102,8 +103,8 @@ export class LabelTextures {
     if (pending) return pending;
     const slug = FLAVORS[index].id;
     const promise = Promise.all([
-      this.loadTexture(`${BASE}/ktx2/${slug}-surface.ktx2`, `${BASE}/${slug}-surface.png`, false),
-      this.loadNormals ? this.loadTexture(`${BASE}/ktx2/${slug}-normal.ktx2`, `${BASE}/${slug}-normal.png`, false) : Promise.resolve(null),
+      this.loadTexture(versioned(`${BASE}/ktx2/${slug}-surface.ktx2`), versioned(`${BASE}/${slug}-surface.png`), false),
+      this.loadNormals ? this.loadTexture(versioned(`${BASE}/ktx2/${slug}-normal.ktx2`), versioned(`${BASE}/${slug}-normal.png`), false) : Promise.resolve(null),
     ])
       .then(([surface, normal]) => {
         if (this.disposed) {

@@ -6,6 +6,7 @@ import { CanTop } from './CanTop';
 import { ButtonLabel } from './ButtonLabel';
 import { flyBetween, flyToBag } from './flyToBag';
 import { audioManager } from '../audio/audioManager';
+import { versioned } from '../data/assetVersion';
 
 interface PackBuilderProps {
   onNavigate: (url: string) => void;
@@ -59,7 +60,7 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate, show3d = f
     if (index < 0) return;
     const well = slotRefs.current[index];
     // (with the 3D pack the can drops into the real pack instead of a flat image flying across the page)
-    if (from && well && !show3d) flyBetween(`/products/thumbs/${slug}.webp`, from, well, { duration: 560, endScale: 0.55, fade: true, lift: 90 });
+    if (from && well && !show3d) flyBetween(versioned(`/products/thumbs/${slug}.webp`), from, well, { duration: 560, endScale: 0.55, fade: true, lift: 90 });
     setSlots((previous) => {
       const next = [...previous];
       next[index] = slug;
@@ -90,7 +91,7 @@ export const PackBuilder: React.FC<PackBuilderProps> = ({ onNavigate, show3d = f
     }
     setState('added');
     audioManager.play('open');
-    flyToBag(`/products/thumbs/${mix[0].slug}.webp`, event.currentTarget);
+    flyToBag(versioned(`/products/thumbs/${mix[0].slug}.webp`), event.currentTarget);
     setSlots(Array(pack.count).fill(null));
   };
 
