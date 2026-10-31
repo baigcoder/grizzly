@@ -349,7 +349,8 @@
 .limited-teaser {
   position: fixed;
   right: var(--layout-gutter, 1.5rem);
-  bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  /* above the storage notice while it is up (it publishes its height as --notice-h) */
+  bottom: calc(max(var(--space-md), env(safe-area-inset-bottom)) + var(--notice-h, 0px));
   z-index: var(--z-notice);
   display: flex;
   align-items: center;

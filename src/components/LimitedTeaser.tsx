@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { versioned } from '../data/assetVersion';
 
-const SEEN_KEY = 'grizzly_limited_teaser_v1';
-const DELAY_MS = 7000;
+const SEEN_KEY = 'grizzly_limited_teaser_v2';
+const DELAY_MS = 5000;
 const SLUGS = ['blackout-berry', 'falsa-frost', 'cold-coffee'];
 
 /**
- * A once-per-visitor teaser for the limited editions on the home page: a small glass card in the corner (a slim bar
- * on phones) that opens /limited. It waits until the hero has settled and never stacks on the storage notice
- * (html[data-notice]); dismissing it, or following it, is remembered in this browser.
+ * A once-per-visit teaser for the limited editions on the home page: a small glass card in the corner (a slim bar
+ * on phones) that opens /limited. It comes in once the hero has settled, sitting above the storage notice when that
+ * is up (--notice-h); closing or following it hides it for the rest of this visit (sessionStorage), so the next visit
+ * shows it again. (Once per browser, and waiting for the notice to go, it was easy to never see at all.)
  */
 export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavigate: (url: string) => void }> = ({ isReady, isHome, onNavigate }) => {
   const [visible, setVisible] = useState(false);
@@ -17,20 +18,12 @@ export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavi
     if (!isReady || !isHome) return;
     let seen = false;
     try {
-      seen = window.localStorage.getItem(SEEN_KEY) === '1';
+      seen = window.sessionStorage.getItem(SEEN_KEY) === '1';
     } catch {
       seen = false;
     }
     if (seen) return;
-    let timer = 0;
-    const tryShow = () => {
-      if (document.documentElement.hasAttribute('data-notice')) {
-        timer = window.setTimeout(tryShow, 3000);
-        return;
-      }
-      setVisible(true);
-    };
-    timer = window.setTimeout(tryShow, DELAY_MS);
+    const timer = window.setTimeout(() => setVisible(true), DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [isReady, isHome]);
 
@@ -40,7 +33,7 @@ export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavi
 
   const close = () => {
     try {
-      window.localStorage.setItem(SEEN_KEY, '1');
+      window.sessionStorage.setItem(SEEN_KEY, '1');
     } catch {
       // still hide it for this visit
     }

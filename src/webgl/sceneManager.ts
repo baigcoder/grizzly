@@ -319,6 +319,8 @@ export class SceneManager {
   private targetTimelineProgress = 0;
   /** How far the Zamzam chapter's dawn has come in (0–1, set by moments/zamzamPool.ts each frame). */
   public zamzamLight = 0;
+  /** Bottom of the site header (CSS px), measured with the hero title: the desktop can's lid stays below it. */
+  private headerBottomPx = 0;
   /** Scratch for phoneSinglePose (no allocation per frame). */
   private readonly phonePose = { x: 0, y: 0, scale: 1 };
   /** Touch screens, where Lenis drives the finger scroll (useSmoothScroll). */
@@ -636,6 +638,7 @@ export class SceneManager {
    * lift the ring until the can's lowest point sits a margin above it.
    */
   public setHeroSafeBottom(titleTopPx: number, headerBottomPx = 0) {
+    this.headerBottomPx = headerBottomPx;
     const height = this.viewHeight;
     const isMobile = window.innerWidth < 768;
     const distance = (isMobile ? this.data.camPosZ + 6.5 : this.data.camPosZ) - CAROUSEL_CONFIG.heroLift;
@@ -784,7 +787,8 @@ export class SceneManager {
     const strength = isFeatured ? this.benefitGlowStrength * this.data.labelDim : 0;
     surface.uGlowStrength.value = strength;
     if (strength > 0.001) {
-      surface.uGlowColor.value.copy(this.glowColor);
+      // in the Zamzam chapter the lit block takes the dawn's gold, not the flavor colour
+      surface.uGlowColor.value.copy(this.glowColor).lerp(ZAMZAM_GOLD, this.zamzamLight);
       surface.uGlowRect.value.copy(this.glowRect);
     }
   }
@@ -1402,8 +1406,7 @@ export class SceneManager {
     this.stageParams.accentPrev.copy(this.accentFrom);
     this.stageParams.accent.copy(this.accentTo);
     this.stageParams.wipeOrigin.copy(this.focusScreen);
-    // in the Zamzam chapter the lit block takes the dawn's gold, not the flavor colour
-    this.glowColor.copy(this.accentTo).lerp(ZAMZAM_GOLD, this.zamzamLight);
+    this.glowColor.copy(this.accentTo);
   }
 
   private applyCamera(isMobile: boolean, time: number) {
@@ -1758,6 +1761,18 @@ export class SceneManager {
         featY += Math.sin(time * 0.0009) * 0.09 * float;
         featRotY += Math.sin(time * 0.00045) * 0.16 * float;
         featRotZ += Math.sin(time * 0.0007 + 1.3) * 0.025 * float;
+        // Desktop: the lid never rides up under the header (the close-ups ran it 60–90 px into the logo). The lid's
+        // highest point (its rim corner, through the lean) is held a margin below the header; the can steps down if not.
+        if (!isMobile && this.headerBottomPx > 0) {
+          const s = featScale * fo.scale;
+          const reach = (CAN.shellHeight / 2 + CAN.topHeight) * Math.cos(featRotZ) + CAN.radius * Math.abs(Math.sin(featRotZ));
+          const distance = Math.max(1, this.camera.position.z - (featZ + fo.posZ));
+          const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / this.viewHeight;
+          // (the camera's pitch moves the frame: a tagline camera tilted down shows the can higher)
+          const ceiling = this.camera.position.y + distance * Math.tan(this.camera.rotation.x) + (this.viewHeight / 2 - (this.headerBottomPx + 44)) * unitsPerPx;
+          const lid = featY + fo.posY + reach * s * 1.06; // the forward lean (rotX) lifts the near rim a little more
+          if (lid > ceiling) featY -= lid - ceiling;
+        }
         setCanFocus(can, 1);
         this.applyLabelState(can, true);
         can.position.set(featX, featY + fo.posY, featZ + fo.posZ);
