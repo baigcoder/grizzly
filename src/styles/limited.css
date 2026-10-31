@@ -245,17 +245,45 @@
   background: radial-gradient(closest-side, color-mix(in oklab, var(--metal) 22%, transparent), transparent);
 }
 
+/* the real can (Can3D): a 3D canvas filling the stage, the product render underneath until its first frame */
 .edition__can {
-  position: relative;
-  width: min(38%, 15rem);
-  height: auto;
-  rotate: -8deg;
-  filter: drop-shadow(0 2rem 2.5rem color-mix(in oklab, var(--ink) 75%, black));
-  animation: limited-float 6s var(--ease-in-out) infinite alternate;
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: pan-y;
+  filter: drop-shadow(0 2rem 2.5rem color-mix(in oklab, var(--ink) 70%, black));
 }
 
-.edition--flip .edition__can {
-  rotate: 8deg;
+.edition__can:active {
+  cursor: grabbing;
+}
+
+.can3d__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+}
+
+.can3d__fallback {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(38%, 15rem);
+  height: auto;
+  translate: -50% -50%;
+  rotate: -6deg;
+  transition: opacity 600ms var(--ease-out);
+}
+
+.can3d.is-ready .can3d__canvas {
+  opacity: 1;
+}
+
+.can3d.is-ready .can3d__fallback {
+  opacity: 0;
 }
 
 /* ---------- Outro ---------- */
@@ -311,8 +339,9 @@
   .limited__glows span,
   .limited__fan img,
   .edition__ring,
-  .edition__can {
-    animation: none;
+  .can3d__canvas,
+  .can3d__fallback {
+    transition: none;
   }
 }
 
