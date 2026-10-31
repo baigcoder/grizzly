@@ -1430,3 +1430,127 @@ html[data-looping] .home-loop__cue {
   .site-footer,
   .home-loop__cue { transition: none; }
 }
+
+/* Footer brand band and page links */
+.site-footer__brand {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.site-footer__wordmark {
+  font-size: clamp(2.6rem, 8vw, 6rem);
+  line-height: 0.9;
+  background: linear-gradient(180deg, var(--color-white), color-mix(in oklab, var(--color-white) 35%, transparent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.site-footer__claim {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.site-footer__trust {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer__trust li {
+  padding: var(--space-2xs) var(--space-sm);
+  border: var(--border-hairline) solid color-mix(in oklab, var(--color-accent) 60%, transparent);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-footer__pages {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 var(--space-lg);
+  margin-bottom: var(--space-md);
+  pointer-events: auto;
+}
+
+.site-footer__page {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-size);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.site-footer__page:hover,
+.site-footer__page:focus-visible {
+  color: var(--color-accent);
+}
+
+/* What people say (HomeReviews): shown once real reviews are in grizzly.json */
+.home-reviews {
+  position: relative;
+  z-index: var(--z-content);
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  padding: var(--space-4xl) var(--layout-gutter);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.home-reviews__score {
+  color: var(--color-zamzam-gold);
+  letter-spacing: 0.08em;
+}
+
+.home-reviews__title {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  text-transform: uppercase;
+}
+
+.home-reviews__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-md);
+  width: min(100%, 64rem);
+  margin: var(--space-lg) 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.home-reviews__item {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: var(--border-hairline) solid var(--color-line-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--color-surface-panel) 85%, transparent);
+}
+
+.home-reviews__stars {
+  color: var(--color-zamzam-gold);
+}
+
+.home-reviews__quote {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-body);
+}
+
+.home-reviews__author {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

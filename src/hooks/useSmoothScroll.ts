@@ -27,11 +27,15 @@ let wheelQuietUntil = 0;
 const PAGE_DURATION = 1.5;
 /** A vertical drag shorter than this (CSS px) settles back on the chapter it started on. */
 const PAGE_THRESHOLD = 24;
+/** While dragging, the page follows the finger at this share of its travel... */
+const FOLLOW = 0.5;
+/** ...up to this share of a screen either way. */
+const FOLLOW_REACH = 0.45;
 
 /**
- * Phone paging, as in the reference: from the hero to `lastPageSelector`, a vertical swipe does not drag the page;
- * on release it glides exactly one chapter on (or back), 1.5 s ease-out, so every swipe lands the can and its copy
- * squarely on the next step. A short drag returns to the chapter it started on; a sideways one is left to the
+ * Phone paging, as in the reference: from the hero to `lastPageSelector`, a vertical swipe moves the page with the
+ * finger part of the way, and on release it glides exactly one chapter on (or back), about a second, ease-out, so
+ * every swipe lands the can and its copy squarely on the next step; a swipe during a glide queues the next chapter. A short drag returns to the chapter it started on; a sideways one is left to the
  * carousel and can turns. Past the last paged chapter (FAQ, footer) the page scrolls freely under the finger again.
  */
 const excluded = (target: EventTarget | null) =>
@@ -54,9 +58,23 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
   let startX = 0;
   let startY = 0;
   let anchor = 0;
+  let origin = 0; // the page's scroll position when the finger came down
   let axis: 0 | 1 | 2 = 0; // 0 undecided, 1 sideways, 2 vertical
   let active = false;
   let tops: number[] = [];
+  // the glide in flight: a swipe during it counts from where it is heading, so two quick swipes move two chapters
+  let glideTarget = -1;
+  let glideUntil = 0;
+
+  const glideTo = (index: number) => {
+    const distance = Math.abs(tops[index] - lenis.animatedScroll);
+    const chapter = Math.max(1, window.innerHeight);
+    // quicker for the rest of a short way: 0.55 s for a nudge, about 1 s for a whole chapter
+    const duration = 0.55 + 0.5 * Math.min(1, distance / chapter);
+    glideTarget = index;
+    glideUntil = performance.now() + duration * 1000;
+    lenis.scrollTo(tops[index], { duration, easing: easeOutCubic, force: true });
+  };
 
   const onStart = (event: TouchEvent) => {
     active = false;
@@ -64,13 +82,16 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
     if (event.touches.length !== 1 || excluded(event.target)) return;
     const measured = measurePages(lenis, pageSelector, lastPageSelector);
     tops = measured.tops;
-    anchor = measured.anchor;
-    active = measured.paged;
+    anchor = performance.now() < glideUntil && glideTarget >= 0 ? glideTarget : measured.anchor;
+    active = measured.paged || (performance.now() < glideUntil && glideTarget >= 0);
+    origin = lenis.animatedScroll;
     startX = event.touches[0].clientX;
     startY = event.touches[0].clientY;
   };
 
-  // capture: decides before Lenis's own handler, so the page never moves under the finger
+  // capture: decides before Lenis's own handler. The page follows the finger at half its travel (capped at about half
+  // a chapter), so a swipe answers at once; on release it glides to the chapter. (Frozen under the finger until the
+  // release, it read as a phone that would not scroll, then a late jump.)
   const onMove = (event: TouchEvent) => {
     if (!active) return;
     const touch = event.touches[0];
@@ -82,6 +103,9 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
     if (axis === 2) {
       if (event.cancelable) event.preventDefault();
       lenis.stop();
+      const reach = window.innerHeight * FOLLOW_REACH;
+      const offset = Math.max(-reach, Math.min(reach, (startY - touch.clientY) * FOLLOW));
+      lenis.scrollTo(origin + offset, { immediate: true, force: true });
     }
   };
 
@@ -90,10 +114,8 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
     if (!active) return;
     if (axis !== 2) {
       active = false;
-      // A tap stops Lenis mid-glide: settle on the nearest chapter instead of freezing between two.
-      if (axis === 0 && Math.abs(lenis.animatedScroll - tops[anchor]) > 4) {
-        lenis.scrollTo(tops[anchor], { duration: PAGE_DURATION * 0.6, easing: easeOutCubic });
-      }
+      // A tap stops Lenis mid-glide: settle on the chapter it was heading for instead of freezing between two.
+      if (axis === 0 && Math.abs(lenis.animatedScroll - tops[anchor]) > 4) glideTo(anchor);
       return;
     }
     active = false;
@@ -101,11 +123,14 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
     const delta = endY - startY;
     const target = Math.max(0, Math.min(tops.length - 1, Math.abs(delta) > PAGE_THRESHOLD ? anchor + (delta < 0 ? 1 : -1) : anchor));
     lenis.start();
-    lenis.scrollTo(tops[target], { duration: PAGE_DURATION, easing: easeOutCubic });
+    glideTo(target);
   };
 
   const onCancel = () => {
-    if (active && axis === 2) lenis.start();
+    if (active && axis === 2) {
+      lenis.start();
+      glideTo(anchor);
+    }
     active = false;
   };
 

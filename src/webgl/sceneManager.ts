@@ -549,6 +549,18 @@ export class SceneManager {
     // Phones: the benefit close-ups blow the label up past what the light ETC1S 2k holds (its text turned soft and
     // blocky), so a close-up takes the full-quality 2k.
     if (closeUp && this.isLowPower && !this.dataSaver) void this.labels.ensureAlbedo(focusFlavor, 2);
+    // ...and fetches it ahead, at the first idle moment, so the label is decoded before
+    // the first swipe reaches the close-ups (loaded on arrival, its download and transcode landed mid-glide: the can
+    // stalled and the scroll hitched)
+    if (!closeUp && this.isLowPower && !this.dataSaver) {
+      // the first touch, or four seconds of looking at the hero, whichever comes first
+      void Promise.race([this.engaged, new Promise<void>((resolve) => window.setTimeout(resolve, 4000))]).then(() => {
+        const ahead = () => void this.labels.ensureAlbedo(this.carousel.getIndex(), 2);
+        const idleWindow = window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number };
+        if (idleWindow.requestIdleCallback) idleWindow.requestIdleCallback(ahead, { timeout: 3000 });
+        else window.setTimeout(ahead, 1200);
+      });
+    }
     if (this.isLowPower || this.dataSaver) return;
     // Prefetch the next flavor's 2k only once the visitor has engaged (a bounce never pays for it), and only
     // when the browser is idle.
@@ -1295,7 +1307,8 @@ export class SceneManager {
 
     // the camera trails the scroll a little (cinematic follow), never snapping to it. On touch Lenis already eases
     // the page (syncTouch), so a second full trail left the can a beat behind the thumb: follow it more closely there.
-    const timelineBlend = damp(this.touchScroll ? MOTION_RATE.transition * 2.2 : MOTION_RATE.transition, delta);
+    // (3.5×: with the page now gliding in about a second, a looser follow left the can visibly behind the copy)
+    const timelineBlend = damp(this.touchScroll ? MOTION_RATE.transition * 3.5 : MOTION_RATE.transition, delta);
     this.currentTimelineProgress += (this.targetTimelineProgress - this.currentTimelineProgress) * timelineBlend;
     if (Math.abs(this.targetTimelineProgress - this.currentTimelineProgress) <= 0.0001) {
       this.currentTimelineProgress = this.targetTimelineProgress;

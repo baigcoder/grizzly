@@ -1095,3 +1095,31 @@ html:has(.pdp-buybar) {
 .pack-option.is-selected .pack-option__badge {
   color: var(--color-text-primary);
 }
+
+/* Empty checkout: the range fanned out large, then the way back to the shop and the trust points */
+.checkout__cans {
+  margin: var(--space-xl) 0;
+}
+
+.checkout__cans img {
+  width: clamp(3.4rem, 8vw, 5.5rem);
+}
+
+.checkout__trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: var(--space-lg) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checkout__trust li {
+  padding: var(--space-2xs) var(--space-sm);
+  border: var(--border-hairline) solid var(--color-line-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

@@ -936,18 +936,19 @@ select.field__input--plain option {
   overflow: hidden;
 }
 
+/* the can's flat bear mark, in the accent, tinted through its own shape */
 .not-found__bear {
   position: absolute;
   top: 50%;
   left: 50%;
   width: var(--size-bear-watermark);
   max-width: 90vw;
-  opacity: var(--opacity-watermark);
-  mix-blend-mode: screen;
+  aspect-ratio: 1200 / 1068;
+  background: linear-gradient(160deg, var(--color-accent), color-mix(in oklab, var(--color-accent) 55%, white));
+  opacity: 0.22;
   transform: translate(-50%, -52%);
-  -webkit-mask: radial-gradient(closest-side, var(--color-black) 40%, transparent 100%);
-  mask: radial-gradient(closest-side, var(--color-black) 40%, transparent 100%);
-  pointer-events: none;
+  -webkit-mask: url('/brand/bear-mark.webp') center / contain no-repeat;
+  mask: url('/brand/bear-mark.webp') center / contain no-repeat;
 }
 
 .not-found__code {

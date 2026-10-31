@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { COMMERCE } from '../data/brand';
-import { PLACEHOLDER_PRICING, formatPrice } from '../data/products';
+import { PLACEHOLDER_PRICING, PRODUCTS, formatPrice, getProductThumbUrl } from '../data/products';
 import { useCart } from '../store/cart';
 import { CartContents } from './CartContents';
 import { ButtonLabel } from './ButtonLabel';
@@ -144,10 +144,32 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate }) => {
     return (
       <section className="checkout" aria-labelledby="checkout-title">
         <h1 id="checkout-title" className="display checkout__title">Checkout</h1>
-        <p className="checkout__lead">Your bag is empty. Add a flavor before checking out.</p>
-        <a className="button-primary" href="/#gamme" onClick={(event) => { event.preventDefault(); onNavigate('/#gamme'); }}>
-          <ButtonLabel>Explore the range</ButtonLabel>
+        <p className="checkout__lead">Your bag is empty. Pick a flavor to get started.</p>
+        {/* the range, fanned out: each can opens its flavor */}
+        <ul className="bag__empty-cans checkout__cans">
+          {PRODUCTS.map((product, index) => (
+            <li key={product.slug} style={{ '--i': index - (PRODUCTS.length - 1) / 2 } as React.CSSProperties}>
+              <a
+                href={`/products/${product.slug}`}
+                aria-label={product.name}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onNavigate(`/products/${product.slug}`);
+                }}
+              >
+                <img src={getProductThumbUrl(product)} alt="" width={187} height={491} loading="lazy" decoding="async" />
+              </a>
+            </li>
+          ))}
+        </ul>
+        <a className="button-primary" href="/shop" onClick={(event) => { event.preventDefault(); onNavigate('/shop'); }}>
+          <ButtonLabel>Shop the range</ButtonLabel>
         </a>
+        <ul className="checkout__trust">
+          <li>Cash on delivery</li>
+          <li>Halal certified</li>
+          <li>Made in Pakistan</li>
+        </ul>
       </section>
     );
   }

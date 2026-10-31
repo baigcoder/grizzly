@@ -87,9 +87,43 @@ export const NewsletterFooter: React.FC = () => {
   );
 };
 
-/** Page footer (contentinfo): copyright and legal / social links. */
-export const SiteFooter: React.FC = () => (
+const FOOTER_LINKS: Array<[string, string]> = [
+  ['/shop', 'Shop'],
+  ['/limited', 'Limited editions'],
+  ['/mix', 'Mix your pack'],
+  ['/halal-zamzam', 'Halal and Zamzam'],
+  ['/stores', 'Find a store'],
+  ['/about', 'About us'],
+];
+
+/** Page footer (contentinfo): the brand and its claim, every page, the confirmed trust points, then legal / social. */
+export const SiteFooter: React.FC<{ onNavigate?: (url: string) => void }> = ({ onNavigate }) => (
   <footer id="site-footer" className="site-footer">
+    <div className="site-footer__brand">
+      <p className="site-footer__wordmark display">{BRAND.wordmark.join(' ')}</p>
+      <p className="site-footer__claim">{BRAND.claim.join(' ')}</p>
+      <ul className="site-footer__trust">
+        <li>Halal certified</li>
+        <li>{BRAND.origin}</li>
+        <li>Cash on delivery</li>
+      </ul>
+    </div>
+    <nav className="site-footer__pages" aria-label="Pages">
+      {FOOTER_LINKS.map(([href, label]) => (
+        <a
+          key={href}
+          className="site-footer__page"
+          href={href}
+          onClick={(event) => {
+            if (!onNavigate) return;
+            event.preventDefault();
+            onNavigate(href);
+          }}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
     <p className="site-footer__copyright">© 2026 {BRAND.name}. {BRAND.company.name}, {BRAND.origin.replace('Made in ', '')}.</p>
     <nav className="site-footer__bar" aria-label="Footer">
       {!isTodo(BRAND.social.tiktok) && <a className="button-outline" href={BRAND.social.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>}
