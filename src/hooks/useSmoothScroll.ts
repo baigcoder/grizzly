@@ -18,6 +18,11 @@ export function prefersReducedMotion(): boolean {
  * frame as the hero), the page wraps to the top, as in the reference. Only with Lenis (never under reduced motion).
  */
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+/** The loop's glide from the footer back to the hero frame (s). */
+const LOOP_GLIDE = 2.2;
+/** After the loop wraps to the hero, wheel input is ignored until then, so one flick's tail does not page on. */
+let wheelQuietUntil = 0;
 /** One chapter per swipe: the reference's glide to the next chapter top. */
 const PAGE_DURATION = 1.5;
 /** A vertical drag shorter than this (CSS px) settles back on the chapter it started on. */
@@ -140,6 +145,11 @@ function startWheelPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
     event.preventDefault();
     event.stopImmediatePropagation();
     const now = performance.now();
+    if (now < wheelQuietUntil) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
     if (now < lockedUntil || Math.abs(event.deltaY) < 4 || target === anchor) return;
     const duration = SLOW_PAGES.includes(anchor) ? PAGE_DURATION : 1;
     lockedUntil = now + duration * 1000 + WHEEL_COOLDOWN;
@@ -230,12 +240,31 @@ export function useSmoothScroll(
           : startWheelPaging(lenis, pageSelector, lastPageSelector);
       if (wrapAtEnd) {
         let wrapping = false;
+        let gliding = false;
+        const root = document.documentElement;
         lenis.on('scroll', (instance: Lenis) => {
-          if (wrapping || instance.direction !== 1 || instance.limit <= 0 || instance.scroll < instance.limit - 2) return;
+          if (wrapping || instance.direction !== 1 || instance.limit <= 0) return;
+          // Into the loop screen, the page finishes the journey itself: one eased glide to the end while the footer
+          // steps aside and the scene sweeps the can back into the hero ring, then the wrap. (Left to the visitor,
+          // a scroll that stopped short of the very last pixel never wrapped, and the can hung over the footer.)
+          const loop = document.getElementById('loop');
+          if (!gliding && loop && instance.scroll < instance.limit - 2) {
+            const loopTop = loop.getBoundingClientRect().top + instance.scroll;
+            if (instance.scroll > loopTop - window.innerHeight * 0.75) {
+              gliding = true;
+              root.dataset.looping = '';
+              instance.scrollTo(instance.limit, { duration: LOOP_GLIDE, easing: easeInOutCubic, lock: true, force: true });
+            }
+            return;
+          }
+          if (instance.scroll < instance.limit - 2) return;
           wrapping = true;
+          wheelQuietUntil = performance.now() + 900;
           instance.scrollTo(0, { immediate: true, force: true });
           requestAnimationFrame(() => {
             wrapping = false;
+            gliding = false;
+            delete root.dataset.looping;
           });
         });
       }
