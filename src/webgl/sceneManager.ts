@@ -43,7 +43,8 @@ const PRODUCT_POSE = { x: -3.3, y: 0.3, z: 0, scale: 1.7, rotX: 0.08, rotY: -0.3
 const PRODUCT_STAGE_CENTRE = 0.37;
 const PRODUCT_POSE_NARROW = { x: 0, y: 1.6, z: 0, scale: 1.1, rotX: 0.08, rotY: -0.35, rotZ: 0.14 };
 
-const CAN_COUNT = 12;
+/** Two cans of every flavor in the hero ring and the finale row (a multiple of the flavor count keeps the ring even). */
+const CAN_COUNT = FLAVORS.length * 2;
 /**
  * On-screen height of the tilted desktop hero can per unit of scale, in world units (lid to base with its lean and the
  * step toward the camera). Was 5.0, which left about a sixth of the space between the header and the title unused.
@@ -323,6 +324,11 @@ export class SceneManager {
   private headerBottomPx = 0;
   /** Scratch for phoneSinglePose (no allocation per frame). */
   private readonly phonePose = { x: 0, y: 0, scale: 1 };
+  /** Free screen space (CSS px) beside or above each chapter's copy, measured once per chapter (cleared on resize). */
+  private readonly freeBoxes = new Map<number, { left: number; top: number; right: number; bottom: number }>();
+  private readonly basePose = { x: 0, y: 0, scale: 1 };
+  private readonly fitA = { x: 0, y: 0, scale: 1, cy: 0, left: 0, half: 1, bottom: 0, down: 1 };
+  private readonly fitB = { x: 0, y: 0, scale: 1, cy: 0, left: 0, half: 1, bottom: 0, down: 1 };
   /** Touch screens, where Lenis drives the finger scroll (useSmoothScroll). */
   private readonly touchScroll = window.matchMedia('(pointer: coarse)').matches;
   private currentTimelineProgress = 0;
@@ -1235,6 +1241,7 @@ export class SceneManager {
 
   private onResize = () => {
     if (!this.measureView()) return; // the address bar moved: nothing to reallocate
+    this.freeBoxes.clear();
     const width = this.viewWidth;
     const height = this.viewHeight;
     this.camera.aspect = width / height;
@@ -1656,6 +1663,8 @@ export class SceneManager {
 
   /** Positions every can for the current timeline state: hero ring, single feature or finale lineup. */
   private layoutCans(delta: number, time: number, isMobile: boolean) {
+    // phones and portrait tablets stack the can above the chapter copy (there is no room beside it)
+    const stacked = isMobile || (this.viewWidth < 1200 && this.viewHeight > this.viewWidth);
     const minX = this.cans.length * -0.5 * this.carousel.spacing;
     const maxX = this.cans.length * 0.5 * this.carousel.spacing;
     let maxHoverInfluence = 0;
@@ -1727,14 +1736,10 @@ export class SceneManager {
         let featScale = this.data.canScale;
         let featRotX = this.data.canRotX;
         let featRotY = this.data.canRotY + this.data.canSpin;
-        if (isMobile) {
-          const pose = this.phoneSinglePose();
-          featScale = pose.scale;
-          featY = pose.y;
-          featX = pose.x;
-        } else {
-          featX = this.fitFeatureX(featX);
-        }
+        const pose = this.fitSinglePose(stacked);
+        featScale = pose.scale;
+        featY = pose.y;
+        featX = pose.x;
         // the ring hands this can over at wave 0.15: inertia and the idle float grow from zero there, so the
         // handover has no jump (they used to switch on at full strength, popping the can up mid-transition)
         const handover = THREE.MathUtils.smoothstep(0.15 - this.data.wave, 0, 0.12);
@@ -1764,6 +1769,21 @@ export class SceneManager {
           featZ += swing * 1.6;
           featRotZ += swing * 0.12 * dir;
         }
+        // Scroll zoom, the reference's benefit close-up in motion: between two benefit chapters the camera dives toward
+        // the lit block (gliding down the label to the next one) and pulls back out, so every resting frame shows the
+        // whole can. The block stays the pivot and drifts toward the middle of the free space while the can grows.
+        if (!this.reducedMotion && betweenBenefits && this.glowRectReady) {
+          const dive = Math.sin(Math.PI * (section - Math.floor(section)));
+          const zoom = dive * dive * (stacked ? 0.7 : 0.95);
+          const lift = ((this.glowRect.y + this.glowRect.w) / 2 - 0.5) * CAN.shellHeight * Math.cos(featRotZ);
+          const block = featY + lift * featScale;
+          const target = block + (pose.cy - block) * dive * dive * 0.6;
+          featScale *= 1 + zoom;
+          featY = target - lift * featScale;
+          // it grows away from the copy, never over it: off the right edge on wide screens, upward when stacked
+          if (stacked) featY = Math.max(featY, pose.bottom + pose.down * featScale);
+          else featX = Math.max(featX, pose.left + pose.half * featScale);
+        }
         // inertia: the can leans back against a fast scroll and trails it slightly, then settles
         featRotX -= this.scrollVelocity * 0.07 * handover;
         featY += this.scrollVelocity * 0.12 * handover;
@@ -1774,28 +1794,6 @@ export class SceneManager {
         featY += Math.sin(time * 0.0009) * 0.09 * float;
         featRotY += Math.sin(time * 0.00045) * 0.16 * float;
         featRotZ += Math.sin(time * 0.0007 + 1.3) * 0.025 * float;
-        // Desktop: the whole can, lid to base, stays between the header and the bottom edge (the close-ups ran the lid
-        // into the logo and the base off the screen). If it is taller than that space it shrinks to fit; then the lid's
-        // highest point (its rim corner, through the lean) is held below the header and the base above the bottom.
-        if (!isMobile && this.headerBottomPx > 0) {
-          const lean = Math.abs(Math.sin(featRotZ));
-          const reach = (CAN.shellHeight / 2 + CAN.topHeight) * Math.cos(featRotZ) + CAN.radius * lean;
-          const drop = (CAN.shellHeight / 2 + CAN.bottomHeight) * Math.cos(featRotZ) + CAN.radius * lean;
-          const distance = Math.max(1, this.camera.position.z - (featZ + fo.posZ));
-          const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / this.viewHeight;
-          // (the camera's pitch moves the frame: a tagline camera tilted down shows the can higher)
-          const centre = this.camera.position.y + distance * Math.tan(this.camera.rotation.x);
-          const ceiling = centre + (this.viewHeight / 2 - (this.headerBottomPx + 44)) * unitsPerPx;
-          const floor = centre - (this.viewHeight / 2 - 32) * unitsPerPx;
-          // the forward lean (rotX) lifts the near rim a little more, and drops the far base edge alike
-          const fit = (ceiling - floor) / ((reach + drop) * 1.06 * featScale * fo.scale);
-          if (fit < 1) featScale *= fit;
-          const s = featScale * fo.scale;
-          const lid = featY + fo.posY + reach * s * 1.06;
-          if (lid > ceiling) featY -= lid - ceiling;
-          const base = featY + fo.posY - drop * s * 1.06;
-          if (base < floor) featY += floor - base;
-        }
         setCanFocus(can, 1);
         this.applyLabelState(can, true);
         can.position.set(featX, featY + fo.posY, featZ + fo.posZ);
@@ -1859,16 +1857,13 @@ export class SceneManager {
       let targetSectionScale = this.data.canScale;
       let targetSectionPosY = this.data.canPosY;
       let targetSectionPosX = this.data.canPosX;
-      if (isMobile) {
-        // the same phone pose the single-can branch uses, for the whole collapse: the can lands where that branch
-        // takes over. (Gated at wave < 0.5, the first half of the collapse aimed at the unshrunk desktop pose: the can
-        // swelled to fill the screen, then snapped back small and high as wave crossed 0.5.)
-        const pose = this.phoneSinglePose();
+      {
+        // the same fitted pose the single-can branch uses, for the whole collapse: the can lands where that branch
+        // takes over. (Aimed at an unfitted pose, the can swelled mid-collapse, then snapped as the branches swapped.)
+        const pose = this.fitSinglePose(stacked);
         targetSectionScale = pose.scale;
         targetSectionPosY = pose.y;
         targetSectionPosX = pose.x;
-      } else if (!isMobile) {
-        targetSectionPosX = this.fitFeatureX(targetSectionPosX);
       }
 
       const exodus = smooth(collapse);
@@ -2012,20 +2007,82 @@ export class SceneManager {
   }
 
   /**
-   * Narrower desktop frames (1024–1700 px wide) pull a side-placed feature can toward the camera axis, so the whole
-   * can stays in frame beside the copy instead of running off the right edge, and move the centred flavor-intro and benefit cans
-   * clear of the copy (poses are authored at 1920×920).
+   * Where the single can stands, on every screen: the chapter's own pose (the phone pose on stacked layouts) fitted
+   * whole, lid to base, into the free space beside the chapter copy (wide screens) or above it (phones, portrait
+   * tablets), under the header and above the bottom edge. It shrinks only if it must. The fits of the two chapters
+   * around the scroll position are blended, so the can never jumps as a chapter's copy changes.
    */
-  private fitFeatureX(x: number) {
-    // cap the can's offset from the camera axis to a share of the frame's half-width (benefit poses sit well inside it)
-    const maxOffset = 4.2 * Math.min(1, this.camera.aspect / 1.9);
-    const offset = x - this.data.camPosX;
-    // The big centred cans of the flavor intro and the first three benefit chapters lean over the copy on frames
-    // narrower than 1920×920: slide them right as the frame narrows (blended in from the hero, out toward Zamzam).
-    const p = this.sectionPosition;
-    const profileWeight = Math.min(1, Math.max(0, p)) * Math.min(1, Math.max(0, 5 - p));
-    const narrowShift = Math.max(0, 1.9 - this.camera.aspect) * 3.8 * profileWeight;
-    return this.data.camPosX + Math.sign(offset) * Math.min(Math.abs(offset), maxOffset) + narrowShift;
+  private fitSinglePose(stacked: boolean) {
+    const base = stacked ? this.phoneSinglePose() : this.basePose;
+    if (!stacked) {
+      base.x = this.data.canPosX;
+      base.y = this.data.canPosY;
+      base.scale = this.data.canScale;
+    }
+    const p = Math.max(0, this.sectionPosition);
+    const from = Math.min(Math.floor(p), SCENE_SEQUENCE.length - 1);
+    const to = Math.min(from + 1, SCENE_SEQUENCE.length - 1);
+    const a = this.fitInBox(base, from, stacked, this.fitA);
+    const b = this.fitInBox(base, to, stacked, this.fitB);
+    const t = THREE.MathUtils.smoothstep(p - from, 0, 1);
+    a.x += (b.x - a.x) * t;
+    a.y += (b.y - a.y) * t;
+    a.scale += (b.scale - a.scale) * t;
+    a.cy += (b.cy - a.cy) * t;
+    a.left += (b.left - a.left) * t;
+    a.bottom += (b.bottom - a.bottom) * t;
+    return a;
+  }
+
+  private fitInBox(base: { x: number; y: number; scale: number }, index: number, stacked: boolean, out: { x: number; y: number; scale: number; cy: number; left: number; half: number; bottom: number; down: number }) {
+    const box = this.freeBox(index, stacked);
+    const width = this.viewWidth;
+    const height = this.viewHeight;
+    const distance = Math.max(1, this.camera.position.z - this.data.canPosZ);
+    const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / height;
+    // (the camera's pitch moves the frame: a camera tilted down shows the can higher)
+    const centreY = this.camera.position.y + distance * Math.tan(this.camera.rotation.x);
+    const left = this.camera.position.x + (box.left - width / 2) * unitsPerPx;
+    const right = this.camera.position.x + (box.right - width / 2) * unitsPerPx;
+    const top = centreY + (height / 2 - box.top) * unitsPerPx;
+    const bottom = centreY + (height / 2 - box.bottom) * unitsPerPx;
+    const lean = Math.abs(Math.sin(this.data.canRotZ));
+    const upright = Math.cos(this.data.canRotZ);
+    // the can's reach from its centre through the lean; the forward tilt (rotX) lifts the near rim a little more
+    const up = ((CAN.shellHeight / 2 + CAN.topHeight) * upright + CAN.radius * lean) * 1.06;
+    const down = ((CAN.shellHeight / 2 + CAN.bottomHeight) * upright + CAN.radius * lean) * 1.06;
+    const half = (CAN.radius * upright + (CAN.shellHeight / 2 + CAN.topHeight) * lean) * 1.04;
+    const fit = Math.min(1, (top - bottom) / ((up + down) * base.scale), (right - left) / (2 * half * base.scale));
+    out.scale = base.scale * Math.max(0.2, fit);
+    out.x = stacked ? THREE.MathUtils.clamp(base.x, left + half * out.scale, right - half * out.scale) : (left + right) / 2;
+    out.y = THREE.MathUtils.clamp(base.y, bottom + down * out.scale, top - up * out.scale);
+    out.cy = (top + bottom) / 2;
+    out.left = left;
+    out.half = half;
+    out.bottom = bottom;
+    out.down = down;
+    return out;
+  }
+
+  /** The free space for the can in a chapter (CSS px): beside its copy, or above it when stacked. Measured once. */
+  private freeBox(index: number, stacked: boolean) {
+    const key = index * 2 + (stacked ? 1 : 0);
+    let box = this.freeBoxes.get(key);
+    if (box) return box;
+    const width = this.viewWidth;
+    const height = this.viewHeight;
+    const id = SCENE_SEQUENCE[index]?.sectionId;
+    // the chapter copy is fixed in place, so one measurement holds until the next resize
+    const copy = id ? document.getElementById(id)?.querySelector('.section-copy')?.getBoundingClientRect() : undefined;
+    const hasCopy = !!copy && copy.width > 0 && copy.height > 0;
+    const header = this.headerBottomPx || (document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0);
+    // the benefit icon rail stands at the right edge through the flavor intro and the benefit chapters
+    const rail = index >= 1 && index <= 5 ? document.querySelector('.benefit-rail')?.getBoundingClientRect() : undefined;
+    box = stacked
+      ? { left: 16, top: header + 12, right: width - 16, bottom: hasCopy ? copy!.top - 20 : height - 24 }
+      : { left: hasCopy ? copy!.right + 32 : 32, top: header + 44, right: (rail && rail.width > 0 ? rail.left : width) - 24, bottom: height - 32 };
+    this.freeBoxes.set(key, box);
+    return box;
   }
 
   private applyCanOverride(can: THREE.Group, index: number) {
@@ -2215,15 +2272,16 @@ function landing(t: number) {
  * at nearly one size along its length, low at the left (showing bottoms) and high at the right (showing lids), each
  * can leaning square to the row. The active flavor lands near the middle. `delay` staggers the drop, left to right.
  */
-const LINEUP_SLOTS = Array.from({ length: 12 }, (_, k) => {
-  const t = k - 5.5;
+const LINEUP_SLOTS = Array.from({ length: CAN_COUNT }, (_, k) => {
+  const last = CAN_COUNT - 1;
+  const t = k - last / 2;
   return {
     x: t * 1.68,
     y: 1.0 + t * 0.36 - 0.014 * t * t, // rising, flattening toward the far end
     z: 0.8 - t * 0.25,
-    rotX: -0.6 + (k / 11) * 1.2, // (±0.8 swung tilted bottoms into the neighbouring can)
+    rotX: -0.6 + (k / last) * 1.2, // (±0.8 swung tilted bottoms into the neighbouring can)
     rotY: -0.3,
     rotZ: 0.22,
-    delay: (k / 11) * 0.6,
+    delay: (k / last) * 0.6,
   };
 });

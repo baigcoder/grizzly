@@ -12,7 +12,11 @@
   --color-flavor-orange-deep: #4a2410;
   --color-flavor-violet: #9b5de5;
   --color-flavor-violet-deep: #2a1747;
-  --gradient-flavor-range: linear-gradient(90deg, var(--color-flavor-blue) 0%, var(--color-flavor-amber) 20%, var(--color-flavor-red) 40%, var(--color-flavor-crimson) 60%, var(--color-flavor-orange) 80%, var(--color-flavor-violet) 100%);
+  --color-flavor-falsa: #e8559c;
+  --color-flavor-falsa-deep: #241029;
+  --color-flavor-coffee: #c98b5b;
+  --color-flavor-coffee-deep: #22120a;
+  --gradient-flavor-range: linear-gradient(90deg, var(--color-flavor-blue) 0%, var(--color-flavor-amber) 14%, var(--color-flavor-red) 29%, var(--color-flavor-crimson) 43%, var(--color-flavor-orange) 57%, var(--color-flavor-violet) 71%, var(--color-flavor-falsa) 86%, var(--color-flavor-coffee) 100%);
 }
 
 :root[data-flavor='blue-raspberry'], [data-accent='blue'] {
@@ -43,5 +47,15 @@
 :root[data-flavor='blackout-berry'], [data-accent='violet'] {
   --color-accent: var(--color-flavor-violet);
   --color-accent-deep: var(--color-flavor-violet-deep);
+  --color-accent-next: var(--color-flavor-falsa);
+}
+:root[data-flavor='falsa-frost'], [data-accent='falsa'] {
+  --color-accent: var(--color-flavor-falsa);
+  --color-accent-deep: var(--color-flavor-falsa-deep);
+  --color-accent-next: var(--color-flavor-coffee);
+}
+:root[data-flavor='cold-coffee'], [data-accent='coffee'] {
+  --color-accent: var(--color-flavor-coffee);
+  --color-accent-deep: var(--color-flavor-coffee-deep);
   --color-accent-next: var(--color-flavor-blue);
 }

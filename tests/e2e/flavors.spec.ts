@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * Flavor consistency. For each of the six flavors: the product page, the html[data-flavor] theme and the
+ * Flavor consistency. For each flavor: the product page, the html[data-flavor] theme and the
  * resolved accent colour all match grizzly.json, and cycling the home carousel keeps the theme in step with the
  * flavor on screen. Peach is checked by name because the audit saw a pink accent on a Peach screen once.
  */
@@ -49,7 +49,7 @@ for (const flavor of data.flavors) {
   });
 }
 
-test('home carousel: the theme follows the flavor in focus, all six, Peach included', async ({ page }) => {
+test('home carousel: the theme follows the flavor in focus, every flavor, Peach included', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/');
   await ready(page);

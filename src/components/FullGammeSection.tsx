@@ -13,7 +13,7 @@ interface FullGammeSectionProps {
 }
 
 /**
- * The finale: all six cans on a mountain-shaped lineup (WebGL), each lit in its own colour, with one
+ * The finale: every can on a mountain-shaped lineup (WebGL), each lit in its own colour, with one
  * clear button to shop. The list names the range for assistive tech and crawlers.
  */
 export const FullGammeSection: React.FC<FullGammeSectionProps> = ({ isActive, onShop }) => {

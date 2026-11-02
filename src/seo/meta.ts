@@ -74,7 +74,7 @@ export function productFacts(product: Product): Fact[] {
 }
 
 const productUrl = (slug: string) => absolute(`/products/${slug}`);
-/** A flavor's own preview on its product page; every other page gets the brand preview with all six cans. */
+/** A flavor's own preview on its product page; every other page gets the brand preview with the range. */
 const imageFor = (slug?: string) => absolute(slug ? `/social/${slug}.png` : '/social/grizzly-energy.png');
 
 function organization() {
@@ -135,7 +135,7 @@ export function pageMeta(route: SeoRoute): PageMeta {
       return {
         path: '/',
         title: `${BRAND.name} – ${BRAND.tagline} | Halal energy drink made in Pakistan`,
-        description: `${BRAND.name} is a halal-certified energy drink made in Pakistan, with natural caffeine, B vitamins, electrolytes and added Zamzam water. Six flavors in ${BRAND.volume} cans.`,
+        description: `${BRAND.name} is a halal-certified energy drink made in Pakistan, with natural caffeine, B vitamins, electrolytes and added Zamzam water. Eight flavors in ${BRAND.volume} cans.`,
         image: imageFor(),
         noindex: false,
         jsonLd: [organization(), website(), faqSchema()],
@@ -143,8 +143,8 @@ export function pageMeta(route: SeoRoute): PageMeta {
     case 'SHOP':
       return {
         path: '/shop',
-        title: `Shop ${BRAND.name} – all six flavors`,
-        description: `Shop all six ${BRAND.name} flavors (${FLAVOR_NAMES.join(', ')}). ${BADGES.join(', ')}. ${BRAND.origin}.`,
+        title: `Shop ${BRAND.name} – all eight flavors`,
+        description: `Shop all eight ${BRAND.name} flavors (${FLAVOR_NAMES.join(', ')}). ${BADGES.join(', ')}. ${BRAND.origin}.`,
         image: imageFor(),
         noindex: false,
         jsonLd: [
@@ -183,7 +183,7 @@ export function pageMeta(route: SeoRoute): PageMeta {
       return {
         path: '/limited',
         title: `Limited editions – ${BRAND.name}`,
-        description: `Small batches, bold flavors: ${BRAND.name} limited editions. Blackout Berry on sale now; Falsa Frost and Cold Coffee coming soon.`,
+        description: `Small batches, bold flavors: ${BRAND.name} limited editions. Blackout Berry, Falsa Frost and Cold Coffee, on sale now while they last.`,
         image: imageFor(),
         noindex: false,
         jsonLd: [breadcrumb([{ name: 'Home', path: '/' }, { name: 'Limited editions', path: '/limited' }])],
@@ -210,7 +210,7 @@ export function pageMeta(route: SeoRoute): PageMeta {
       return {
         path: '/mix',
         title: `Mix your own pack – ${BRAND.name}`,
-        description: `Build a 6, 12 or 24 can pack of ${BRAND.name} from any mix of the six flavors.`,
+        description: `Build a 6, 12 or 24 can pack of ${BRAND.name} from any mix of the eight flavors.`,
         image: imageFor(),
         noindex: false,
         jsonLd: [breadcrumb([{ name: 'Home', path: '/' }, { name: 'Mix your own pack', path: '/mix' }])],

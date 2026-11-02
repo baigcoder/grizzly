@@ -73,6 +73,8 @@ const KINDS: Record<string, string[]> = {
   'strawberry-kiwi': ['strawberry', 'kiwi', 'strawberry', 'kiwi', 'strawberry', 'kiwi', 'strawberry', 'kiwi'],
   peach: ['peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach'],
   'blackout-berry': ['berry', 'berry', 'berry', 'berry', 'berry', 'berry', 'berry', 'berry'],
+  'falsa-frost': ['berry', 'ice', 'berry', 'berry', 'ice', 'berry', 'berry', 'ice'],
+  'cold-coffee': ['ice', 'ice', 'ice', 'ice', 'ice', 'ice', 'ice', 'ice'],
 };
 
 // Fixed layout: pieces sit around (never in front of) the can column, far ones blurrier.

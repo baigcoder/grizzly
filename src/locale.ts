@@ -32,7 +32,7 @@ export const STRINGS = {
   backHome: { en: 'Back to the range', ur: 'ذائقوں پر واپس جائیں' },
   shopTheRange: { en: 'Shop the range', ur: 'رینج خریدیں' },
   shopTitle: { en: 'Shop Grizzly Energy', ur: 'گرزلی انرجی خریدیں' },
-  claims: { en: 'Six flavors · Halal certified · Made in Pakistan', ur: 'چھ ذائقے · حلال سرٹیفائیڈ · پاکستان میں تیار' },
+  claims: { en: 'Eight flavors · Halal certified · Made in Pakistan', ur: 'آٹھ ذائقے · حلال سرٹیفائیڈ · پاکستان میں تیار' },
   mixOwn: { en: 'Mix your own pack', ur: 'اپنا پیک خود بنائیں' },
   viewAndAdd: { en: 'View and add to bag', ur: 'دیکھیں اور تھیلے میں ڈالیں' },
 } as const;
@@ -47,6 +47,8 @@ export const FLAVOR_NAMES_UR: Record<string, string> = {
   'strawberry-kiwi': 'اسٹرابیری کیوی',
   peach: 'آڑو',
   'blackout-berry': 'بلیک آؤٹ بیری',
+  'falsa-frost': 'فالسہ فراسٹ',
+  'cold-coffee': 'کولڈ کافی',
 };
 
 export const LOCALE_STORAGE_KEY = 'grizzly_locale';

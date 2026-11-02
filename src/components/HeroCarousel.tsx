@@ -60,7 +60,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ activeIndex, isActiv
 
   return (
     <section id="gamme" className={`home-section hero ${isActive ? 'is-active' : ''}`} aria-label="Flavors">
-      <h1 className="sr-only">Grizzly Energy, natural energy drinks in six flavors</h1>
+      <h1 className="sr-only">Grizzly Energy, natural energy drinks in eight flavors</h1>
       {/* The direct answer to "What is Grizzly Energy?" comes first in the document (same text as the FAQ answer). */}
       <p className="sr-only" id="what-is-grizzly">{BRAND.summary}</p>
 
