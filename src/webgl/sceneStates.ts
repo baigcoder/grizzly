@@ -1,6 +1,5 @@
 import { CAROUSEL_CONFIG } from './sceneManagerConfig';
 import { LABEL } from '../data/brand';
-import { CAN } from './canDimensions';
 
 export type SceneMode = 'hero-carousel' | 'feature-editorial' | 'range';
 
@@ -52,30 +51,20 @@ const STAGE_CLOSE = { floorY: -9, reflect: 0, mountains: 0, moon: 0, mistFg: 0.1
 
 /**
  * Benefit poses come from the label layout: the can turns so the right panel's centre faces the camera (u = 0.5
- * faces it at rotY 0, u grows to the right). The whole can stays in frame, lid to base, beside the copy: at 2.6
- * the close-ups cut the can off at the top and bottom of the screen. The camera still steps closer chapter by
- * chapter, and the lit block reads on the full can.
+ * faces it at rotY 0, u grows to the right). The whole can stays in frame, lid to base, beside the copy (at 2.4 the
+ * close-ups cut it off at the top and bottom of the screen); the lit block reads down the full can, chapter by chapter.
  */
-const BENEFIT_SCALE = 2.4;
-const SHELL_HEIGHT = CAN.shellHeight;
+const BENEFIT_SCALE = 1.6;
 const panelCentreU = (LABEL.panels.right[0] + LABEL.panels.right[1]) / 2;
 const BENEFIT_ROT_Y = (0.5 - panelCentreU) * Math.PI * 2;
 
 /**
- * Where each chapter's lit block sits on screen (world units above the centre): high for the first chapter, one
- * step lower for each next one. The step is a little longer than the blocks' spacing on the label, so the can itself
- * also moves down as the page scrolls (it used to step up to hold every block at mid-screen, against the scroll).
- */
-const BENEFIT_BLOCK_SCREEN_Y = (chapter: number) => 0.9 - chapter * 1.15;
-
-/**
- * As in the reference: one huge dark can, centred and leaning, cropped by the frame, the chapter's lit block in view.
- * All four chapters, Zamzam included, share this close-up; chapter by chapter the lit block reads down the screen.
+ * One dark can, whole and leaning beside the copy, the chapter's lit block in view. All four chapters, Zamzam
+ * included, share this pose; the can settles a little lower each chapter, so it moves with the scroll, never
+ * against it, while the lit block reads down the label.
  */
 const benefit = (rotZ: number, chapter: number): SceneStateConfig => {
-  const [, v0, , v1] = LABEL.benefitBlocks[chapter];
-  const blockY = ((v0 + v1) / 2 - 0.5) * SHELL_HEIGHT; // local height of the block's centre on the can
-  const posY = BENEFIT_BLOCK_SCREEN_Y(chapter) - blockY * BENEFIT_SCALE * Math.cos(rotZ);
+  const posY = -0.05 - chapter * 0.12;
   return {
     camera: cam(0, 0, 27, 0, 0, 0),
     product: { scale: BENEFIT_SCALE, posX: 0.35, posY, posZ: 0, rotX: 7 * DEG, rotY: BENEFIT_ROT_Y, rotZ, spin: 0 },
@@ -108,21 +97,20 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
     swirl: 0,
   },
 
-  // Flavor intro, as in the reference: one big can, centred and leaning ~28°, its lid under the header and its base
-  // running off the bottom edge. The copy sits on the left and the scattered flavor letters behind it. (This replaces
-  // the earlier whole-can pose on the right with spec callouts.)
+  // Flavor intro: one big can, whole from lid to base and leaning ~20°, beside the copy on the left with the
+  // scattered flavor letters behind it. (At 2.5 its base ran off the bottom edge and only half the can showed.)
   profile: {
     camera: cam(0, 0.2, 27, 0.03, 0, 0),
-    product: { scale: 2.5, posX: 0.7, posY: -1.6, posZ: 0, rotX: 8 * DEG, rotY: -0.38, rotZ: 28 * DEG, spin: 0 },
+    product: { scale: 1.6, posX: 0.7, posY: 0.55, posZ: 0, rotX: 8 * DEG, rotY: -0.38, rotZ: 20 * DEG, spin: 0 },
     lighting: { ...LIGHT, pointerInfluence: 0.12 },
-    // the base runs off-frame, so the floor drops away (a reflection would cut through the can)
+    // no floor: the can floats in its colour field
     stage: { ...STAGE, floorY: -9, reflect: 0, mistFg: 0.2, stars: 0, field: 1 },
     spacing: CAROUSEL_CONFIG.spacing,
     wave: 0,
     swirl: 0,
   },
 
-  // Benefits: the can holds its close-up and steps a little lower each chapter as the lit block reads down the label.
+  // Benefits: the whole can, a little lower each chapter as the lit block reads down the label.
   benefit01: benefit(12 * DEG, 0),
   benefit02: benefit(9 * DEG, 1),
   benefit03: benefit(11 * DEG, 2),
