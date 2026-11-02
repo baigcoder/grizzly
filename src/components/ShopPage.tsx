@@ -20,7 +20,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({ onNavigate }) => {
     <header className="shop-page__head">
       <h1 id="shop-title" className="display shop-page__title">{t('shopTitle')}</h1>
       <p className="shop-page__lead">
-        Six flavors of {BRAND.productType.toLowerCase()}, {BRAND.volume} cans. {BADGES.join(' · ')}. {BRAND.origin}.
+        Eight flavors of {BRAND.productType.toLowerCase()}, {BRAND.volume} cans. {BADGES.join(' · ')}. {BRAND.origin}.
       </p>
     </header>
 

@@ -30,7 +30,7 @@
     },
     "siteUrl": "https://www.grizzlyenergy.pk",
     "siteUrlNote": "Taken from the label artwork (www.grizzlyenergy.pk). TODO: confirm the production domain; canonical URLs, the sitemap and structured data are built from it.",
-    "summary": "Grizzly Energy is a halal-certified energy drink made in Pakistan by Grizzly Energy Beverage Labs. Every 250 ml can is made with natural caffeine from green coffee beans, B vitamins, electrolytes from sea salt and added Zamzam water, with no artificial colors and no preservatives. It comes in six flavors: Blue Raspberry, Mango Fuego, Watermelon, Strawberry Kiwi, Peach and Blackout Berry (a limited edition). Its tagline is “Fuel your wild side”."
+    "summary": "Grizzly Energy is a halal-certified energy drink made in Pakistan by Grizzly Energy Beverage Labs. Every 250 ml can is made with natural caffeine from green coffee beans, B vitamins, electrolytes from sea salt and added Zamzam water, with no artificial colors and no preservatives. It comes in eight flavors: Blue Raspberry, Mango Fuego, Watermelon, Strawberry Kiwi and Peach, plus the limited editions Blackout Berry, Falsa Frost and Cold Coffee (with milk). Its tagline is “Fuel your wild side”."
   },
   "unconfirmed": {
     "caffeine": "TODO: confirm caffeine per 250 ml can (artwork shows both 160 mg/100 ml and 40 mg/can)",
@@ -635,12 +635,42 @@
           200
         ]
       }
+    },
+    {
+      "slug": "falsa-frost",
+      "name": "Falsa Frost",
+      "lines": [
+        "Falsa",
+        "Frost"
+      ],
+      "accentToken": "falsa",
+      "accent": "#e8559c",
+      "accentDeep": "#241029",
+      "edition": "Limited edition",
+      "taste": "Sweet-tart falsa berry, served ice cold.",
+      "description": "Limited edition falsa berry flavored energy drink, sweet-tart and ice cold, with natural caffeine from green coffee beans, B vitamins (B3, B6, B12, biotin, B5) and electrolytes from sea salt. Made with added Zamzam water.",
+      "ingredients": "TODO: confirm Falsa Frost ingredients"
+    },
+    {
+      "slug": "cold-coffee",
+      "name": "Cold Coffee",
+      "lines": [
+        "Cold",
+        "Coffee"
+      ],
+      "accentToken": "coffee",
+      "accent": "#c98b5b",
+      "accentDeep": "#22120a",
+      "edition": "Limited edition",
+      "taste": "Cold coffee with milk and a smooth, creamy finish. Contains milk.",
+      "description": "Limited edition cold coffee energy drink with milk, natural caffeine from green coffee beans, B vitamins (B3, B6, B12, biotin, B5) and electrolytes from sea salt. Made with added Zamzam water. Contains milk.",
+      "ingredients": "TODO: confirm Cold Coffee ingredients and nutrition (contains milk)"
     }
   ],
   "faq": [
     {
       "q": "What is Grizzly Energy?",
-      "a": "Grizzly Energy is a halal-certified energy drink made in Pakistan by Grizzly Energy Beverage Labs. Every 250 ml can is made with natural caffeine from green coffee beans, B vitamins, electrolytes from sea salt and added Zamzam water, with no artificial colors and no preservatives. It comes in six flavors: Blue Raspberry, Mango Fuego, Watermelon, Strawberry Kiwi, Peach and Blackout Berry (a limited edition). Its tagline is “Fuel your wild side”."
+      "a": "Grizzly Energy is a halal-certified energy drink made in Pakistan by Grizzly Energy Beverage Labs. Every 250 ml can is made with natural caffeine from green coffee beans, B vitamins, electrolytes from sea salt and added Zamzam water, with no artificial colors and no preservatives. It comes in eight flavors: Blue Raspberry, Mango Fuego, Watermelon, Strawberry Kiwi and Peach, plus the limited editions Blackout Berry, Falsa Frost and Cold Coffee (with milk). Its tagline is “Fuel your wild side”."
     },
     {
       "q": "Is Grizzly Energy halal?",
@@ -656,7 +686,7 @@
     },
     {
       "q": "What flavors does Grizzly Energy come in?",
-      "a": "Six flavors: Blue Raspberry, Mango Fuego, Watermelon, Strawberry Kiwi, Peach and Blackout Berry (limited edition)."
+      "a": "Eight flavors: Blue Raspberry, Mango Fuego, Watermelon, Strawberry Kiwi and Peach, plus the limited editions Blackout Berry, Falsa Frost and Cold Coffee (with milk)."
     },
     {
       "q": "How big is a can?",

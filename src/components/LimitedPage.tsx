@@ -20,8 +20,8 @@ interface Edition {
 }
 
 /**
- * The limited editions. Blackout Berry is on sale (grizzly.json limitedEdition); Falsa Frost and Cold Coffee are the
- * next drops, shown with their cans but not yet orderable (they are not in the product data).
+ * The limited editions, all three on sale: each is a product in grizzly.json (flavors), ordered like the rest of the
+ * range. A drop marked soon shows its can without a way to order (none is, today).
  */
 const EDITIONS: Edition[] = [
   {
@@ -38,10 +38,10 @@ const EDITIONS: Edition[] = [
   {
     slug: 'falsa-frost',
     name: 'Falsa Frost',
-    tag: 'Batch 001 · Coming soon',
+    tag: 'Batch 001 · On sale now',
     story: 'Falsa, the sweet-tart berry of a Pakistani summer, served ice cold. A night-plum can with a gold bear, in numbered batches.',
     facts: ['250 ml', 'Natural caffeine', 'Added Zamzam water'],
-    status: 'soon',
+    status: 'available',
     field: '#241029',
     ink: '#e8559c',
     metal: '#e6c47e',
@@ -49,10 +49,10 @@ const EDITIONS: Edition[] = [
   {
     slug: 'cold-coffee',
     name: 'Cold Coffee',
-    tag: 'Café batch · Coming soon',
+    tag: 'Café batch · On sale now',
     story: 'Cold coffee with milk and natural caffeine from green coffee beans. A caramel can with a copper bear. Contains milk.',
     facts: ['250 ml', 'With milk', 'Added Zamzam water'],
-    status: 'soon',
+    status: 'available',
     field: '#9a6440',
     ink: '#22120a',
     metal: '#ebbd93',
@@ -143,7 +143,7 @@ export const LimitedPage: React.FC<{ onNavigate: (url: string) => void }> = ({ o
 
       <footer className="limited__outro">
         <p className="display limited__outro-title">Can’t wait?</p>
-        <p className="limited__lead">The original six are always on.</p>
+        <p className="limited__lead">The core range is always on.</p>
         <a className="button-primary" href="/shop" onClick={go('/shop')}>
           <ButtonLabel>Shop the range</ButtonLabel>
         </a>

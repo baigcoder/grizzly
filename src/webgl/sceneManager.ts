@@ -43,7 +43,8 @@ const PRODUCT_POSE = { x: -3.3, y: 0.3, z: 0, scale: 1.7, rotX: 0.08, rotY: -0.3
 const PRODUCT_STAGE_CENTRE = 0.37;
 const PRODUCT_POSE_NARROW = { x: 0, y: 1.6, z: 0, scale: 1.1, rotX: 0.08, rotY: -0.35, rotZ: 0.14 };
 
-const CAN_COUNT = 12;
+/** Two cans of every flavor in the hero ring and the finale row (a multiple of the flavor count keeps the ring even). */
+const CAN_COUNT = FLAVORS.length * 2;
 /**
  * On-screen height of the tilted desktop hero can per unit of scale, in world units (lid to base with its lean and the
  * step toward the camera). Was 5.0, which left about a sixth of the space between the header and the title unused.
@@ -2271,15 +2272,16 @@ function landing(t: number) {
  * at nearly one size along its length, low at the left (showing bottoms) and high at the right (showing lids), each
  * can leaning square to the row. The active flavor lands near the middle. `delay` staggers the drop, left to right.
  */
-const LINEUP_SLOTS = Array.from({ length: 12 }, (_, k) => {
-  const t = k - 5.5;
+const LINEUP_SLOTS = Array.from({ length: CAN_COUNT }, (_, k) => {
+  const last = CAN_COUNT - 1;
+  const t = k - last / 2;
   return {
     x: t * 1.68,
     y: 1.0 + t * 0.36 - 0.014 * t * t, // rising, flattening toward the far end
     z: 0.8 - t * 0.25,
-    rotX: -0.6 + (k / 11) * 1.2, // (±0.8 swung tilted bottoms into the neighbouring can)
+    rotX: -0.6 + (k / last) * 1.2, // (±0.8 swung tilted bottoms into the neighbouring can)
     rotY: -0.3,
     rotZ: 0.22,
-    delay: (k / 11) * 0.6,
+    delay: (k / last) * 0.6,
   };
 });

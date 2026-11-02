@@ -72,7 +72,7 @@ function body(route: SeoRoute): string {
     case 'HOME':
       return `${header()}<main id="main">
 <div class="pre__eyebrow">${escapeHtml(BRAND.tagline)}</div>
-<h1>Grizzly Energy, natural energy drinks in six flavors</h1>
+<h1>Grizzly Energy, natural energy drinks in eight flavors</h1>
 <img class="pre__can" src="${getProductThumbUrl(PRODUCTS[0])}" alt="Grizzly Energy Blue Raspberry can" width="187" height="491" fetchpriority="high">
 <p>${escapeHtml(BRAND.summary)}</p>
 <p>${escapeHtml(BADGES.join(' · '))} · ${escapeHtml(BRAND.origin)}</p>
@@ -101,11 +101,11 @@ function body(route: SeoRoute): string {
     case 'HALAL':
       return `${header()}<main id="main"><h1>Halal and Zamzam</h1><p>${escapeHtml(BRAND.name)} is halal certified and made with added Zamzam water.</p><p>The certifier, licence and the Zamzam sourcing details will be published here once confirmed.</p></main>${footer()}`;
     case 'LIMITED':
-      return `${header()}<main id="main"><h1>Limited editions</h1><p>Small batches. Bold flavors. Gone when they're gone.</p><h2>Blackout Berry</h2><p>Drop 01, on sale now. <a href="/products/blackout-berry">Get it now</a></p><h2>Falsa Frost</h2><p>Batch 001, coming soon.</p><h2>Cold Coffee</h2><p>Café batch, coming soon. Contains milk.</p></main>${footer()}`;
+      return `${header()}<main id="main"><h1>Limited editions</h1><p>Small batches. Bold flavors. Gone when they're gone.</p><h2>Blackout Berry</h2><p>Drop 01, on sale now. <a href="/products/blackout-berry">Get it now</a></p><h2>Falsa Frost</h2><p>Batch 001, on sale now. <a href="/products/falsa-frost">Get it now</a></p><h2>Cold Coffee</h2><p>Café batch, on sale now. Contains milk. <a href="/products/cold-coffee">Get it now</a></p></main>${footer()}`;
     case 'ABOUT':
       return `${header()}<main id="main"><h1>Our story</h1><p>${escapeHtml(ABOUT_PAGE.intro)}</p><h2>Founder</h2><p>${escapeHtml(ABOUT_PAGE.founder.name)} founded ${escapeHtml(BRAND.company.name)}, the company behind ${escapeHtml(BRAND.name)}.</p><p>${escapeHtml(BRAND.summary)}</p>${range()}</main>${footer()}`;
     case 'MIX':
-      return `${header()}<main id="main"><h1>Mix your pack</h1><p>Build a 6, 12 or 24 can pack from any mix of the six flavors.</p>${range()}</main>${footer()}`;
+      return `${header()}<main id="main"><h1>Mix your pack</h1><p>Build a 6, 12 or 24 can pack from any mix of the eight flavors.</p>${range()}</main>${footer()}`;
     case 'STORES':
       return `${header()}<main id="main"><h1>Find a store</h1><p>The store list is coming soon. You can order online in the meantime.</p><p><a href="/shop">Shop the range</a></p></main>${footer()}`;
     case 'PRIVACY':

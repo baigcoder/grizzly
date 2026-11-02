@@ -370,12 +370,35 @@
   align-items: flex-end;
 }
 
-.limited-teaser__cans img {
-  width: 2.4rem;
-  height: auto;
+/* each can is a flavor choice: the chosen one stands up out of the fan, lit in its own colour */
+.limited-teaser__can {
   margin-inline: -0.35rem;
   transform: rotate(calc(var(--i) * 10deg)) translateY(calc(var(--i) * var(--i) * 0.2rem));
-  filter: drop-shadow(0 0.4rem 0.6rem rgb(0 0 0 / 0.5));
+  transition: transform var(--motion-fast) var(--ease-out), filter var(--motion-fast) var(--ease-out);
+  filter: drop-shadow(0 0.4rem 0.6rem rgb(0 0 0 / 0.5)) brightness(0.72);
+}
+
+.limited-teaser__can img {
+  display: block;
+  width: 2.6rem;
+  height: auto;
+}
+
+.limited-teaser__can:hover {
+  filter: drop-shadow(0 0.4rem 0.6rem rgb(0 0 0 / 0.5)) brightness(0.92);
+}
+
+.limited-teaser__can[aria-pressed='true'] {
+  position: relative;
+  z-index: 1;
+  transform: rotate(0deg) translateY(-0.5rem) scale(1.12);
+  filter: drop-shadow(0 0.6rem 1rem color-mix(in oklab, var(--color-accent) 60%, transparent)) brightness(1);
+}
+
+.limited-teaser__can:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .limited-teaser__copy {
@@ -394,6 +417,18 @@
 .limited-teaser__title {
   font-size: var(--font-size-2xl);
   text-transform: uppercase;
+}
+
+.limited-teaser__price {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+}
+
+.limited-teaser__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
 }
 
 .limited-teaser__link {
@@ -425,12 +460,21 @@
     padding: 0 var(--space-2xl) 0 var(--space-md);
     min-height: 2.75rem;
     border-radius: 999px;
+    max-width: calc(100vw - 2 * var(--space-md));
     white-space: nowrap;
   }
 
+  /* the pill only announces the drops and opens their page (choosing and adding happen there) */
   .limited-teaser__cans,
-  .limited-teaser__eyebrow {
+  .limited-teaser__title,
+  .limited-teaser__price,
+  .limited-teaser .limited-teaser__add {
     display: none;
+  }
+
+  .limited-teaser__eyebrow {
+    color: var(--color-white);
+    letter-spacing: 0.12em;
   }
 
   .limited-teaser__copy {

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FLAVORS } from '../data/flavors';
 import { BENEFITS } from '../data/benefits';
@@ -12,17 +13,32 @@ describe('Grizzly Energy data and state', () => {
     cartStore.clearCart();
   });
 
-  it('has six flavors with distinct slugs, accent tokens and label textures', () => {
+  it('has eight flavors with distinct slugs, accent tokens and label textures', () => {
     expect(FLAVORS.map((f) => f.name)).toEqual([
-      'Blue Raspberry', 'Mango Fuego', 'Watermelon', 'Strawberry Kiwi', 'Peach', 'Blackout Berry',
+      'Blue Raspberry', 'Mango Fuego', 'Watermelon', 'Strawberry Kiwi', 'Peach', 'Blackout Berry', 'Falsa Frost', 'Cold Coffee',
     ]);
-    expect(new Set(FLAVORS.map((f) => f.id)).size).toBe(6);
-    expect(new Set(FLAVORS.map((f) => f.accentToken)).size).toBe(6);
+    expect(new Set(FLAVORS.map((f) => f.id)).size).toBe(8);
+    expect(new Set(FLAVORS.map((f) => f.accentToken)).size).toBe(8);
     FLAVORS.forEach((flavor, index) => {
       expect(flavor.index).toBe(index);
       expect(flavor.theme.secondary).toMatch(/^#[0-9a-f]{6}$/i);
       expect(flavor.textureUrl).toBe(`/textures/grizzly/${flavor.id}.webp`);
       expect(flavor.surfaceUrl).toBe(`/textures/grizzly/${flavor.id}-surface.png`);
+    });
+  });
+
+  it('ships the can art of every flavor: label maps, GPU levels, thumbnail and roar bear', () => {
+    // a flavor added to grizzly.json without its art shows a blank can in the 3D scene
+    const shipped = new Set(Object.keys(import.meta.glob(['/public/textures/grizzly/**/*.{webp,png,ktx2}', '/public/products/thumbs/*.webp'])));
+    FLAVORS.forEach(({ id }) => {
+      const files = [
+        `public/textures/grizzly/${id}.webp`,
+        `public/textures/grizzly/${id}-surface.png`,
+        ...['1k', '2k', '2k-lite', '4k', 'surface', 'normal'].map((level) => `public/textures/grizzly/ktx2/${id}-${level}.ktx2`),
+        `public/products/thumbs/${id}.webp`,
+        `public/textures/grizzly/bear/${id}.webp`,
+      ];
+      files.forEach((file) => expect(shipped.has(`/${file}`), file).toBe(true));
     });
   });
 
@@ -57,7 +73,7 @@ describe('Grizzly Energy data and state', () => {
   });
 
   it('builds the catalog from the same data with placeholder packs', () => {
-    expect(PRODUCTS).toHaveLength(6);
+    expect(PRODUCTS).toHaveLength(FLAVORS.length);
     PRODUCTS.forEach((product, index) => {
       expect(product.index).toBe(index);
       expect(product.packOptions.map((p) => p.count)).toEqual([1, 6, 12, 24]);

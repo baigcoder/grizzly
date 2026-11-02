@@ -31,7 +31,7 @@ const QUESTIONS = [
       { label: 'Focused', scores: { 'blue-raspberry': 1, peach: 1 } },
       { label: 'Fired up', scores: { 'mango-fuego': 2, 'blackout-berry': 1 } },
       { label: 'Chilled', scores: { watermelon: 1, peach: 1 } },
-      { label: 'Adventurous', scores: { 'blackout-berry': 2, 'strawberry-kiwi': 1 } },
+      { label: 'Adventurous', scores: { 'blackout-berry': 2, 'falsa-frost': 2, 'strawberry-kiwi': 1 } },
     ],
   },
   {
@@ -41,7 +41,7 @@ const QUESTIONS = [
       { label: 'Morning', scores: { peach: 1, 'blue-raspberry': 1 } },
       { label: 'Afternoon', scores: { watermelon: 1, 'strawberry-kiwi': 1 } },
       { label: 'Training', scores: { 'mango-fuego': 1, 'blue-raspberry': 1 } },
-      { label: 'Late night', scores: { 'blackout-berry': 1, 'mango-fuego': 1 } },
+      { label: 'Late night', scores: { 'blackout-berry': 1, 'cold-coffee': 2, 'mango-fuego': 1 } },
     ],
   },
 ] as const;
