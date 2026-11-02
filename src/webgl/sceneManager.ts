@@ -1774,17 +1774,27 @@ export class SceneManager {
         featY += Math.sin(time * 0.0009) * 0.09 * float;
         featRotY += Math.sin(time * 0.00045) * 0.16 * float;
         featRotZ += Math.sin(time * 0.0007 + 1.3) * 0.025 * float;
-        // Desktop: the lid never rides up under the header (the close-ups ran it 60–90 px into the logo). The lid's
-        // highest point (its rim corner, through the lean) is held a margin below the header; the can steps down if not.
+        // Desktop: the whole can, lid to base, stays between the header and the bottom edge (the close-ups ran the lid
+        // into the logo and the base off the screen). If it is taller than that space it shrinks to fit; then the lid's
+        // highest point (its rim corner, through the lean) is held below the header and the base above the bottom.
         if (!isMobile && this.headerBottomPx > 0) {
-          const s = featScale * fo.scale;
-          const reach = (CAN.shellHeight / 2 + CAN.topHeight) * Math.cos(featRotZ) + CAN.radius * Math.abs(Math.sin(featRotZ));
+          const lean = Math.abs(Math.sin(featRotZ));
+          const reach = (CAN.shellHeight / 2 + CAN.topHeight) * Math.cos(featRotZ) + CAN.radius * lean;
+          const drop = (CAN.shellHeight / 2 + CAN.bottomHeight) * Math.cos(featRotZ) + CAN.radius * lean;
           const distance = Math.max(1, this.camera.position.z - (featZ + fo.posZ));
           const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / this.viewHeight;
           // (the camera's pitch moves the frame: a tagline camera tilted down shows the can higher)
-          const ceiling = this.camera.position.y + distance * Math.tan(this.camera.rotation.x) + (this.viewHeight / 2 - (this.headerBottomPx + 44)) * unitsPerPx;
-          const lid = featY + fo.posY + reach * s * 1.06; // the forward lean (rotX) lifts the near rim a little more
+          const centre = this.camera.position.y + distance * Math.tan(this.camera.rotation.x);
+          const ceiling = centre + (this.viewHeight / 2 - (this.headerBottomPx + 44)) * unitsPerPx;
+          const floor = centre - (this.viewHeight / 2 - 32) * unitsPerPx;
+          // the forward lean (rotX) lifts the near rim a little more, and drops the far base edge alike
+          const fit = (ceiling - floor) / ((reach + drop) * 1.06 * featScale * fo.scale);
+          if (fit < 1) featScale *= fit;
+          const s = featScale * fo.scale;
+          const lid = featY + fo.posY + reach * s * 1.06;
           if (lid > ceiling) featY -= lid - ceiling;
+          const base = featY + fo.posY - drop * s * 1.06;
+          if (base < floor) featY += floor - base;
         }
         setCanFocus(can, 1);
         this.applyLabelState(can, true);
@@ -1989,17 +1999,14 @@ export class SceneManager {
    * The phone pose of the single featured can, shared by the ring's collapse and the single-can branch so the
    * handover between them is seamless. Phones shrink the can and raise it above the copy at the foot of the screen
    * (benefit poses scale with it, so the lit block keeps its place); the tagline has no copy, so there the can
-   * returns near full size and centre; the flavor intro's tilted can rides higher and smaller still.
+   * returns near full size and centre. Every pose shows the whole can, lid to base, so no step needs its own shrink.
    */
   private phoneSinglePose() {
     const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
-    // coming out of the hero the can is bound for the flavor-intro pose, so that pose holds the whole way in (ramping it
-    // with the scroll while the camera eased in ballooned the can mid-transition); it hands over to the benefits after
-    const profile = this.sectionPosition <= 1 ? 1 : Math.max(0, 2 - this.sectionPosition);
     const k = 0.7 + 0.25 * tagline;
     const pose = this.phonePose;
-    pose.scale = this.data.canScale * k * (1 - 0.32 * profile);
-    pose.y = this.data.canPosY * k + 1.75 * (1 - tagline) + 1.1 * profile;
+    pose.scale = this.data.canScale * k;
+    pose.y = this.data.canPosY * k + 1.75 * (1 - tagline);
     pose.x = 0.3 * (1 - tagline);
     return pose;
   }
