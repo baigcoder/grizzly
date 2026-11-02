@@ -796,8 +796,8 @@
   }
 }
 
-/* ---------- Phones: copy below the can, compact rail, smaller giants ---------- */
-@media (max-width: 767px) {
+/* ---------- Phones and portrait tablets: copy below the can, compact rail, smaller giants ---------- */
+@media (max-width: 767px), (max-width: 1199px) and (orientation: portrait) {
   .section-copy {
     left: var(--space-md);
     right: var(--space-md);
@@ -976,7 +976,7 @@
   to { stroke-dashoffset: 0; }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1199px) and (orientation: portrait) {
   .halal-seal--inline {
     margin-top: var(--space-md);
   }
@@ -1064,7 +1064,7 @@
 
 /* On phones the falloff stops at the screen edge: its desktop inset (--space-4xl) pushed the document
    67px wider than a 390px screen and dragged the header bag off-screen. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1199px) and (orientation: portrait) {
   .benefit .section-copy::before {
     inset-inline: calc(var(--space-md) * -1);
   }
@@ -1274,7 +1274,7 @@
   .benefit.is-active .benefit-count__now { transition-delay: 0ms; }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1199px) and (orientation: portrait) {
   /* centred at the foot of the screen, as in the reference: tag, title, line, nothing beside them (the chapter's
      icon is already lit on the rail, so the hex emblem stays a desktop detail) */
   .flavor-intro .section-copy,
