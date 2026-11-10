@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FLAVORS } from '../data/flavors';
 import { LABEL } from '../data/brand';
 import { audioManager } from '../audio/audioManager';
-import { createCanMesh, disposeCanMaterials, getCanSurface, setCanFocus, setCanAccent } from './canModel';
+import { createCanMesh, disposeCanMaterials, getCanSurface, setCanFocus, setCanAccent, setCanFinish } from './canModel';
 import { disposeCanGeometry } from './canGeometry';
 import { LabelTextures } from './labelTextures';
 import { createMetalEnvironment, createStudioEnvironment } from './studioEnv';
@@ -328,13 +328,6 @@ export class SceneManager {
   public zamzamLight = 0;
   /** Bottom of the site header (CSS px), measured with the hero title: the desktop can's lid stays below it. */
   private headerBottomPx = 0;
-  /** Scratch for phoneSinglePose (no allocation per frame). */
-  private readonly phonePose = { x: 0, y: 0, scale: 1 };
-  /** Free screen space (CSS px) beside or above each chapter's copy, measured once per chapter (cleared on resize). */
-  private readonly freeBoxes = new Map<number, { left: number; top: number; right: number; bottom: number }>();
-  private readonly basePose = { x: 0, y: 0, scale: 1 };
-  private readonly fitA = { x: 0, y: 0, scale: 1, cy: 0, left: 0, half: 1, bottom: 0, down: 1 };
-  private readonly fitB = { x: 0, y: 0, scale: 1, cy: 0, left: 0, half: 1, bottom: 0, down: 1 };
   /** Touch screens, where Lenis drives the finger scroll (useSmoothScroll). */
   private readonly touchScroll = window.matchMedia('(pointer: coarse)').matches;
   private currentTimelineProgress = 0;
@@ -501,6 +494,7 @@ export class SceneManager {
       const maps = this.labels.get(i % FLAVORS.length);
       const can = createCanMesh(maps.albedo, maps.surface, this.isLowPower, this.isLowPower ? null : maps.normal, this.metalEnv);
       setCanAccent(can, FLAVORS[i % FLAVORS.length].theme.secondary);
+      setCanFinish(can, FLAVORS[i % FLAVORS.length].id);
       can.visible = false;
       this.cans.push(can);
       this.scene.add(can);
@@ -621,6 +615,32 @@ export class SceneManager {
   }
 
   // ───────────────────────── intro ─────────────────────────
+
+  private loopArmed = false;
+
+  /**
+   * The return from the end of the page to the hero. The lineup shrinks away and the hero ring used to pop in on one
+   * frame at the very end of that segment. The reference brings the cans back onto the stage; here the page-load intro
+   * does the same job: it is armed (the ring held below the frame) as the newsletter arrives and played as the scene
+   * returns to the hero, so the cans rise in one after another from the middle out, and carry on after the page wraps to
+   * the top (the hero frame is identical, so the wrap is invisible).
+   */
+  private updateLoopArrival(now: number) {
+    if (this.reducedMotion) return;
+    const last = SCENE_SEQUENCE.length - 1;
+    const position = this.sectionPosition;
+    if (!this.loopArmed && position >= last - 1 && position < last - 0.3 && this.introStart < 0) {
+      this.loopArmed = true;
+      this.introArmedAt = -1; // the first-visit safety net is for the loader, not for this
+      this.introStart = Number.POSITIVE_INFINITY;
+    } else if (this.loopArmed && position >= last - 0.3 && this.introStart === Number.POSITIVE_INFINITY) {
+      this.introStart = now;
+    } else if (this.loopArmed && position < last - 1.3) {
+      // scrolled back up before it played (or the page wrapped to the top): let the ring rest
+      if (this.introStart === Number.POSITIVE_INFINITY) this.introStart = -1e9;
+      this.loopArmed = false;
+    }
+  }
 
   /** Holds the hero cans below frame until playIntro() (called when the loader leaves). */
   public armIntro() {
@@ -1155,6 +1175,7 @@ export class SceneManager {
     material.roughnessMap = maps.surface;
     if (!this.isLowPower) material.normalMap = maps.normal;
     setCanAccent(can, FLAVORS[index].theme.secondary);
+    setCanFinish(can, FLAVORS[index].id);
     this.previewIndex = index === this.activeProductIndex ? -1 : index;
     if (!this.reducedMotion) this.productSpin = 4.5;
     this.lastActivityAt = performance.now();
@@ -1262,7 +1283,6 @@ export class SceneManager {
 
   private onResize = () => {
     if (!this.measureView()) return; // the address bar moved: nothing to reallocate
-    this.freeBoxes.clear();
     const width = this.viewWidth;
     const height = this.viewHeight;
     this.camera.aspect = width / height;
@@ -1336,7 +1356,11 @@ export class SceneManager {
     // the camera trails the scroll a little (cinematic follow), never snapping to it. On touch Lenis already eases
     // the page (syncTouch), so a second full trail left the can a beat behind the thumb: follow it more closely there.
     // (3.5×: with the page now gliding in about a second, a looser follow left the can visibly behind the copy)
-    const timelineBlend = damp(this.touchScroll ? MOTION_RATE.transition * 3.5 : MOTION_RATE.transition, delta);
+    // Lenis already smooths the scroll, and the reference seeks its timeline straight to it: a second damping stage here
+    // left the can a beat behind the page. Native scroll (reduced motion, no Lenis) still needs the damping.
+    const timelineBlend = document.documentElement.classList.contains('lenis')
+      ? 1
+      : damp(this.touchScroll ? MOTION_RATE.transition * 3.5 : MOTION_RATE.transition, delta);
     this.currentTimelineProgress += (this.targetTimelineProgress - this.currentTimelineProgress) * timelineBlend;
     if (Math.abs(this.targetTimelineProgress - this.currentTimelineProgress) <= 0.0001) {
       this.currentTimelineProgress = this.targetTimelineProgress;
@@ -1515,7 +1539,7 @@ export class SceneManager {
   /** Plain pages (bag, checkout, story, 404): the night stage only, redrawn at a relaxed pace. */
   private pageFrame = 0;
   private ensurePack() {
-    return (this.pack ??= new PackDisplay(this.scene, FLAVORS.length, this.isLowPower));
+    return (this.pack ??= new PackDisplay(this.scene, FLAVORS.length, this.isLowPower, this.metalEnv));
   }
 
   /** Mix your pack: the size (6, 12 or 24) and each slot's flavor slug (null for an empty slot). */
@@ -1652,6 +1676,7 @@ export class SceneManager {
     if (this.introArmedAt >= 0 && now - this.introArmedAt > 8000) this.playIntro();
     if (this.introStart > -1e8 && this.introStart < now - 4500) this.introStart = -1e9;
 
+    this.updateLoopArrival(now);
     this.layoutCans(delta, time, isMobile);
     this.updateCinema(now);
     this.reflections?.update(this.cans, this.data.floorY, this.data.reflect, this.reducedMotion);
@@ -1686,8 +1711,6 @@ export class SceneManager {
 
   /** Positions every can for the current timeline state: hero ring, single feature or finale lineup. */
   private layoutCans(delta: number, time: number, isMobile: boolean) {
-    // phones and portrait tablets stack the can above the chapter copy (there is no room beside it)
-    const stacked = isMobile || (this.viewWidth < 1200 && this.viewHeight > this.viewWidth);
     const minX = this.cans.length * -0.5 * this.carousel.spacing;
     const maxX = this.cans.length * 0.5 * this.carousel.spacing;
     let maxHoverInfluence = 0;
@@ -1754,15 +1777,13 @@ export class SceneManager {
           can.position.set(0, -999, 0);
           return;
         }
-        let featX = this.data.canPosX;
+        const featX = this.data.canPosX;
         let featY = this.data.canPosY;
-        let featScale = this.data.canScale;
+        const featScale = this.data.canScale;
         let featRotX = this.data.canRotX;
         let featRotY = this.data.canRotY + this.data.canSpin;
-        const pose = this.fitSinglePose(stacked);
-        featScale = pose.scale;
-        featY = pose.y;
-        featX = pose.x;
+        // every single-can chapter takes the timeline's own pose, as in the reference (its camera, lens and can numbers are
+        // the chapter's state in sceneStates.ts), on every screen size
         // the ring hands this can over at wave 0.15: inertia and the idle float grow from zero there, so the
         // handover has no jump (they used to switch on at full strength, popping the can up mid-transition)
         const handover = THREE.MathUtils.smoothstep(0.15 - this.data.wave, 0, 0.12);
@@ -1791,14 +1812,6 @@ export class SceneManager {
           featRotY += Math.PI * 2 * turn * dir;
           featZ += swing * 1.6;
           featRotZ += swing * 0.12 * dir;
-        }
-        // Between benefit chapters the can holds one steady size, as in the reference (the zoom in and out between
-        // chapters read as the can pulsing): the lit block glides down the label and the can only leans a little into the
-        // glide, easing back upright as the next chapter settles.
-        if (!this.reducedMotion && betweenBenefits) {
-          const glide = Math.sin(Math.PI * (section - Math.floor(section)));
-          featRotZ += glide * glide * 0.05;
-          featRotX += glide * glide * 0.03;
         }
         // inertia: the can leans back against a fast scroll and trails it slightly, then settles
         featRotX -= this.scrollVelocity * 0.07 * handover;
@@ -1870,17 +1883,10 @@ export class SceneManager {
       // settle as the scroll comes to rest
       canRotZ += this.scrollVelocity * 0.05 * (i % 2 === 0 ? 1 : -0.7) * (1 - heroWeightSmooth);
 
-      let targetSectionScale = this.data.canScale;
-      let targetSectionPosY = this.data.canPosY;
-      let targetSectionPosX = this.data.canPosX;
-      {
-        // the same fitted pose the single-can branch uses, for the whole collapse: the can lands where that branch
-        // takes over. (Aimed at an unfitted pose, the can swelled mid-collapse, then snapped as the branches swapped.)
-        const pose = this.fitSinglePose(stacked);
-        targetSectionScale = pose.scale;
-        targetSectionPosY = pose.y;
-        targetSectionPosX = pose.x;
-      }
+      // the focused can collapses onto the timeline's own single-can pose, where the single-can branch takes over
+      const targetSectionScale = this.data.canScale;
+      const targetSectionPosY = this.data.canPosY;
+      const targetSectionPosX = this.data.canPosX;
 
       const exodus = smooth(collapse);
       can.visible = isFocusCan || (edgeFade > 0.02 && exodus < 0.97);
@@ -2037,101 +2043,6 @@ export class SceneManager {
     this.cans.forEach((can) => can.updateMatrixWorld(true));
   }
 
-  /**
-   * The phone pose of the single featured can, shared by the ring's collapse and the single-can branch so the
-   * handover between them is seamless. Phones shrink the can and raise it above the copy at the foot of the screen
-   * (benefit poses scale with it, so the lit block keeps its place); the tagline has no copy, so there the can
-   * returns near full size and centre. Every pose shows the whole can, lid to base, so no step needs its own shrink.
-   */
-  private phoneSinglePose() {
-    const tagline = Math.max(0, 1 - Math.abs(this.sectionPosition - 6) / 0.6);
-    const k = 0.7 + 0.25 * tagline;
-    const pose = this.phonePose;
-    pose.scale = this.data.canScale * k;
-    pose.y = this.data.canPosY * k + 1.75 * (1 - tagline);
-    pose.x = 0.3 * (1 - tagline);
-    return pose;
-  }
-
-  /**
-   * Where the single can stands, on every screen: the chapter's own pose (the phone pose on stacked layouts) fitted
-   * whole, lid to base, into the free space beside the chapter copy (wide screens) or above it (phones, portrait
-   * tablets), under the header and above the bottom edge. It shrinks only if it must. The fits of the two chapters
-   * around the scroll position are blended, so the can never jumps as a chapter's copy changes.
-   */
-  private fitSinglePose(stacked: boolean) {
-    const base = stacked ? this.phoneSinglePose() : this.basePose;
-    if (!stacked) {
-      base.x = this.data.canPosX;
-      base.y = this.data.canPosY;
-      base.scale = this.data.canScale;
-    }
-    const p = Math.max(0, this.sectionPosition);
-    const from = Math.min(Math.floor(p), SCENE_SEQUENCE.length - 1);
-    const to = Math.min(from + 1, SCENE_SEQUENCE.length - 1);
-    const a = this.fitInBox(base, from, stacked, this.fitA);
-    const b = this.fitInBox(base, to, stacked, this.fitB);
-    const t = THREE.MathUtils.smoothstep(p - from, 0, 1);
-    a.x += (b.x - a.x) * t;
-    a.y += (b.y - a.y) * t;
-    a.scale += (b.scale - a.scale) * t;
-    a.cy += (b.cy - a.cy) * t;
-    a.left += (b.left - a.left) * t;
-    a.bottom += (b.bottom - a.bottom) * t;
-    return a;
-  }
-
-  private fitInBox(base: { x: number; y: number; scale: number }, index: number, stacked: boolean, out: { x: number; y: number; scale: number; cy: number; left: number; half: number; bottom: number; down: number }) {
-    const box = this.freeBox(index, stacked);
-    const width = this.viewWidth;
-    const height = this.viewHeight;
-    const distance = Math.max(1, this.camera.position.z - this.data.canPosZ);
-    const unitsPerPx = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * distance) / height;
-    // (the camera's pitch moves the frame: a camera tilted down shows the can higher)
-    const centreY = this.camera.position.y + distance * Math.tan(this.camera.rotation.x);
-    const left = this.camera.position.x + (box.left - width / 2) * unitsPerPx;
-    const right = this.camera.position.x + (box.right - width / 2) * unitsPerPx;
-    const top = centreY + (height / 2 - box.top) * unitsPerPx;
-    const bottom = centreY + (height / 2 - box.bottom) * unitsPerPx;
-    const lean = Math.abs(Math.sin(this.data.canRotZ));
-    const upright = Math.cos(this.data.canRotZ);
-    // the can's reach from its centre through the lean; the forward tilt (rotX) lifts the near rim a little more
-    const up = ((CAN.shellHeight / 2 + CAN.topHeight) * upright + CAN.radius * lean) * 1.06;
-    const down = ((CAN.shellHeight / 2 + CAN.bottomHeight) * upright + CAN.radius * lean) * 1.06;
-    const half = (CAN.radius * upright + (CAN.shellHeight / 2 + CAN.topHeight) * lean) * 1.04;
-    const fit = Math.min(1, (top - bottom) / ((up + down) * base.scale), (right - left) / (2 * half * base.scale));
-    out.scale = base.scale * Math.max(0.2, fit);
-    out.x = stacked ? THREE.MathUtils.clamp(base.x, left + half * out.scale, right - half * out.scale) : (left + right) / 2;
-    out.y = THREE.MathUtils.clamp(base.y, bottom + down * out.scale, top - up * out.scale);
-    out.cy = (top + bottom) / 2;
-    out.left = left;
-    out.half = half;
-    out.bottom = bottom;
-    out.down = down;
-    return out;
-  }
-
-  /** The free space for the can in a chapter (CSS px): beside its copy, or above it when stacked. Measured once. */
-  private freeBox(index: number, stacked: boolean) {
-    const key = index * 2 + (stacked ? 1 : 0);
-    let box = this.freeBoxes.get(key);
-    if (box) return box;
-    const width = this.viewWidth;
-    const height = this.viewHeight;
-    const id = SCENE_SEQUENCE[index]?.sectionId;
-    // the chapter copy is fixed in place, so one measurement holds until the next resize
-    const copy = id ? document.getElementById(id)?.querySelector('.section-copy')?.getBoundingClientRect() : undefined;
-    const hasCopy = !!copy && copy.width > 0 && copy.height > 0;
-    const header = this.headerBottomPx || (document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0);
-    // the benefit icon rail stands at the right edge through the flavor intro and the benefit chapters
-    const rail = index >= 1 && index <= 5 ? document.querySelector('.benefit-rail')?.getBoundingClientRect() : undefined;
-    box = stacked
-      ? { left: 16, top: header + 12, right: width - 16, bottom: hasCopy ? copy!.top - 20 : height - 24 }
-      : { left: hasCopy ? copy!.right + 32 : 32, top: header + 44, right: (rail && rail.width > 0 ? rail.left : width) - 24, bottom: height - 32 };
-    this.freeBoxes.set(key, box);
-    return box;
-  }
-
   private applyCanOverride(can: THREE.Group, index: number) {
     const o = this.canOverride;
     if (o.index !== index || o.blend <= 0.001) return;
@@ -2195,7 +2106,11 @@ export class SceneManager {
     const pose = isNarrow ? this.narrowPose ?? PRODUCT_POSE_NARROW : this.widePose;
     const sway = this.reducedMotion ? 0 : Math.sin(time * 0.0006) * 0.03;
     const scrollLift = isNarrow ? this.productScroll * 7 : smooth(this.productExit) * 11;
-    this.tmpEuler.set(pose.rotX + rotation.x, pose.rotY + rotation.y + sway, pose.rotZ);
+    // A slow turntable sway (about 11 degrees either way) and a hair of roll, so the can feels held in light and its label
+    // catches the key light from both sides; the old sway was under 2 degrees, which read as a still render.
+    const idleYaw = this.reducedMotion ? 0 : Math.sin(time * 0.00052) * 0.19;
+    const idleRoll = this.reducedMotion ? 0 : Math.sin(time * 0.0008 + 1.1) * 0.012;
+    this.tmpEuler.set(pose.rotX + rotation.x, pose.rotY + rotation.y + sway + idleYaw, pose.rotZ + idleRoll);
     this.tmpQuaternion.setFromEuler(this.tmpEuler);
     const flavor = FLAVORS[this.activeProductIndex];
     this.updateAccent(this.previewIndex < 0 ? this.activeProductIndex : this.previewIndex, time);

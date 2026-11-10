@@ -224,6 +224,36 @@
 
 /* Wide screens: the stage is pinned like the 3D can it controls, so hotspots and the Front / Back
    switch stay beside the can while the panel scrolls; both lift away near the end of the page. */
+/* The flavor's own light on the stage: a soft glow round the can and a brighter pool on the floor under it, behind the
+   canvas (layer 1, the canvas is 2), so the can stands in its colour instead of a flat grey gradient. */
+.pdp::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-backdrop-text);
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 34% 54% at 30% 48%, color-mix(in oklab, var(--color-accent) 34%, transparent), transparent 72%),
+    radial-gradient(ellipse 28% 8% at 30% 84%, color-mix(in oklab, var(--color-accent) 60%, transparent), transparent 76%);
+  animation: pdp-light-in 1400ms var(--ease-out) both;
+}
+
+@media (max-width: 1023px) {
+  .pdp::before {
+    background:
+      radial-gradient(ellipse 70% 30% at 50% 34%, color-mix(in oklab, var(--color-accent) 34%, transparent), transparent 72%),
+      radial-gradient(ellipse 50% 6% at 50% 56%, color-mix(in oklab, var(--color-accent) 55%, transparent), transparent 76%);
+  }
+}
+
+@keyframes pdp-light-in {
+  from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdp::before { animation: none; }
+}
+
 .pdp-stage {
   position: fixed;
   inset: var(--layout-header-height) calc(100% - var(--layout-panel-left)) var(--space-2xl) 0;
@@ -405,12 +435,14 @@
 }
 
 .pack-option__label {
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold, 600);
 }
 
+/* the price is the second thing the eye wants: bright, not muted */
 .pack-option__price {
   font-size: var(--font-size-md);
-  color: var(--color-text-muted);
+  color: var(--color-text-primary);
 }
 
 .pack-option__badge {
@@ -742,7 +774,8 @@ html.is-locked {
 .bag__empty-cans {
   display: flex;
   align-items: flex-end;
-  margin: 0 0 var(--space-md);
+  /* the fanned cans rotate and drop below their row: room for them, so they never run into the message */
+  margin: 0 0 calc(var(--space-xl) + 1.5rem);
   padding: 0;
   list-style: none;
 }

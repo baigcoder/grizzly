@@ -9,8 +9,8 @@
  * Dev tool only: not part of the site build.
  */
 import * as THREE from 'three';
-import { createCanMesh, setCanFocus, CAN } from '../src/webgl/canModel';
-import { createStudioEnvironment } from '../src/webgl/studioEnv';
+import { createCanMesh, setCanFinish, setCanFocus, CAN } from '../src/webgl/canModel';
+import { createMetalEnvironment, createStudioEnvironment } from '../src/webgl/studioEnv';
 import { SCENE_COLOR } from '../src/webgl/palette';
 import { LABEL } from '../src/data/brand';
 import { FLAVORS } from '../src/data/flavors';
@@ -31,6 +31,8 @@ renderer.toneMappingExposure = 1.15;
 
 const scene = new THREE.Scene();
 scene.environment = createStudioEnvironment(renderer);
+// the can's aluminium ends reflect their own lightbox, as in the site (canModel.createCanMesh)
+const metalEnv = createMetalEnvironment(renderer);
 
 // the stage's product lighting: a cool overhead key, a chrome back edge, a soft front fill and a lift for the base
 const key = new THREE.DirectionalLight(SCENE_COLOR.key, 1.5);
@@ -75,7 +77,8 @@ for (const slug of slugs) {
     load(`${base}/${slug}-surface.png`, false),
     load(`${base}/${slug}-normal.png`, false),
   ]);
-  const can = createCanMesh(albedo, surface, false, normal);
+  const can = createCanMesh(albedo, surface, false, normal, metalEnv);
+  setCanFinish(can, slug); // the flavor's finish (brightness, saturation, metal), as in the site
   setCanFocus(can, 1);
   // Small and flat on a card, the studio strips read as two white bars down the label (a glass tube, not a can):
   // keep the varnish streak but soften it, so the artwork reads through.

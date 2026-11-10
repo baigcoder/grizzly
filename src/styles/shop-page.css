@@ -63,7 +63,7 @@
   /* each card is its can: the flat flavor field of the label, with the label's tone-on-tone claw slashes behind it */
   background:
     radial-gradient(circle at 22% 55%, color-mix(in oklab, white 22%, transparent), transparent 58%),
-    linear-gradient(160deg, var(--color-accent), color-mix(in oklab, var(--color-accent) 78%, var(--color-accent-deep)));
+    linear-gradient(160deg, var(--color-accent), color-mix(in oklab, var(--color-accent) 45%, var(--color-accent-deep)));
   color: var(--color-white);
   text-decoration: none;
   transition:
@@ -88,9 +88,11 @@
   border-color: var(--color-white);
 }
 
+/* White on the flavor field with a soft dark halo: the old dark-on-colour text failed contrast on red, orange and amber */
 .shop-card .shop-card__taste,
 .shop-card .shop-card__note {
-  color: var(--color-accent-deep);
+  color: var(--color-white);
+  text-shadow: 0 1px 0.9rem color-mix(in oklab, var(--color-accent-deep) 85%, black);
 }
 
 .shop-card .shop-card__cta {

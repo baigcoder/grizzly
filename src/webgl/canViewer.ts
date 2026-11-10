@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCanMesh, setCanFocus } from './canModel';
+import { createCanMesh, setCanFinish, setCanFocus } from './canModel';
 import { createMetalEnvironment, createStudioEnvironment } from './studioEnv';
 import { SCENE_COLOR } from './palette';
 import { CAN } from './canDimensions';
@@ -77,7 +77,7 @@ export class CanViewer {
   }
 
   /** Loads the can's label maps (albedo, surface, emboss normal) and builds the can. */
-  async load(urls: { albedo: string; surface: string; normal: string }) {
+  async load(urls: { albedo: string; surface: string; normal: string }, flavorId?: string) {
     const loader = new THREE.TextureLoader();
     const anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     const get = (url: string, srgb: boolean) =>
@@ -90,6 +90,7 @@ export class CanViewer {
     this.textures = await Promise.all([get(urls.albedo, true), get(urls.surface, false), get(urls.normal, false)]);
     const [albedo, surface, normal] = this.textures;
     this.can = createCanMesh(albedo, surface, false, normal, this.metalEnv);
+    if (flavorId) setCanFinish(this.can, flavorId);
     setCanFocus(this.can, 1);
     this.scene.add(this.can);
     this.renderFrame(performance.now());
