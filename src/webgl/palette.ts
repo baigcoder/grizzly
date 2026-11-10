@@ -25,9 +25,11 @@ export const SCENE_COLOR = {
   studioFrontFill: 0xeeeeec,
 
   // Aluminium
-  lid: 0xd9dbe0,
-  base: 0xb4b8c1,
-  baseRim: 0xc9ccd2,
+  lid: 0xd8d9db,
+  base: 0xb2b3b5,
+  baseRim: 0xbebfc1,
+  /** Neck and lid: darker than the rest of the aluminium so they mirror the studio in bands, not one white wash. */
+  lidMetal: 0xcfd0d2,
   /** The dark void inside the opened can. */
   canOpening: 0x020203,
 

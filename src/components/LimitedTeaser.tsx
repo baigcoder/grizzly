@@ -57,6 +57,15 @@ export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavi
     return () => window.removeEventListener('keydown', onKey);
   }, [visible]);
 
+  // lets the hero step its bottom hint aside on phones while the pill is up (limited.css)
+  useEffect(() => {
+    if (!visible) return;
+    document.documentElement.dataset.teaser = '';
+    return () => {
+      delete document.documentElement.dataset.teaser;
+    };
+  }, [visible]);
+
   if (!visible || LIMITED.length === 0) return null;
   const product = LIMITED[Math.min(pick, LIMITED.length - 1)];
   const single = product.packOptions.find((option) => option.count === 1) ?? product.packOptions[0];

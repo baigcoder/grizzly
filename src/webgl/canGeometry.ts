@@ -15,42 +15,71 @@ const RADIAL_SEGMENTS = 128;
 const SHELL_HALF = CAN.shellHeight / 2;
 
 /**
- * (radius, y) pairs relative to the shell edge, ordered so lathe normals face outward. Top, as on a real slim can:
- * the shoulder necks in over two small die ridges, rolls over into the rounded double-seam rim, drops down the
- * chuck wall into the countersink groove and rises to the lid panel, which carries one raised expansion bead.
- * The lid panel stays at LID_Y (the tab rests on it).
+ * (radius, y) pairs relative to the shell edge, ordered so lathe normals face outward. Drawn at true size from the
+ * reference can: each end is only ~2.5% of the can's height (a hair-thin rim, the body running almost straight up to
+ * it), the rim's outer width ~94% of the body. Top: a short shoulder, the rolled double-seam rim, the chuck wall down
+ * into the countersink groove, then the lid panel with one raised expansion bead. The panel stays at LID_Y (the tab
+ * rests on it).
  */
 const TOP_PROFILE: Array<[number, number]> = [
-  // shoulder and necking (two soft die ridges)
-  [0.795, 0.0], [0.794, 0.02], [0.787, 0.044], [0.774, 0.068], [0.762, 0.084], [0.757, 0.093], [0.752, 0.106],
-  [0.74, 0.124], [0.727, 0.14], [0.721, 0.15], [0.716, 0.162], [0.704, 0.18], [0.695, 0.196], [0.691, 0.212],
-  // double seam: the rolled rim, its outer face a little proud of the neck
-  [0.692, 0.226], [0.699, 0.239], [0.704, 0.254], [0.704, 0.269], [0.699, 0.281], [0.689, 0.288], [0.676, 0.29],
-  [0.664, 0.287], [0.656, 0.278],
+  // short shoulder into the rim
+  [0.795, 0.0], [0.793, 0.012], [0.788, 0.026], [0.778, 0.04], [0.766, 0.052], [0.757, 0.062],
+  // the rolled rim, its outer face just proud of the shoulder
+  [0.754, 0.07], [0.755, 0.078], [0.751, 0.086], [0.743, 0.092], [0.733, 0.094], [0.723, 0.091], [0.716, 0.084],
   // chuck wall down into the countersink groove
-  [0.652, 0.26], [0.647, 0.238], [0.641, 0.214], [0.634, 0.197], [0.626, 0.189], [0.617, 0.191], [0.611, 0.199],
+  [0.71, 0.074], [0.705, 0.064], [0.7, 0.054], [0.692, 0.047], [0.682, 0.045], [0.674, 0.048], [0.668, 0.054],
   // lid panel with its expansion bead, very slightly domed toward the centre
-  [0.602, 0.205], [0.58, 0.206], [0.535, 0.206], [0.512, 0.209], [0.498, 0.214], [0.484, 0.209], [0.462, 0.206],
-  [0.32, 0.207], [0.16, 0.209], [0.0, 0.21],
+  [0.658, 0.058], [0.62, 0.059], [0.55, 0.06], [0.52, 0.062], [0.505, 0.066], [0.49, 0.062], [0.46, 0.06],
+  [0.3, 0.061], [0.15, 0.063], [0.0, 0.064],
 ];
 /**
  * Bottom, centre outward: the domed base (recessed up into the can), the reinforcing dome wall, a narrow rounded
- * stand ring the can rests on, then the heel sweeping out and up to the body.
+ * stand ring the can rests on, then a short heel sweeping out and up to the body.
  */
 const BOTTOM_PROFILE: Array<[number, number]> = [
-  [0.0, -0.072], [0.16, -0.077], [0.3, -0.09], [0.4, -0.106], [0.462, -0.124],
-  [0.5, -0.146], [0.52, -0.172], [0.534, -0.2], [0.545, -0.225],
-  [0.556, -0.239], [0.571, -0.245], [0.588, -0.244], [0.601, -0.237],
-  [0.613, -0.222], [0.63, -0.2], [0.656, -0.171], [0.69, -0.135], [0.729, -0.095], [0.764, -0.055], [0.785, -0.022],
+  [0.0, -0.03], [0.16, -0.033], [0.3, -0.04], [0.4, -0.048], [0.46, -0.056],
+  [0.5, -0.066], [0.52, -0.078], [0.53, -0.09], [0.54, -0.1],
+  [0.552, -0.106], [0.568, -0.109], [0.585, -0.108], [0.6, -0.104],
+  [0.612, -0.098], [0.63, -0.088], [0.66, -0.074], [0.7, -0.058], [0.74, -0.04], [0.77, -0.024], [0.787, -0.01],
   [0.795, 0.0],
 ];
 
-function latheFromProfile(profile: Array<[number, number]>, offsetY: number, stretch: number): THREE.LatheGeometry {
-  // the profile's heights are stretched (END_STRETCH) so the shoulder and the base taper read at a real can's scale
+/** A soft dark pocket at (r0, y0) in the authored profile: 1 at its centre, 0 beyond `width`. */
+const pocket = (r: number, y: number, r0: number, y0: number, width: number) =>
+  Math.exp(-(((r - r0) ** 2 + (y - y0) ** 2) / (width * width)));
+
+/** Baked ambient occlusion for the lid: dark in the countersink groove and under the rolled rim, and at the seam. */
+const topOcclusion = (r: number, y: number) =>
+  1 - 0.5 * pocket(r, y, 0.682, 0.046, 0.022) - 0.3 * pocket(r, y, 0.745, 0.068, 0.014) - 0.38 * Math.max(0, 1 - y / 0.014);
+
+/** The same for the base: the crease between dome and stand ring, a slightly dim dome, and the seam. */
+const bottomOcclusion = (r: number, y: number) =>
+  1 - 0.5 * pocket(r, y, 0.538, -0.096, 0.022) - 0.12 * Math.max(0, 1 - r / 0.45) - 0.38 * Math.max(0, 1 + y / 0.014);
+
+/**
+ * Lathes a profile into a surface of revolution, with baked occlusion in the vertex colours. Real can ends are
+ * darkest in their creases: without it the lid and base read as smooth, evenly lit, painted shapes.
+ */
+function latheFromProfile(
+  profile: Array<[number, number]>,
+  offsetY: number,
+  stretch: number,
+  occlusion: (r: number, y: number) => number
+): THREE.LatheGeometry {
+  // (END_STRETCH is 1 at true size; it stays a knob for the profile heights)
   const curve = new THREE.SplineCurve(profile.map(([r, y]) => new THREE.Vector2(r, y * stretch + offsetY)));
   // the control points are dense where the profile turns sharply, so a few samples between each keep it crisp
   const points = curve.getPoints(profile.length * 3);
-  return new THREE.LatheGeometry(points, RADIAL_SEGMENTS);
+  const geometry = new THREE.LatheGeometry(points, RADIAL_SEGMENTS);
+  // lathe vertices run round the can (outer) and along the profile (inner)
+  const colours = new Float32Array(geometry.attributes.position.count * 3);
+  for (let k = 0; k < geometry.attributes.position.count; k += 1) {
+    const point = points[k % points.length];
+    const ao = Math.max(0.3, occlusion(point.x, (point.y - offsetY) / stretch));
+    colours.set([ao, ao, ao], k * 3);
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3));
+  return geometry;
 }
 
 /** Stay-on tab: a rounded lever with a finger hole, extruded 0.02 thick, lying along +Z. */
@@ -102,8 +131,8 @@ export function getCanGeometry(): CanGeometryParts {
   const shell = new THREE.CylinderGeometry(CAN.radius, CAN.radius, CAN.shellHeight, RADIAL_SEGMENTS, 1, true, -Math.PI, Math.PI * 2);
   cachedParts = {
     shell,
-    top: latheFromProfile(TOP_PROFILE, SHELL_HALF, END_STRETCH.top),
-    bottom: latheFromProfile(BOTTOM_PROFILE, -SHELL_HALF, END_STRETCH.bottom),
+    top: latheFromProfile(TOP_PROFILE, SHELL_HALF, END_STRETCH.top, topOcclusion),
+    bottom: latheFromProfile(BOTTOM_PROFILE, -SHELL_HALF, END_STRETCH.bottom, bottomOcclusion),
     tab: createTabGeometry(),
     opening: createOpeningGeometry(),
   };
@@ -117,6 +146,6 @@ export function disposeCanGeometry() {
 }
 
 /** World Y of the lid panel (where the tab sits) relative to the can origin. */
-export const LID_Y = SHELL_HALF + 0.205 * END_STRETCH.top;
+export const LID_Y = SHELL_HALF + 0.062 * END_STRETCH.top;
 /** Rivet position on the lid panel: the tab pivots about this point. */
 export const TAB_PIVOT = new THREE.Vector3(0, LID_Y + 0.012, 0.02);

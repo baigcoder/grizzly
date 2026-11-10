@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createCanMesh, setCanFocus } from './canModel';
-import { createStudioEnvironment } from './studioEnv';
+import { createMetalEnvironment, createStudioEnvironment } from './studioEnv';
 import { SCENE_COLOR } from './palette';
 import { CAN } from './canDimensions';
 import { LABEL } from '../data/brand';
@@ -17,6 +17,7 @@ export class CanViewer {
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly env: THREE.Texture;
+  private readonly metalEnv: THREE.Texture;
   private can: THREE.Group | null = null;
   private textures: THREE.Texture[] = [];
   private frame = 0;
@@ -44,6 +45,7 @@ export class CanViewer {
     host.append(this.renderer.domElement);
 
     this.env = createStudioEnvironment(this.renderer);
+    this.metalEnv = createMetalEnvironment(this.renderer);
     this.scene.environment = this.env;
     // the product renders' lighting: a cool overhead key, a chrome back edge, a soft front fill and a lift for the base
     const key = new THREE.DirectionalLight(SCENE_COLOR.key, 1.5);
@@ -87,7 +89,7 @@ export class CanViewer {
       });
     this.textures = await Promise.all([get(urls.albedo, true), get(urls.surface, false), get(urls.normal, false)]);
     const [albedo, surface, normal] = this.textures;
-    this.can = createCanMesh(albedo, surface, false, normal);
+    this.can = createCanMesh(albedo, surface, false, normal, this.metalEnv);
     setCanFocus(this.can, 1);
     this.scene.add(this.can);
     this.renderFrame(performance.now());
@@ -161,6 +163,7 @@ export class CanViewer {
     });
     this.textures.forEach((texture) => texture.dispose());
     this.env.dispose();
+    this.metalEnv.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
