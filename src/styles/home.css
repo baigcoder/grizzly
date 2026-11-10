@@ -1379,12 +1379,14 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  clip-path: inset(0 0 0 100%);
+  /* the reveal wipes right to left; its clip reaches 3rem past the box on the other sides, so the gold glow (a filter,
+     clipped with the element) fades out softly instead of printing as a rectangle */
+  clip-path: inset(-3rem -3rem -3rem 100%);
   transition: clip-path 1600ms var(--ease-out) 250ms;
 }
 
 .benefit--zamzam.is-active .zamzam-script {
-  clip-path: inset(0 0 0 0);
+  clip-path: inset(-3rem -3rem -3rem -3rem);
   animation: zamzam-sheen 7s linear 1.8s infinite;
 }
 

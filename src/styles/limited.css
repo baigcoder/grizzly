@@ -450,12 +450,10 @@
   font-size: 1.4rem;
 }
 
-/* Phones: a slim one-line pill, centred low, so it never covers the hero's flavor name (as a card it did) */
-@media (max-width: 767px) {
+/* Under 1300px the hero's title, slider and hint (centred, ~550px wide) would run under the 350px card: a slim
+   one-line pill takes its place, in the corner on tablets and centred low on phones (as a card it covered the title) */
+@media (max-width: 1299px) {
   .limited-teaser {
-    left: 50%;
-    right: auto;
-    translate: -50% 0;
     gap: var(--space-xs);
     padding: 0 var(--space-2xl) 0 var(--space-md);
     min-height: 2.75rem;
@@ -509,8 +507,22 @@
   }
 }
 
+/* Phones: centred low; the hero's scroll hint lives in the same spot, so it steps aside while the pill is up */
+@media (max-width: 767px) {
+  .limited-teaser {
+    left: 50%;
+    right: auto;
+    translate: -50% 0;
+  }
+
+  html[data-teaser] .hero__scroll-hint {
+    visibility: hidden;
+  }
+}
+
+/* (transform, not translate: on phones the resting translate centres the pill, and animating it slid the pill in sideways) */
 @keyframes limited-teaser-in {
-  from { opacity: 0; translate: 0 1rem; }
+  from { opacity: 0; transform: translateY(1rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {

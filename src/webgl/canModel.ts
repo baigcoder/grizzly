@@ -109,6 +109,20 @@ function getBrushTexture(): THREE.Texture {
   return tex;
 }
 
+// Fine spun-metal grain for the ends: the brushed streaks again, tiled round the lid and base (u runs round the can).
+// Used as a bump, it breaks the smooth studio reflections into the micro-streaks real aluminium has. One shared texture.
+let cachedGrainTexture: THREE.Texture | null = null;
+
+function getGrainTexture(): THREE.Texture {
+  if (cachedGrainTexture) return cachedGrainTexture;
+  const grain = getBrushTexture().clone();
+  grain.repeat.set(16, 8);
+  grain.anisotropy = 4;
+  grain.needsUpdate = true;
+  cachedGrainTexture = grain;
+  return grain;
+}
+
 /**
  * Per-can shader controls, mutated from the render loop (never re-created).
  * - focus: 1 = lit hero can, 0 = background can that falls almost to black.
@@ -126,6 +140,9 @@ export interface CanSurfaceUniforms {
   /** Thin fresnel rim in the can's own flavor accent. */
   uRimColor: { value: THREE.Color };
   uRimStrength: { value: number };
+  /** Light off moving water (the Zamzam chapter): a shifting gold web on the can's lower body. 0 = off. */
+  uCaustic: { value: number };
+  uCausticTime: { value: number };
 }
 
 /**
@@ -144,6 +161,8 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
     uBrushMap: { value: getBrushTexture() },
     uRimColor: { value: new THREE.Color(1, 1, 1) },
     uRimStrength: { value: 0 },
+    uCaustic: { value: 0 },
+    uCausticTime: { value: 0 },
   };
   material.userData.surface = uniforms;
   material.customProgramCacheKey = () => 'gz-can-surface';
@@ -161,6 +180,8 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         uniform sampler2D uBrushMap;
         uniform vec3 uRimColor;
         uniform float uRimStrength;
+        uniform float uCaustic;
+        uniform float uCausticTime;
         float gzMetal = 0.0;
         float gzBrush = 0.5;
         float gzRect(vec2 p, vec4 r, float soft) {
@@ -231,6 +252,18 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           totalEmissiveRadiance += uRimColor * uRimStrength * pow(rimFacing, 4.0);
         }
         #ifdef USE_MAP
+          if (uCaustic > 0.001) {
+            // light thrown up from moving water: a thin, bright, shifting web, strongest at the foot and gone by mid-body.
+            // Whole multiples of 2π round the can, so it has no seam.
+            float gzAx = vMapUv.x * 6.2831853;
+            float gzAy = vMapUv.y * 16.0;
+            float gzT = uCausticTime * 0.55;
+            float gzC1 = sin(gzAx * 5.0 + sin(gzAy * 1.7 + gzT) * 1.6 + gzT * 1.3);
+            float gzC2 = sin(gzAx * 7.0 - gzAy * 1.3 + sin(gzAx * 2.0 - gzT) * 1.8 - gzT);
+            float gzWeb = pow(1.0 - abs(gzC1 * gzC2), 9.0);
+            float gzFoot = 1.0 - smoothstep(0.0, 0.55, vMapUv.y);
+            totalEmissiveRadiance += vec3(1.0, 0.66, 0.3) * gzWeb * gzFoot * gzFoot * uCaustic * 0.6;
+          }
           if (uGlowStrength > 0.001) {
             // only the white type glows (its weakest channel is high; a bright flavor field's is not), with a faint
             // tinted haze around the block
@@ -253,7 +286,8 @@ export function createCanMaterials(
   texture: THREE.Texture,
   surface: THREE.Texture | null = null,
   isLowPower: boolean = false,
-  normal: THREE.Texture | null = null
+  normal: THREE.Texture | null = null,
+  metalEnv: THREE.Texture | null = null
 ): { bodyMat: THREE.Material; aluminumMat: THREE.Material } {
   // Satin black body, brushed silver only where the surface map says so;
   // the normal map embosses the wordmark.
@@ -304,7 +338,22 @@ export function createCanMaterials(
         anisotropy: 0.08,
         envMapIntensity: 0.85,
       });
+  // the ends mirror their own sharper lightbox (studioEnv.createMetalEnvironment); the clones for the lid and base inherit it
+  if (metalEnv) (aluminumMat as THREE.MeshStandardMaterial).envMap = metalEnv;
   return { bodyMat, aluminumMat };
+}
+
+/** The lid's and base's own geometry carries baked occlusion in its vertex colours; the grain roughens the reflections. */
+function applyEndDetail(metal: THREE.MeshStandardMaterial) {
+  metal.vertexColors = true;
+  metal.bumpMap = getGrainTexture();
+  metal.bumpScale = 0.45;
+  // spun metal: highlights stretch across the turning marks, the arc-shaped sheen of a real lid and dome
+  const physical = metal as THREE.MeshPhysicalMaterial;
+  if (physical.isMeshPhysicalMaterial) {
+    physical.anisotropy = 0.55;
+    physical.anisotropyRotation = 0;
+  }
 }
 
 const baseMaterials = new WeakMap<THREE.Material, THREE.Material>();
@@ -320,9 +369,30 @@ function getBaseMaterial(aluminum: THREE.Material): THREE.Material {
     metal.color.setHex(SCENE_COLOR.baseRim);
     metal.envMapIntensity = 1.15;
     metal.emissive.setHex(SCENE_COLOR.baseFill).multiplyScalar(0.07);
+    applyEndDetail(metal);
     baseMaterials.set(aluminum, base);
   }
   return base;
+}
+
+const topMaterials = new WeakMap<THREE.Material, THREE.Material>();
+/**
+ * The neck and lid face the big overhead softbox: in the shared light satin aluminium they mirrored it as one flat
+ * white wash, like painted plastic. A darker, glossier metal reflects the studio as dark and bright bands instead
+ * (the tab keeps the shared material).
+ */
+function getTopMaterial(aluminum: THREE.Material): THREE.Material {
+  let top = topMaterials.get(aluminum);
+  if (!top) {
+    top = aluminum.clone();
+    const metal = top as THREE.MeshStandardMaterial;
+    metal.color.setHex(SCENE_COLOR.lidMetal);
+    metal.roughness = 0.3;
+    metal.envMapIntensity = 0.78;
+    applyEndDetail(metal);
+    topMaterials.set(aluminum, top);
+  }
+  return top;
 }
 
 /** Dims the aluminium ends together with the label so out-of-focus cans go dark. */
@@ -361,10 +431,10 @@ export function setCanFocus(can: THREE.Object3D, focus: number) {
       // the machined ends drop to a dark, satin metal grey on side cans, as in the reference (never blown white or
       // glinting): darker, and rougher so their rims stop catching crisp highlights
       const lit = focus * focus;
-      material.color.copy(base.color).multiplyScalar(0.16 + 0.84 * lit);
+      material.color.copy(base.color).multiplyScalar(0.5 + 0.5 * lit);
       if (base.emissive) material.emissive.copy(base.emissive).multiplyScalar(lit);
-      material.envMapIntensity = base.env * (0.1 + 0.9 * lit);
-      material.roughness = base.roughness + 0.3 * (1 - focus);
+      material.envMapIntensity = base.env * (0.4 + 0.6 * lit);
+      material.roughness = base.roughness + 0.12 * (1 - focus);
     }
   });
 }
@@ -407,15 +477,16 @@ export function createCanMesh(
   texture: THREE.Texture,
   surface: THREE.Texture | null = null,
   isLowPower: boolean = false,
-  normal: THREE.Texture | null = null
+  normal: THREE.Texture | null = null,
+  metalEnv: THREE.Texture | null = null
 ): THREE.Group {
-  const materials = createCanMaterials(texture, surface, isLowPower, normal);
+  const materials = createCanMaterials(texture, surface, isLowPower, normal, metalEnv);
   const geometry = getCanGeometry();
   const group = new THREE.Group();
 
   const shell = new THREE.Mesh(geometry.shell, materials.bodyMat);
   shell.name = 'Shell';
-  const top = new THREE.Mesh(geometry.top, materials.aluminumMat);
+  const top = new THREE.Mesh(geometry.top, getTopMaterial(materials.aluminumMat));
   top.name = 'Top';
   const bottom = new THREE.Mesh(geometry.bottom, getBaseMaterial(materials.aluminumMat));
   bottom.name = 'Bottom';

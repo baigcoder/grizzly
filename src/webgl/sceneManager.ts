@@ -5,7 +5,7 @@ import { audioManager } from '../audio/audioManager';
 import { createCanMesh, disposeCanMaterials, getCanSurface, setCanFocus, setCanAccent } from './canModel';
 import { disposeCanGeometry } from './canGeometry';
 import { LabelTextures } from './labelTextures';
-import { createStudioEnvironment } from './studioEnv';
+import { createMetalEnvironment, createStudioEnvironment } from './studioEnv';
 import { Stage, type StageParams } from './stage';
 import { PostFx } from './post';
 import { FloorReflections } from './reflections';
@@ -22,6 +22,7 @@ import { CanCrack } from './moments/canCrack';
 import { PackDisplay } from './packDisplay';
 import { CAN } from './canDimensions';
 import { MOTION_RATE, damp } from './motionVocabulary';
+import { CanPhysics } from './canPhysics';
 import { SCENE_COLOR } from './palette';
 
 export { CAROUSEL_CONFIG };
@@ -142,7 +143,12 @@ export class SceneManager {
 
   // Per-can hover proximity state (smooth damped, outside React render)
   private canHoverInfluence: Float32Array = new Float32Array(0);
+  /** What the cans' aluminium ends reflect (a lightbox; the label keeps the soft studio). */
+  private metalEnv: THREE.Texture | null = null;
   private canIdlePhase: Float32Array = new Float32Array(0);
+  /** Weight and liquid slosh of each can (canPhysics.ts), and the ring's motion that drives it. */
+  private canPhysics = new CanPhysics(CAN_COUNT);
+  private canCarrier = new Float32Array(CAN_COUNT * 5);
   private lastHoverAudioTime = 0;
   private lastHoveredCanIndex = -1;
 
@@ -388,6 +394,7 @@ export class SceneManager {
     this.camera.position.set(0, 0, 29);
 
     this.scene.environment = createStudioEnvironment(this.renderer);
+    this.metalEnv = createMetalEnvironment(this.renderer);
     this.setupLights();
     this.setupSceneObjects();
 
@@ -401,11 +408,19 @@ export class SceneManager {
     this.moments.push(this.roarMoment, this.crack);
     this.bindEvents();
     (window as unknown as { __GRIZZLY_SCENE__: SceneManager }).__GRIZZLY_SCENE__ = this;
+    // Hidden cans are skipped by the renderer, so their shaders used to compile mid-intro, as the cans first appeared:
+    // that was the load stutter. compileAsync walks every material and uses the GPU's parallel compile where it exists.
+    this.warm = this.renderer.compileAsync(this.scene, this.camera).then(
+      () => undefined,
+      () => undefined
+    );
     this.animate(0);
     // Everything that is not needed for the first frame is built afterwards, one short task at a time.
     this.scheduleDeferredSetup();
   }
 
+  /** Resolves once the scene's shaders are compiled (the loader waits for it, up to its own cap). */
+  public warm: Promise<void> = Promise.resolve();
   private deferredHandles: number[] = [];
   private disposed = false;
 
@@ -430,6 +445,8 @@ export class SceneManager {
       const step = steps.shift();
       if (!step || this.disposed) return;
       step();
+      // reflections and moments add materials of their own: compile them here, off the render path
+      void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
       queue();
     };
     const queue = () => {
@@ -482,7 +499,7 @@ export class SceneManager {
 
     for (let i = 0; i < CAN_COUNT; i += 1) {
       const maps = this.labels.get(i % FLAVORS.length);
-      const can = createCanMesh(maps.albedo, maps.surface, this.isLowPower, this.isLowPower ? null : maps.normal);
+      const can = createCanMesh(maps.albedo, maps.surface, this.isLowPower, this.isLowPower ? null : maps.normal, this.metalEnv);
       setCanAccent(can, FLAVORS[i % FLAVORS.length].theme.secondary);
       can.visible = false;
       this.cans.push(can);
@@ -620,6 +637,8 @@ export class SceneManager {
 
   /** The roar (first scroll of a visit): the bear behind the can, a small camera shake. */
   public roar() {
+    // only while the hero is in view: a visitor who lands deep in the page must not get the bear over a later chapter
+    if (this.sectionPosition > 1) return;
     this.roarMoment.trigger();
   }
 
@@ -804,6 +823,8 @@ export class SceneManager {
     surface.uLabelDim.value = isFeatured ? this.data.labelDim : 0;
     const strength = isFeatured ? this.benefitGlowStrength * this.data.labelDim : 0;
     surface.uGlowStrength.value = strength;
+    surface.uCaustic.value = isFeatured ? this.zamzamLight : 0;
+    surface.uCausticTime.value = this.lastTime * 0.001;
     if (strength > 0.001) {
       // in the Zamzam chapter the lit block takes the dawn's gold, not the flavor colour
       surface.uGlowColor.value.copy(this.glowColor).lerp(ZAMZAM_GOLD, this.zamzamLight);
@@ -1585,7 +1606,9 @@ export class SceneManager {
     this.benefitGlowStrength += (glowTarget - this.benefitGlowStrength) * damp(MOTION_RATE.emphasize, delta);
 
     // a dim lift for the can bottoms the ring shows (at up to 0.9 every base read as bright white rings)
-    this.baseFill.intensity = 0.06 + 0.2 * this.data.wave;
+    // (the Zamzam chapter turns it into the gold light thrown up from the water)
+    this.baseFill.intensity = 0.06 + 0.2 * this.data.wave + 1.1 * this.zamzamLight;
+    this.baseFill.color.setHex(SCENE_COLOR.baseFill).lerp(ZAMZAM_GOLD, this.zamzamLight);
     // Benefit chapters: a stronger front light so the active label block reads sharp and bright.
     this.keyLight.intensity = 1.05 + 0.6 * this.data.labelDim; // a real key on the featured can in every scene
     this.fillLight.intensity = 0.18 + 0.5 * this.data.labelDim;
@@ -1769,20 +1792,13 @@ export class SceneManager {
           featZ += swing * 1.6;
           featRotZ += swing * 0.12 * dir;
         }
-        // Scroll zoom, the reference's benefit close-up in motion: between two benefit chapters the camera dives toward
-        // the lit block (gliding down the label to the next one) and pulls back out, so every resting frame shows the
-        // whole can. The block stays the pivot and drifts toward the middle of the free space while the can grows.
-        if (!this.reducedMotion && betweenBenefits && this.glowRectReady) {
-          const dive = Math.sin(Math.PI * (section - Math.floor(section)));
-          const zoom = dive * dive * (stacked ? 0.7 : 0.95);
-          const lift = ((this.glowRect.y + this.glowRect.w) / 2 - 0.5) * CAN.shellHeight * Math.cos(featRotZ);
-          const block = featY + lift * featScale;
-          const target = block + (pose.cy - block) * dive * dive * 0.6;
-          featScale *= 1 + zoom;
-          featY = target - lift * featScale;
-          // it grows away from the copy, never over it: off the right edge on wide screens, upward when stacked
-          if (stacked) featY = Math.max(featY, pose.bottom + pose.down * featScale);
-          else featX = Math.max(featX, pose.left + pose.half * featScale);
+        // Between benefit chapters the can holds one steady size, as in the reference (the zoom in and out between
+        // chapters read as the can pulsing): the lit block glides down the label and the can only leans a little into the
+        // glide, easing back upright as the next chapter settles.
+        if (!this.reducedMotion && betweenBenefits) {
+          const glide = Math.sin(Math.PI * (section - Math.floor(section)));
+          featRotZ += glide * glide * 0.05;
+          featRotX += glide * glide * 0.03;
         }
         // inertia: the can leans back against a fast scroll and trails it slightly, then settles
         featRotX -= this.scrollVelocity * 0.07 * handover;
@@ -1946,6 +1962,37 @@ export class SceneManager {
         }
       } else if (this.canHoverInfluence[i] > 0.001) {
         this.canHoverInfluence[i] *= 1 - Math.min(1, 6 * delta);
+      }
+
+      // Weight: the can's foot is carried by the ring, scroll and drag; its top and its liquid lag behind and settle.
+      if (!this.reducedMotion && can.visible && delta > 0) {
+        const t = this.canCarrier; // per can: previous x, previous z, smoothed vx, smoothed vz, seen-before flag
+        const k = i * 5;
+        const dx = canPosX - t[k];
+        const dz = canPosZ - t[k + 1];
+        if (t[k + 4] === 0 || !(Math.abs(dx) <= 2.5) || !(Math.abs(dz) <= 2.5)) {
+          // first frame, a wrap round the ring or a jump between layouts: no acceleration to read, no stored swing
+          this.canPhysics.reset(i);
+          t[k + 2] = 0;
+          t[k + 3] = 0;
+          t[k + 4] = 1;
+        } else {
+          // low-passed speed, so one uneven frame is not read as a shove
+          const blend = damp(30, delta);
+          const vx = t[k + 2] + (dx / delta - t[k + 2]) * blend;
+          const vz = t[k + 3] + (dz / delta - t[k + 3]) * blend;
+          this.canPhysics.step(i, (vx - t[k + 2]) / delta, (vz - t[k + 3]) / delta, delta);
+          t[k + 2] = vx;
+          t[k + 3] = vz;
+        }
+        t[k] = canPosX;
+        t[k + 1] = canPosZ;
+        canRotX += this.canPhysics.tiltX(i);
+        canRotZ += this.canPhysics.tiltZ(i);
+      } else if (this.canCarrier[i * 5 + 4] !== 0) {
+        // hidden or reduced motion: forget the swing so it never reappears stale
+        this.canCarrier[i * 5 + 4] = 0;
+        this.canPhysics.reset(i);
       }
 
       // Idle micro-breathing so cans never feel frozen.
@@ -2250,6 +2297,7 @@ export class SceneManager {
     this.post?.dispose();
     this.labels.dispose();
     this.scene.environment?.dispose();
+    this.metalEnv?.dispose();
     this.cans.forEach(disposeCanMaterials);
     disposeCanGeometry();
     this.renderer.dispose();

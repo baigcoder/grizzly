@@ -7,6 +7,42 @@ import { SCENE_COLOR } from './palette';
  * on the right, a grey floor and a small hard kicker behind. Prefiltered with PMREM.
  * The panels are what the can's satin black, clear coat and silver wordmark actually reflect.
  */
+/**
+ * What the can's aluminium ends reflect: a lightbox, not the soft studio the label uses. Polished metal only reads as
+ * metal when it mirrors crisp, high-contrast shapes: here a big overhead softbox, two tall strips either side, a thin
+ * horizon band and a grey floor in a near-black room, prefiltered only lightly so their edges stay sharp. In the
+ * shared soft studio the ends blurred to one smooth grey and read as painted plastic.
+ */
+export function createMetalEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const room = new THREE.Scene();
+  room.background = new THREE.Color(0x040405);
+  const geometries: THREE.BufferGeometry[] = [];
+  const materials: THREE.Material[] = [];
+  const panel = (w: number, h: number, radiance: number, position: [number, number, number], colour: number = SCENE_COLOR.white) => {
+    const geometry = new THREE.PlaneGeometry(w, h);
+    const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+    material.color.set(colour).multiplyScalar(radiance);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(...position);
+    mesh.lookAt(0, 0, 0);
+    room.add(mesh);
+    geometries.push(geometry);
+    materials.push(material);
+  };
+  panel(7, 2.6, 3.2, [0, 7, 1.5]); // overhead softbox: what a flat lid mirrors
+  panel(1.3, 10, 4.2, [-6, 0.5, 3.5]); // tall strips: the bright streaks down the neck and rim
+  panel(1.0, 10, 3.0, [6.2, 0.5, 2.5]);
+  panel(26, 0.55, 1.6, [0, 0.6, 10]); // horizon band: the line across the shoulder
+  panel(24, 24, 0.45, [0, -6, 0], SCENE_COLOR.studioFloorBounce); // floor: what the base dome mirrors
+  panel(2.2, 2.2, 5.0, [3.5, 3, -9]); // kicker behind: a hot glint on the far rim
+  const texture = pmrem.fromScene(room, 0.012).texture;
+  geometries.forEach((geometry) => geometry.dispose());
+  materials.forEach((material) => material.dispose());
+  pmrem.dispose();
+  return texture;
+}
+
 export function createStudioEnvironment(renderer: THREE.WebGLRenderer, accent?: THREE.ColorRepresentation): THREE.Texture {
   const pmrem = new THREE.PMREMGenerator(renderer);
   const room = new THREE.Scene();

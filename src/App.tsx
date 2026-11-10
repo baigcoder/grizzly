@@ -304,9 +304,10 @@ export const App: React.FC = () => {
         };
         // ready after two drawn frames, or after 1.5 s at the latest: a browser that holds frames back (a tab
         // opened behind another) must never leave the loader up
-        readyTimer = window.setTimeout(markReady, 1500);
+        // (and the shaders compiled: the cans appear the moment the loader leaves, and a compile then is a hitch)
+        readyTimer = window.setTimeout(markReady, 2000);
         readyFrame = requestAnimationFrame(() => {
-          readyFrame = requestAnimationFrame(markReady);
+          readyFrame = requestAnimationFrame(() => void sm.warm.then(markReady));
         });
         teardown = () => {
           unsubscribe();

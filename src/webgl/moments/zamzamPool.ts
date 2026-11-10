@@ -28,6 +28,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uDrop;
   uniform float uAspect;
   uniform vec2 uBase;       // the can's base on screen (uv): the water line runs through it
+  uniform float uHalf;      // half the can's width on screen, in uv x
 
   float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
   float vnoise(vec2 p) {
@@ -60,28 +61,22 @@ const FRAGMENT = /* glsl */ `
   const vec3 SUN = vec3(1.0, 0.74, 0.42);
   const vec3 GOLD = vec3(0.98, 0.78, 0.44);
 
-  // The sky at golden hour: night above, teal, then a warm amber glow low over the water, the sun rising behind the
-  // can, thin cloud bands lit from below, faint rays. up is the height above the horizon (0..1).
+  // The sky before dawn over a spring: deep teal fading to night, with one narrow band of gold hugging the horizon and
+  // the sun's glow rising behind the can. Clean and high-contrast (the first version spread warm tan across the whole
+  // lower sky and mixed brown cloud into it, which read as a muddy beige wash). up is the height above the horizon.
   vec3 sky(vec2 uv, float up, vec2 sun, float t) {
-    vec3 col = mix(vec3(0.62, 0.34, 0.15), vec3(0.05, 0.1, 0.13), smoothstep(0.0, 0.4, up));
-    col = mix(col, vec3(0.006, 0.012, 0.024), smoothstep(0.32, 1.0, up));
+    vec3 col = mix(vec3(0.012, 0.11, 0.15), vec3(0.003, 0.006, 0.016), smoothstep(0.04, 0.85, up));
     vec2 sq = (uv - sun) * vec2(uAspect, 1.0);
     float d = length(sq);
-    // the sun's warmth spreading along the horizon, then its glow, then its core
-    col += SUN * exp(-abs(sq.y) * 9.0 - abs(sq.x) * 1.4) * 0.22;
-    col += SUN * exp(-d * 5.5) * 0.45;
-    col += vec3(1.0, 0.9, 0.72) * exp(-d * 26.0) * 0.9;
-    // thin cloud bands near the horizon, lit warm from below where the sun reaches them
-    float band = smoothstep(0.03, 0.12, up) * (1.0 - smoothstep(0.3, 0.55, up));
-    float cloud = fbm(vec2(uv.x * uAspect * 1.6 + t * 0.006, up * 16.0));
-    cloud = smoothstep(0.52, 0.78, cloud) * band;
-    col = mix(col, mix(vec3(0.08, 0.06, 0.07), SUN * 0.9, exp(-d * 2.2)), cloud * 0.55);
-    // faint rays fanning from the sun
+    // the band of first light on the horizon, then the sun's glow and its small hot core
+    col += vec3(1.0, 0.58, 0.2) * exp(-up * 15.0) * 0.5;
+    col += vec3(1.0, 0.84, 0.58) * exp(-up * 70.0) * 0.7;
+    col += SUN * exp(-d * 6.5) * 0.32;
+    col += vec3(1.0, 0.92, 0.75) * exp(-d * 34.0) * 0.75;
+    // a few thin rays fanning up from the sun, barely there
     float a = atan(sq.y, sq.x);
-    float rays = pow(0.5 + 0.5 * sin(a * 22.0 + fbm(vec2(a * 3.0, t * 0.05)) * 3.0), 6.0);
-    col += SUN * rays * exp(-d * 2.4) * 0.05 * step(0.0, sq.y);
-    // haze where sky meets water
-    col += vec3(0.75, 0.52, 0.32) * exp(-up * 34.0) * 0.16;
+    float rays = pow(0.5 + 0.5 * sin(a * 18.0 + fbm(vec2(a * 3.0, t * 0.05)) * 3.0), 8.0);
+    col += SUN * rays * exp(-d * 2.6) * 0.035 * step(0.0, sq.y);
     return col;
   }
 
@@ -111,22 +106,34 @@ const FRAGMENT = /* glsl */ `
       float ripple = fbm(vec2(uv.x * uAspect * 3.0, depth * 60.0 - uTime * 0.35));
       vec2 mirrored = vec2(uv.x + (ripple - 0.5) * 0.02 * (0.3 + depth), 2.0 * shore - uv.y);
       float mup = clamp((mirrored.y - shore) / (1.0 - shore + 0.001), 0.0, 1.0);
-      vec3 pool = sky(mirrored, mup, sun, uTime) * mix(0.62, 0.22, depth) * vec3(0.86, 0.95, 1.0);
-      pool = mix(pool, vec3(0.004, 0.012, 0.018), smoothstep(0.35, 1.0, depth) * 0.6);
+      vec3 pool = sky(mirrored, mup, sun, uTime) * mix(0.55, 0.16, depth) * vec3(0.82, 0.95, 1.0);
+      pool = mix(pool, vec3(0.003, 0.01, 0.015), smoothstep(0.25, 1.0, depth) * 0.75);
       // the glitter path: sparkles that live in a widening column under the sun
       float width = 0.05 + 0.32 * depth;
       float path = exp(-abs(x) / width);
       vec2 sg = vec2(uv.x * uAspect * 90.0, depth * 260.0 + floor(uTime * 6.0) * 1.7);
       float spark = step(0.86, hash(floor(sg))) * smoothstep(0.42, 0.0, length(fract(sg) - 0.5));
       pool += GOLD * path * (0.08 + spark * 0.9) * (1.0 - depth * 0.5);
+      // the can mirrored in the water: a column of its dark body under the foot, wavering with the ripples, gold at the
+      // edges where the dawn catches it, fading with depth
+      float below = uBase.y - uv.y;
+      if (below > 0.0) {
+        float wob = (ripple - 0.5) * 0.03 * (0.4 + depth);
+        float edgeDist = abs(uv.x - uBase.x + wob) / max(uHalf, 0.01);
+        float inside = 1.0 - smoothstep(0.86, 1.06, edgeDist);
+        float fade = exp(-below * 6.0) * (0.72 + 0.28 * sin(below * 150.0 - uTime * 1.3 + ripple * 7.0));
+        vec3 body = vec3(0.035, 0.09, 0.2) + vec3(0.5, 0.8, 1.0) * 0.05 * (1.0 - edgeDist);
+        vec3 refl = mix(body, GOLD * 0.55, smoothstep(0.55, 1.0, edgeDist) * 0.8);
+        pool = mix(pool, refl, clamp(inside * fade * 0.9, 0.0, 1.0));
+      }
       // calm rings from the can's base, and the drop's rings beside it
       float calm = rings(uv, uBase, mod(uTime, 4.0), 0.09, 2.0) * 0.5 + rings(uv, uBase, mod(uTime + 2.0, 4.0), 0.09, 1.0) * 0.35;
       vec2 dropAt = vec2(uBase.x - 0.2 / uAspect, uBase.y - 0.035);
       float h = calm + rings(uv, dropAt, uDrop - ${IMPACT.toFixed(2)}, 0.12, 3.0);
-      pool += mix(vec3(0.6, 0.85, 0.9), GOLD, 0.5) * max(h, 0.0) * 0.14;
+      pool += mix(vec3(0.6, 0.85, 0.9), GOLD, 0.55) * max(h, 0.0) * 0.3;
       pool -= vec3(0.01, 0.025, 0.03) * max(-h, 0.0) * 0.4;
       // the horizon line catches the light
-      pool += SUN * exp(-abs(uv.y - shore) * 260.0) * 0.25;
+      pool += SUN * exp(-abs(uv.y - shore) * 420.0) * 0.35;
       col = mix(col, pool, water);
     }
 
@@ -143,7 +150,7 @@ const FRAGMENT = /* glsl */ `
 
     // a soft vignette keeps the eye on the can and the copy
     vec2 vq = (uv - 0.5) * vec2(1.0, 1.2);
-    col *= 1.0 - 0.42 * smoothstep(0.35, 0.95, length(vq));
+    col *= 1.0 - 0.55 * smoothstep(0.3, 0.95, length(vq));
     gl_FragColor = vec4(col, uAlpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -154,6 +161,7 @@ export class ZamzamPool implements SceneMoment {
   private readonly mesh: THREE.Mesh;
   private readonly material: THREE.ShaderMaterial;
   private readonly base = new THREE.Vector3();
+  private readonly edge = new THREE.Vector3();
   private amount = 0;
   private dropStart = -1;
   private dropSounded = false;
@@ -166,6 +174,7 @@ export class ZamzamPool implements SceneMoment {
         uDrop: { value: 0 },
         uAspect: { value: 1 },
         uBase: { value: new THREE.Vector2(0.68, 0.2) },
+        uHalf: { value: 0.06 },
       },
       // Drawn at the far plane with the depth test on: as a transparent material it renders after the opaque can, so
       // only depth (not renderOrder) keeps it behind the can and its reflection.
@@ -213,6 +222,9 @@ export class ZamzamPool implements SceneMoment {
     if (can?.visible && can.position.y > -100) {
       this.base.set(0, -(CAN.shellHeight / 2 + CAN.bottomHeight), 0).applyMatrix4(can.matrixWorld).project(scene.camera);
       u.uBase.value.set(this.base.x * 0.5 + 0.5, THREE.MathUtils.clamp(this.base.y * 0.5 + 0.5, 0.05, 0.6));
+      // half the can's width on screen: the foot's right edge, projected
+      this.edge.set(CAN.radius, -(CAN.shellHeight / 2 + CAN.bottomHeight), 0).applyMatrix4(can.matrixWorld).project(scene.camera);
+      u.uHalf.value = Math.abs(this.edge.x - this.base.x) * 0.5;
     }
 
     // the night behind the pool rests, and the flavor's colour field and grey studio give way to the well (left on,
