@@ -544,16 +544,15 @@
   min-height: 100svh;
 }
 
-/* Phones: each chapter is a screen and a quarter of scroll, as in the reference, so a flick's coast settles inside a
-   chapter instead of carrying past it, and each 3D move has room to play out under the thumb. */
-@media (max-width: 767px) and (pointer: coarse) {
-  .hero,
-  .flavor-intro,
-  .benefit,
-  .argument,
-  .lineup {
-    min-height: 125svh;
-  }
+/* Every chapter is a screen and a quarter of scroll, as in the reference (its sections are 1.25 x the viewport on desktop
+   and phones alike): a flick's coast settles inside a chapter instead of carrying past it, and each 3D move has room to
+   play out. */
+.hero,
+.flavor-intro,
+.benefit,
+.argument,
+.lineup {
+  min-height: 125svh;
 }
 
 /* ---------- FAQ ---------- */
@@ -992,7 +991,8 @@
 .lineup__cta {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--space-lg) + var(--notice-h, 0px));
+  /* the section is 125svh tall: the button belongs at the foot of the first screen, where the finale rests */
+  bottom: calc(25svh + var(--space-lg) + var(--notice-h, 0px));
   display: grid;
   justify-items: center;
   gap: var(--space-sm);

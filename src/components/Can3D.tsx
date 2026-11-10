@@ -36,7 +36,7 @@ export const Can3D: React.FC<{ slug: string; fallbackSrc: string; className?: st
             viewer.onReady = () => setReady(true);
             const base = `/textures/grizzly/limited/${slug}`;
             viewer
-              .load({ albedo: versioned(`${base}.webp`), surface: versioned(`${base}-surface.webp`), normal: versioned(`${base}-normal.webp`) })
+              .load({ albedo: versioned(`${base}.webp`), surface: versioned(`${base}-surface.webp`), normal: versioned(`${base}-normal.webp`) }, slug)
               .then(() => viewer?.setActive(visible))
               .catch(() => {
                 // keep the product render

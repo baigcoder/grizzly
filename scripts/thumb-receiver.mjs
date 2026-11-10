@@ -15,7 +15,9 @@ const EXPECTED = Number(process.argv[2] ?? 6); // node scripts/thumb-receiver.mj
 let saved = 0;
 
 const server = createServer(async (request, response) => {
-  response.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+  // the dev page may be opened as localhost or 127.0.0.1
+  const origin = request.headers.origin ?? '';
+  response.setHeader('Access-Control-Allow-Origin', /^http:\/\/(localhost|127\.0\.0\.1):5173$/.test(origin) ? origin : 'http://localhost:5173');
   response.setHeader('Access-Control-Allow-Methods', 'POST');
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   const name = decodeURIComponent((request.url ?? '').slice(1));

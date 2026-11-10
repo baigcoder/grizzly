@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CAN, TAB_PIVOT, getCanGeometry } from './canGeometry';
-import { createCanMaterials, createPlaceholderLabel } from './canModel';
-import { SCENE_COLOR } from './palette';
+import { createCanMaterials, createPlaceholderLabel, getBaseMaterial, getTopMaterial, setMaterialFinish } from './canModel';
+import { FLAVORS } from '../data/flavors';
 import type { LabelMaps } from './labelTextures';
 
 /**
@@ -92,6 +92,8 @@ export class PackDisplay {
   private readonly tab: THREE.InstancedMesh;
   private readonly metalMaterial: THREE.Material;
   private readonly baseMaterial: THREE.Material;
+  private readonly topMaterial: THREE.Material;
+  private readonly metalEnv: THREE.Texture | null;
   private readonly parts = new Map<number, PackParts>();
   private readonly wrinkles: THREE.DataTexture;
   private readonly isLowPower: boolean;
@@ -124,22 +126,23 @@ export class PackDisplay {
   private readonly offset = new THREE.Vector3();
   private readonly hidden = new THREE.Matrix4().makeScale(0, 0, 0);
 
-  constructor(scene: THREE.Scene, flavorCount: number, isLowPower: boolean) {
+  constructor(scene: THREE.Scene, flavorCount: number, isLowPower: boolean, metalEnv: THREE.Texture | null = null) {
     this.isLowPower = isLowPower;
+    this.metalEnv = metalEnv;
     this.shells = Array.from({ length: flavorCount }, () => null);
     this.shellCounts = new Int32Array(flavorCount);
     this.flavorMaps = Array.from({ length: flavorCount }, () => null);
     const geometry = getCanGeometry();
     // the ends are shared by every flavor; each flavor's label shell is made in shellFor()
-    const materials = createCanMaterials(this.placeholder, null, isLowPower, null);
+    const materials = createCanMaterials(this.placeholder, null, isLowPower, null, metalEnv);
     materials.bodyMat.dispose();
+    // the tab keeps the plain aluminium; the lid and the base take the same end materials as every can in the scene
+    // (their own lightbox reflections, baked crease shading and spun-metal grain), not the old washed-out grey
     this.metalMaterial = materials.aluminumMat;
-    const base = materials.aluminumMat.clone() as THREE.MeshStandardMaterial;
-    base.roughness = 0.46;
-    base.color.setHex(SCENE_COLOR.baseRim);
-    this.baseMaterial = base;
+    this.topMaterial = getTopMaterial(materials.aluminumMat);
+    this.baseMaterial = getBaseMaterial(materials.aluminumMat);
 
-    this.top = new THREE.InstancedMesh(geometry.top, this.metalMaterial, MAX_CANS);
+    this.top = new THREE.InstancedMesh(geometry.top, this.topMaterial, MAX_CANS);
     this.bottom = new THREE.InstancedMesh(geometry.bottom, this.baseMaterial, MAX_CANS);
     this.tab = new THREE.InstancedMesh(geometry.tab, this.metalMaterial, MAX_CANS);
     [this.top, this.bottom, this.tab].forEach((mesh) => {
@@ -197,7 +200,8 @@ export class PackDisplay {
     let shell = this.shells[flavor];
     if (!shell) {
       const maps = this.flavorMaps[flavor];
-      const material = createCanMaterials(maps?.albedo ?? this.placeholder, maps?.surface ?? null, this.isLowPower, this.isLowPower ? null : maps?.normal ?? null).bodyMat;
+      const material = createCanMaterials(maps?.albedo ?? this.placeholder, maps?.surface ?? null, this.isLowPower, this.isLowPower ? null : maps?.normal ?? null, this.metalEnv).bodyMat;
+      setMaterialFinish(material, FLAVORS[flavor].id);
       shell = new THREE.InstancedMesh(getCanGeometry().shell, material, MAX_CANS);
       shell.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       shell.frustumCulled = false;
@@ -623,6 +627,7 @@ export class PackDisplay {
     });
     this.placeholder.dispose();
     this.metalMaterial.dispose();
+    this.topMaterial.dispose();
     this.baseMaterial.dispose();
     this.wrinkles.dispose();
   }

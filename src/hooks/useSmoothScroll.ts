@@ -42,9 +42,9 @@ const excluded = (target: EventTarget | null) =>
   target instanceof Element && target.closest('.site-menu, .drawer, .flavor-slider') !== null;
 
 /** Chapter tops, the chapter nearest the scroll position, and whether it lies in the paged run (hero → last page). */
-function measurePages(lenis: Lenis, pageSelector: string, lastPageSelector?: string) {
+function measurePages(lenis: Lenis, pageSelector: string, lastPageSelector?: string, lastOffset = 0) {
   const pages = Array.from(document.querySelectorAll<HTMLElement>(pageSelector));
-  const last = lastPageSelector ? pages.findIndex((page) => page.matches(lastPageSelector)) : pages.length - 1;
+  const last = (lastPageSelector ? pages.findIndex((page) => page.matches(lastPageSelector)) : pages.length - 1) + lastOffset;
   const tops = pages.map((page) => page.getBoundingClientRect().top + window.scrollY);
   const position = lenis.animatedScroll;
   let anchor = 0;
@@ -69,8 +69,8 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
   const glideTo = (index: number) => {
     const distance = Math.abs(tops[index] - lenis.animatedScroll);
     const chapter = Math.max(1, window.innerHeight);
-    // quicker for the rest of a short way: 0.55 s for a nudge, about 1 s for a whole chapter
-    const duration = 0.55 + 0.5 * Math.min(1, distance / chapter);
+    // quicker for the rest of a short way: 0.55 s for a nudge, the reference's 1.5 s for a whole chapter
+    const duration = 0.55 + (PAGE_DURATION - 0.55) * Math.min(1, distance / chapter);
     glideTarget = index;
     glideUntil = performance.now() + duration * 1000;
     lenis.scrollTo(tops[index], { duration, easing: easeOutCubic, force: true });
@@ -146,8 +146,8 @@ function startTouchPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
   };
 }
 
-/** Chapters the reference lingers on (hero, flavor intro, tagline, line-up): their glide is slower. */
-const SLOW_PAGES = [0, 1, 6, 7];
+/** Chapters the reference lingers on (leaving the hero, the flavor intro, the last benefit and the tagline): slower. */
+const SLOW_PAGES = [0, 1, 5, 6];
 /** After a wheel glide, trackpad momentum still arriving is ignored this long (ms), so one flick moves one chapter. */
 const WHEEL_COOLDOWN = 220;
 
@@ -161,7 +161,8 @@ function startWheelPaging(lenis: Lenis, pageSelector: string, lastPageSelector?:
   // capture: decides before Lenis's own wheel listener, which it silences for paged steps
   const onWheel = (event: WheelEvent) => {
     if (event.ctrlKey || excluded(event.target) || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-    const { tops, anchor, paged } = measurePages(lenis, pageSelector, lastPageSelector);
+    // the reference pages the wheel one chapter less far than a swipe (from the tagline on, the wheel scrolls freely)
+    const { tops, anchor, paged } = measurePages(lenis, pageSelector, lastPageSelector, -1);
     if (!paged) return;
     const direction = Math.sign(event.deltaY);
     const target = Math.max(0, Math.min(tops.length - 1, anchor + direction));

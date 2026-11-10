@@ -143,6 +143,11 @@ export interface CanSurfaceUniforms {
   /** Light off moving water (the Zamzam chapter): a shifting gold web on the can's lower body. 0 = off. */
   uCaustic: { value: number };
   uCausticTime: { value: number };
+  /** The flavor's finish (see CAN_FINISH): brightness curve, saturation, ink metalness, ink gloss. */
+  uInkGamma: { value: number };
+  uInkSat: { value: number };
+  uInkMetal: { value: number };
+  uInkRough: { value: number };
 }
 
 /**
@@ -163,6 +168,10 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
     uRimStrength: { value: 0 },
     uCaustic: { value: 0 },
     uCausticTime: { value: 0 },
+    uInkGamma: { value: 1 },
+    uInkSat: { value: 1 },
+    uInkMetal: { value: 0 },
+    uInkRough: { value: 1 },
   };
   material.userData.surface = uniforms;
   material.customProgramCacheKey = () => 'gz-can-surface';
@@ -182,6 +191,10 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         uniform float uRimStrength;
         uniform float uCaustic;
         uniform float uCausticTime;
+        uniform float uInkGamma;
+        uniform float uInkSat;
+        uniform float uInkMetal;
+        uniform float uInkRough;
         float gzMetal = 0.0;
         float gzBrush = 0.5;
         float gzRect(vec2 p, vec4 r, float soft) {
@@ -207,6 +220,9 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           #else
             vec3 deepInk = mix(gzInk, vec3(gzLum), 0.18) * 0.78;
           #endif
+          // the flavor's finish: a brightness curve (lifts the darkest inks) and saturation, on the printed ink only
+          deepInk = pow(max(deepInk, vec3(0.0)), vec3(uInkGamma));
+          deepInk = mix(vec3(dot(deepInk, vec3(0.2126, 0.7152, 0.0722))), deepInk, uInkSat);
           #ifdef USE_METALNESSMAP
             // bare metal keeps the label's own metal colour (silver, or the gold / copper of a limited edition),
             // brushed; lifting it toward a fixed silver turned every tinted metal white
@@ -231,7 +247,7 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
       .replace(
         '#include <roughnessmap_fragment>',
         `#ifdef USE_ROUGHNESSMAP
-          float roughnessFactor = roughness * texture2D(roughnessMap, vRoughnessMapUv).g * (0.85 + 0.3 * gzBrush);
+          float roughnessFactor = roughness * texture2D(roughnessMap, vRoughnessMapUv).g * (0.85 + 0.3 * gzBrush) * mix(uInkRough, 1.0, gzMetal);
         #else
           float roughnessFactor = roughness * mix(0.46, 0.2, gzMetal) * (0.82 + 0.36 * gzBrush);
         #endif`
@@ -239,7 +255,7 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
       .replace(
         '#include <metalnessmap_fragment>',
         `#ifdef USE_METALNESSMAP
-          float metalnessFactor = metalness * texture2D(metalnessMap, vMetalnessMapUv).b;
+          float metalnessFactor = metalness * max(texture2D(metalnessMap, vMetalnessMapUv).b, uInkMetal * (1.0 - gzMetal));
         #else
           float metalnessFactor = metalness * mix(0.72, 1.0, gzMetal);
         #endif`
@@ -357,7 +373,7 @@ function applyEndDetail(metal: THREE.MeshStandardMaterial) {
 }
 
 const baseMaterials = new WeakMap<THREE.Material, THREE.Material>();
-function getBaseMaterial(aluminum: THREE.Material): THREE.Material {
+export function getBaseMaterial(aluminum: THREE.Material): THREE.Material {
   let base = baseMaterials.get(aluminum);
   if (!base) {
     base = aluminum.clone();
@@ -381,7 +397,7 @@ const topMaterials = new WeakMap<THREE.Material, THREE.Material>();
  * white wash, like painted plastic. A darker, glossier metal reflects the studio as dark and bright bands instead
  * (the tab keeps the shared material).
  */
-function getTopMaterial(aluminum: THREE.Material): THREE.Material {
+export function getTopMaterial(aluminum: THREE.Material): THREE.Material {
   let top = topMaterials.get(aluminum);
   if (!top) {
     top = aluminum.clone();
@@ -453,6 +469,40 @@ export function setCanLidExposure(can: THREE.Object3D, exposure: number) {
 export function setCanAccent(can: THREE.Object3D, hex: string) {
   const surface = getCanSurface(can);
   surface?.uRimColor.value.set(hex);
+}
+
+/**
+ * Per-flavor finish, from measuring each label (mean brightness 0.18 to 0.63) and seeing it lit. Every flavor's ink was
+ * printed at the same metalness (0.35), a satin paint; these lift the darkest inks, deepen the dull ones and let the colour
+ * read as metal (more ink metalness, a little more gloss), so each can looks like coloured aluminium and not a painted tube.
+ * gamma < 1 brightens darks; saturation > 1 deepens colour; rough < 1 is glossier.
+ */
+export const CAN_FINISH: Record<string, { gamma: number; saturation: number; metal: number; rough: number }> = {
+  'blue-raspberry': { gamma: 0.95, saturation: 1.22, metal: 0.5, rough: 0.85 },
+  'mango-fuego': { gamma: 0.95, saturation: 1.08, metal: 0.55, rough: 0.8 },
+  watermelon: { gamma: 0.95, saturation: 1.08, metal: 0.5, rough: 0.85 },
+  'strawberry-kiwi': { gamma: 0.88, saturation: 1.12, metal: 0.5, rough: 0.85 },
+  peach: { gamma: 0.85, saturation: 1.28, metal: 0.5, rough: 0.85 },
+  'blackout-berry': { gamma: 0.9, saturation: 1.4, metal: 0.5, rough: 0.85 },
+  'falsa-frost': { gamma: 0.62, saturation: 1.45, metal: 0.45, rough: 0.8 },
+  'cold-coffee': { gamma: 0.9, saturation: 1.12, metal: 0.55, rough: 0.85 },
+};
+
+/** Applies a flavor's finish to a label material (a can's shell, or a pack's instanced shell). */
+export function setMaterialFinish(material: THREE.Material, flavorId: string) {
+  const surface = material.userData.surface as CanSurfaceUniforms | undefined;
+  const finish = CAN_FINISH[flavorId];
+  if (!surface || !finish) return;
+  surface.uInkGamma.value = finish.gamma;
+  surface.uInkSat.value = finish.saturation;
+  surface.uInkMetal.value = finish.metal;
+  surface.uInkRough.value = finish.rough;
+}
+
+/** Applies a flavor's finish to a can (call when the can takes a flavor). */
+export function setCanFinish(can: THREE.Object3D, flavorId: string) {
+  const shell = can.getObjectByName('Shell') as THREE.Mesh | undefined;
+  if (shell) setMaterialFinish(shell.material as THREE.Material, flavorId);
 }
 
 /** Returns the label-shell shader controls of a can (glow, label dimming). */

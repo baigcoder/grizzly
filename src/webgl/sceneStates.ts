@@ -1,5 +1,6 @@
 import { CAROUSEL_CONFIG } from './sceneManagerConfig';
 import { LABEL } from '../data/brand';
+import { CAN } from './canDimensions';
 
 export type SceneMode = 'hero-carousel' | 'feature-editorial' | 'range';
 
@@ -50,24 +51,24 @@ const STAGE = { floorY: -3.6, reflect: 1, mountains: 0, moon: 0, mistFg: 0.7, gl
 const STAGE_CLOSE = { floorY: -9, reflect: 0, mountains: 0, moon: 0, mistFg: 0.15, glow: 1.15, stars: 0, field: 0.85, studio: 0 };
 
 /**
- * Benefit poses come from the label layout: the can turns so the right panel's centre faces the camera (u = 0.5
- * faces it at rotY 0, u grows to the right). The whole can stays in frame, lid to base, beside the copy (at 2.4 the
- * close-ups cut it off at the top and bottom of the screen); the lit block reads down the full can, chapter by chapter.
+ * Benefit chapters, as in the reference: the camera sits at z 12, a little below and rolled (-10° then +5°, alternating),
+ * looking up 10°; the can stands at scale 1, centred, and the label turns to the benefits panel (10° further every other
+ * chapter). The reference slides the can up 1.3 units over the four chapters while a fixed spotlight stays put; here the
+ * can slides so each chapter's lit block (LABEL.benefitBlocks) comes to that same spot, whatever the label art.
+ * Scrubbed by the scroll, power1.inOut between chapters.
  */
-const BENEFIT_SCALE = 1.6;
+const BENEFIT_SPOT_Y = 0.46; // where the lit block sits in the frame (world units above the camera axis, can at scale 1)
 const panelCentreU = (LABEL.panels.right[0] + LABEL.panels.right[1]) / 2;
 const BENEFIT_ROT_Y = (0.5 - panelCentreU) * Math.PI * 2;
+/** The label's front panel faces the camera at this yaw (u = frontCenterU at the centre). */
+const FRONT_YAW = (0.5 - LABEL.frontCenterU) * Math.PI * 2;
 
-/**
- * One dark can, whole and leaning beside the copy, the chapter's lit block in view. All four chapters, Zamzam
- * included, share this pose; the can settles a little lower each chapter, so it moves with the scroll, never
- * against it, while the lit block reads down the label.
- */
-const benefit = (rotZ: number, chapter: number): SceneStateConfig => {
-  const posY = -0.05 - chapter * 0.12;
+const benefit = (chapter: number): SceneStateConfig => {
+  const [, v0, , v1] = LABEL.benefitBlocks[chapter];
+  const posY = BENEFIT_SPOT_Y - ((v0 + v1) / 2 - 0.5) * CAN.shellHeight;
   return {
-    camera: cam(0, 0, 27, 0, 0, 0),
-    product: { scale: BENEFIT_SCALE, posX: 0.35, posY, posZ: 0, rotX: 7 * DEG, rotY: BENEFIT_ROT_Y, rotZ, spin: 0 },
+    camera: { posX: 0, posY: -2, posZ: 12, fov: 20, rotX: 10 * DEG, rotY: 0, rotZ: (chapter % 2 === 0 ? -10 : 5) * DEG },
+    product: { scale: 1, posX: 0, posY, posZ: 0, rotX: 0, rotY: BENEFIT_ROT_Y + (chapter % 2) * 10 * DEG, rotZ: 0, spin: 0 },
     lighting: { ...LIGHT, pointerInfluence: 0, labelDim: 1 },
     stage: STAGE_CLOSE,
     spacing: CAROUSEL_CONFIG.spacing,
@@ -97,11 +98,11 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
     swirl: 0,
   },
 
-  // Flavor intro: one big can, whole from lid to base and leaning ~20°, beside the copy on the left with the
-  // scattered flavor letters behind it. (At 2.5 its base ran off the bottom edge and only half the can showed.)
+  // Flavor intro ("taste" in the reference): the camera comes in close (z 6, a 40 degree lens), so the can fills the frame
+  // from above, leaning back 37.5 and rolled 22.5, its label turned 15 degrees; scale 1, a little right of and below centre.
   profile: {
-    camera: cam(0, 0.2, 27, 0.03, 0, 0),
-    product: { scale: 1.6, posX: 0.7, posY: 0.55, posZ: 0, rotX: 8 * DEG, rotY: -0.38, rotZ: 20 * DEG, spin: 0 },
+    camera: { posX: 0, posY: 0, posZ: 6, fov: 40, rotX: 0, rotY: 0, rotZ: 0 },
+    product: { scale: 1, posX: 0.5, posY: -0.5, posZ: 0, rotX: -37.5 * DEG, rotY: FRONT_YAW + 15 * DEG, rotZ: 22.5 * DEG, spin: 0 },
     lighting: { ...LIGHT, pointerInfluence: 0.12 },
     // no floor: the can floats in its colour field
     stage: { ...STAGE, floorY: -9, reflect: 0, mistFg: 0.2, stars: 0, field: 1 },
@@ -111,21 +112,18 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
   },
 
   // Benefits: the whole can, a little lower each chapter as the lit block reads down the label.
-  benefit01: benefit(12 * DEG, 0),
-  benefit02: benefit(9 * DEG, 1),
-  benefit03: benefit(11 * DEG, 2),
+  benefit01: benefit(0),
+  benefit02: benefit(1),
+  benefit03: benefit(2),
   // Zamzam: the same close-up as the other benefits, its block lit (the dawn light and rosette of
   // moments/zamzamPool.ts glow behind the can).
-  benefit04: benefit(10 * DEG, 3),
+  benefit04: benefit(3),
 
-  // The tagline: an upright can in front of the giant headline.
+  // The tagline ("no bullshit"): the camera pulls back to z 8 on a 45 degree lens, the can behind the plane a little
+  // (z -0.5), leaning back 20 and rolled -5, in front of the giant headline.
   argument: {
-    camera: cam(0, 0.4, 28, -0.02),
-    // Was 1.45: the can read as a small object in front of the giant headline. Now it fills about 75% of the
-    // frame height, with its top clear of the header.
-    // (1.65 at -0.4 clipped the base at the bottom edge: the whole can now stands in frame)
-    // rotY −0.25: the label's front faces the camera with a slight turn (+0.26 showed the nutrition side)
-    product: { scale: 1.55, posX: 0, posY: 0.05, posZ: 0, rotX: 5 * DEG, rotY: -0.25, rotZ: 5 * DEG, spin: 0 },
+    camera: { posX: 0, posY: 0, posZ: 8, fov: 45, rotX: 0, rotY: 0, rotZ: 0 },
+    product: { scale: 1, posX: 0, posY: 0, posZ: -0.5, rotX: -20 * DEG, rotY: FRONT_YAW, rotZ: -5 * DEG, spin: 0 },
     lighting: LIGHT,
     stage: { ...STAGE, floorY: -3.4, mistFg: 0.35, field: 1, studio: 0 },
     spacing: CAROUSEL_CONFIG.spacing,
