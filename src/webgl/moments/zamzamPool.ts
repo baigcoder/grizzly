@@ -7,8 +7,9 @@ import { CAN } from '../canDimensions';
 /**
  * Zamzam: the source. The pace slows and the frame turns to golden hour over still water: night above, then teal,
  * then a warm amber glow low on the horizon where the sun rises behind the can; thin cloud bands lit from below,
- * faint rays, haze on the water line. The water mirrors the sky, a path of gold glints runs from the sun toward the
- * viewer, calm rings spread from the can's base and, every few seconds, a single drop falls. Abstract and quiet: no
+ * faint rays, mist drifting on the water line. The water mirrors the sky, slow swells and a path of gold glints run
+ * from the sun toward the viewer, calm rings spread from the can's base and, every few seconds, a single drop falls.
+ * The water's light plays up the can's foot as a caustic net (canModel.ts, uCaustic). Abstract and quiet: no
  * sacred buildings or text are depicted, no patterns, no bursts.
  *
  * Trigger: scroll position at the Zamzam chapter (the last benefit). Scroll-driven in/out, then time-driven (the
@@ -42,6 +43,9 @@ const FRAGMENT = /* glsl */ `
     return v;
   }
 
+  // two octaves: enough for the soft shapes (swells, mist), at half the cost of fbm
+  float fbm2(vec2 p) { return 0.6 * vnoise(p) + 0.4 * vnoise(p * 2.03 + 7.1); }
+
   // Rings on the water seen at a low angle: circles flattened into ellipses. Returns the surface height.
   float rings(vec2 uv, vec2 c, float age, float speed, float count) {
     vec2 q = (uv - c) * vec2(uAspect, 1.0 / 0.22);
@@ -68,9 +72,12 @@ const FRAGMENT = /* glsl */ `
     vec3 col = mix(vec3(0.012, 0.11, 0.15), vec3(0.003, 0.006, 0.016), smoothstep(0.04, 0.85, up));
     vec2 sq = (uv - sun) * vec2(uAspect, 1.0);
     float d = length(sq);
-    // the band of first light on the horizon, then the sun's glow and its small hot core
-    col += vec3(1.0, 0.58, 0.2) * exp(-up * 15.0) * 0.5;
-    col += vec3(1.0, 0.84, 0.58) * exp(-up * 70.0) * 0.7;
+    // the band of first light on the horizon, then the sun's glow and its small hot core. The band is brightest
+    // behind the can and falls away to the sides, as light from one low sun does (at full strength edge to edge it
+    // read as a bright bar ruled across the screen).
+    float near = exp(-abs(sq.x) * 0.9);
+    col += vec3(1.0, 0.58, 0.2) * exp(-up * 15.0) * 0.5 * (0.45 + 0.55 * near);
+    col += vec3(1.0, 0.84, 0.58) * exp(-up * 70.0) * 0.7 * (0.2 + 0.8 * near);
     col += SUN * exp(-d * 6.5) * 0.32;
     col += vec3(1.0, 0.92, 0.75) * exp(-d * 34.0) * 0.75;
     // a few thin rays fanning up from the sun, barely there
@@ -132,9 +139,24 @@ const FRAGMENT = /* glsl */ `
       float h = calm + rings(uv, dropAt, uDrop - ${IMPACT.toFixed(2)}, 0.12, 3.0);
       pool += mix(vec3(0.6, 0.85, 0.9), GOLD, 0.55) * max(h, 0.0) * 0.3;
       pool -= vec3(0.01, 0.025, 0.03) * max(-h, 0.0) * 0.4;
-      // the horizon line catches the light
-      pool += SUN * exp(-abs(uv.y - shore) * 420.0) * 0.35;
+      // long slow swells catch the dawn: soft streaks of gold that slide toward the viewer, densest under the sun
+      // (in perspective: broad near the viewer, fine and close together toward the horizon. Evenly spaced, they
+      // read as scan lines across the screen.)
+      float persp = 1.0 / (depth + 0.07);
+      float swell = fbm2(vec2(x * persp * 1.1 + uTime * 0.03, persp * 3.6 + uTime * 0.22));
+      pool += GOLD * pow(swell, 4.0) * 0.6 * exp(-abs(x) * 1.0) * (1.0 - depth * 0.5);
+      // the horizon line catches the light, under the sun only
+      pool += SUN * exp(-abs(uv.y - shore) * 420.0) * 0.35 * exp(-abs(x) * 0.9);
       col = mix(col, pool, water);
+    }
+
+    // mist lying on the water line: a low band that drifts sideways, grey-teal in the dark and gold where the sun
+    // shines through it. It hides the hard join between sky and water, the way a real shore does at dawn.
+    float mistBand = exp(-abs(uv.y - (shore + 0.014)) * 34.0);
+    if (mistBand > 0.02) {
+      float mist = mistBand * (0.3 + 0.7 * fbm2(vec2(uv.x * uAspect * 2.2 - uTime * 0.03, uv.y * 9.0 + uTime * 0.012)));
+      vec3 mistCol = mix(vec3(0.08, 0.17, 0.2), SUN * 0.9, exp(-abs(x) * 1.5) * 0.85);
+      col = mix(col, mistCol, clamp(mist * 0.6, 0.0, 0.62));
     }
 
     // the drop: a small teardrop of light falling from the top to the water beside the can

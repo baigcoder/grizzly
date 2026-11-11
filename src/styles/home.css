@@ -636,9 +636,83 @@
   width: min(var(--layout-form-max), 100%);
 }
 
+.newsletter__eyebrow {
+  margin-bottom: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/* the closing headline: an outlined word over a solid one, as on the limited editions page */
 .newsletter__title {
-  font-size: var(--font-size-3xl);
-  margin-bottom: var(--space-lg);
+  display: grid;
+  font-size: clamp(3.2rem, 11vw, 9rem);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.newsletter__title-outline {
+  color: transparent;
+  -webkit-text-stroke: max(1.5px, 0.012em) var(--color-white);
+}
+
+/* The range as a fan of cans standing in a pool of light, their lids rising into the headline. Each can glows in
+   its own flavor colour (data-accent sets --color-accent) and lifts under the pointer or keyboard focus. */
+.newsletter__fan {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  /* how far each step out from the centre drops a can; it scales with the screen, like the cans */
+  --drop: clamp(0.14rem, 0.42vw, 0.34rem);
+  margin: calc(-1 * clamp(0.75rem, 3vw, 2.75rem)) 0 var(--space-lg);
+  /* room for the outermost cans (3.5 steps out, squared) so they never hang over the sign-up copy */
+  padding: 0 0 calc(12.25 * var(--drop) + var(--space-md));
+  list-style: none;
+}
+
+.newsletter__fan::before {
+  content: '';
+  position: absolute;
+  inset: auto 8% -6% 8%;
+  height: 28%;
+  z-index: -1;
+  background: radial-gradient(50% 50% at 50% 50%, var(--color-white-a30, rgb(255 255 255 / 0.3)), transparent 70%);
+  filter: blur(14px);
+  opacity: 0.5;
+}
+
+.newsletter__fan li {
+  --rest: rotate(calc(var(--i) * 5deg)) translateY(calc(var(--i) * var(--i) * var(--drop)));
+  margin-inline: clamp(-1.6rem, -2.2vw, -0.55rem);
+  transform: var(--rest);
+  transform-origin: 50% 130%;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.newsletter__fan li:hover,
+.newsletter__fan li:focus-within {
+  z-index: 1;
+  transform: var(--rest) translateY(-1.1rem) scale(1.06);
+}
+
+.newsletter__fan a {
+  display: block;
+  border-radius: var(--radius-md);
+}
+
+.newsletter__fan img {
+  display: block;
+  width: clamp(3.3rem, 9.5vw, 8.5rem);
+  height: auto;
+  filter: drop-shadow(0 1.2rem 2rem color-mix(in oklab, var(--color-accent) 55%, black));
+  animation: limited-float 5s var(--ease-in-out) calc(var(--i) * 0.35s) infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newsletter__fan li { transition: none; }
+  .newsletter__fan img { animation: none; }
 }
 
 .newsletter__intro {

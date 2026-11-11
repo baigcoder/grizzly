@@ -734,9 +734,17 @@ export class SceneManager {
    * Steps quality down when the device can't hold ~40 fps for two windows in a row (a single hitch, a shader compile
    * or a hidden tab never counts). It sheds effects before sharpness: extra density first, then the
    * lens passes, then the low tier, and it never renders below the screen's own CSS resolution (at 0.75× the cans'
-   * edges and labels turned soft and jagged, which read as cheap cans). Never steps back up within a visit.
+   * edges and labels turned soft and jagged, which read as cheap cans).
+   *
+   * Each step is a trial: if the two windows after it are not at least 15% faster, the frame rate is capped by the
+   * device, not by our load (a phone in battery-saver mode, or any 30 Hz display, runs at a steady 30 fps whatever we
+   * draw). The step is then undone and the governor stops: stepping on would only blur the cans for nothing. That
+   * undo is the one way quality comes back up within a visit.
    */
   private govSlowWindows = 0;
+  private govBaseRatio = 0;
+  private govCapped = false;
+  private govTrial: { before: number; best: number; windows: number; ratio: number; quality: QualityLevel; refreshEvery: number } | null = null;
   private governQuality(rawDelta: number, time: number) {
     // (only a hidden tab or a multi-second gap resets the count: a device whose every frame takes 300 ms is exactly
     // the one that must step down)
@@ -753,14 +761,33 @@ export class SceneManager {
     const fps = (this.govFrames * 1000) / elapsed;
     this.govStart = time;
     this.govFrames = 0;
-    if (time < 4000 || this.govStep >= 3) return; // startup (shader compiles, texture uploads) never counts
+    if (time < 4000 || this.govCapped) return; // startup (shader compiles, texture uploads) never counts
+    const trial = this.govTrial;
+    if (trial) {
+      trial.best = Math.max(trial.best, fps);
+      trial.windows += 1;
+      if (trial.windows < 2) return;
+      this.govTrial = null;
+      if (trial.best < trial.before * 1.15) {
+        this.govStep -= 1;
+        this.setPixelRatio(trial.ratio);
+        this.stage.refreshEvery = trial.refreshEvery;
+        this.applyQuality(trial.quality);
+        this.govCapped = true;
+      }
+      return;
+    }
+    if (this.govStep >= 3) return;
     this.govSlowWindows = fps >= 40 ? 0 : this.govSlowWindows + 1;
     // phones step down after one slow window (two let a struggling phone stutter through the first scrolls)
     if (this.govSlowWindows < (this.isLowPower ? 1 : 2)) return;
     this.govSlowWindows = 0;
+    this.govTrial = { before: fps, best: 0, windows: 0, ratio: this.renderer.getPixelRatio(), quality: this.quality, refreshEvery: this.stage.refreshEvery };
     this.govStep += 1;
-    const dpr = Math.min(window.devicePixelRatio || 1, this.pixelRatioCap);
-    const ratios = [dpr, Math.max(1, dpr * 0.8), 1, 1];
+    // from the density actually in use (the tier's cap), not the screen's: on a tablet capped at 1.5x the first
+    // "step down" to 0.8 of the screen's 2x was a step up
+    const base = (this.govBaseRatio ||= this.renderer.getPixelRatio());
+    const ratios = [base, Math.max(1, base * 0.8), 1, 1];
     this.setPixelRatio(ratios[this.govStep]);
     if (this.govStep >= 2) {
       this.stage.refreshEvery = 3;
@@ -888,7 +915,8 @@ export class SceneManager {
       ...state.stage,
     });
 
-    this.timelinePhone = window.innerWidth < 768;
+    // under 1024 px the flavor copy sits centred at the bottom (phones and tablets), so the can takes the upright pose
+    this.timelinePhone = window.innerWidth < 1024;
     this.timelineStates = SCENE_SEQUENCE.map(
       ({ state }) => stateToData(state === 'profile' && this.timelinePhone ? { ...SCENE_STATES.profile, ...PROFILE_PHONE } : SCENE_STATES[state]) as Record<string, number>
     );
@@ -1298,8 +1326,8 @@ export class SceneManager {
     this.renderer.setSize(width, height);
     this.post?.setSize(width, height);
     this.stage.resize(width, height);
-    // a phone turned on its side (or a window dragged past the phone width) takes the other flavor-intro pose
-    if (window.innerWidth < 768 !== this.timelinePhone) {
+    // a tablet turned on its side (or a window dragged past 1024 px) takes the other flavor-intro pose
+    if (window.innerWidth < 1024 !== this.timelinePhone) {
       this.buildMasterTimeline();
       this.timelineSeekedAt = -1;
     }
@@ -1545,6 +1573,7 @@ export class SceneManager {
   }
 
   private renderScene(time: number) {
+    this.updateRimGlints();
     if (this.post) this.post.render(time * 0.001);
     else this.renderer.render(this.scene, this.camera);
   }
@@ -1726,48 +1755,64 @@ export class SceneManager {
 
   /** Positions every can for the current timeline state: hero ring, single feature or finale lineup. */
   /**
-   * The hot highlight on the featured can's top rim, as on the reference (which gets it from bloom; ours has none, it
-   * blew the ends' small highlights into white squares). One additive sprite on the rim point nearest the key light,
-   * in the single-can chapters only. Small and tight: at 1.5 can-widths it read as a ball of fog.
+   * The hot highlight on a lit can's top rim, as on the reference (which gets it from bloom; ours has none, it blew the
+   * ends' small highlights into white squares). One small additive sprite per can, on the rim point highest on screen,
+   * faded with the can's own light, so dark side cans have none (and the line-up takes none: see below). Small and tight: at 1.5 can-widths it read as a ball
+   * of fog. Runs after every layout (home, product), so a highlight never outlives its can.
    */
-  private rimGlint: THREE.Sprite | null = null;
+  private readonly rimGlints: THREE.Sprite[] = [];
+  private rimGlintMap: THREE.Texture | null = null;
   private readonly glintPoint = new THREE.Vector3();
   private readonly glintAim = new THREE.Vector3();
-  private placeRimGlint(can: THREE.Group) {
-    const strength = (1 - this.data.wave) * (1 - this.data.swirl) * (1 - 0.5 * this.data.labelDim);
-    if (strength < 0.02) return;
-    if (!this.rimGlint) {
-      const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const glow = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-        glow.addColorStop(0, 'rgba(255,255,255,1)');
-        glow.addColorStop(0.1, 'rgba(255,255,255,0.7)');
-        glow.addColorStop(0.3, 'rgba(255,255,255,0.12)');
-        glow.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = glow;
-        ctx.fillRect(0, 0, 128, 128);
+  private updateRimGlints() {
+    // strongest on a single can, quieter across the ring, none in the line-up: there the back row's highlights showed
+    // above the front row as loose blobs of fog
+    const chapter = (0.8 - 0.3 * this.data.wave) * (1 - this.data.swirl) * (1 - 0.5 * this.data.labelDim);
+    this.cans.forEach((can, i) => {
+      const focus = (can.userData.focus as number | undefined) ?? 0;
+      const strength = can.visible ? chapter * focus * focus : 0;
+      let glint = this.rimGlints[i];
+      if (strength < 0.03) {
+        if (glint) glint.visible = false;
+        return;
       }
-      const material = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false });
-      this.rimGlint = new THREE.Sprite(material);
-      this.rimGlint.renderOrder = 10;
-      this.scene.add(this.rimGlint);
-    }
-    can.updateMatrixWorld();
-    // the rim point highest on screen (the camera's up), nudged toward the key light so an upright can still has one
-    const aim = this.glintAim.copy(this.keyLight.position).sub(can.position).normalize().multiplyScalar(0.4);
-    const point = can.worldToLocal(this.glintPoint.set(0, 1, 0).applyQuaternion(this.camera.quaternion).add(aim).add(can.position));
-    const reach = Math.hypot(point.x, point.z) || 1;
-    point.set((point.x / reach) * 0.745, CAN.shellHeight / 2 + 0.085, (point.z / reach) * 0.745);
-    this.rimGlint.position.copy(can.localToWorld(point));
-    this.rimGlint.scale.setScalar(0.7 * can.scale.x);
-    this.rimGlint.material.opacity = 0.8 * strength;
-    this.rimGlint.visible = true;
+      if (!glint) {
+        if (!this.rimGlintMap) {
+          const canvas = document.createElement('canvas');
+          canvas.width = canvas.height = 128;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const glow = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+            glow.addColorStop(0, 'rgba(255,255,255,1)');
+            glow.addColorStop(0.1, 'rgba(255,255,255,0.7)');
+            glow.addColorStop(0.3, 'rgba(255,255,255,0.12)');
+            glow.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, 0, 128, 128);
+          }
+          this.rimGlintMap = new THREE.CanvasTexture(canvas);
+        }
+        glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.rimGlintMap, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+        glint.renderOrder = 10;
+        this.rimGlints[i] = glint;
+        this.scene.add(glint);
+      }
+      can.updateMatrixWorld();
+      // the rim point highest on screen (the camera's up), nudged toward the key light so an upright can still has one
+      const aim = this.glintAim.copy(this.keyLight.position).sub(can.position).normalize().multiplyScalar(0.4);
+      const point = can.worldToLocal(this.glintPoint.set(0, 1, 0).applyQuaternion(this.camera.quaternion).add(aim).add(can.position));
+      const reach = Math.hypot(point.x, point.z) || 1;
+      point.set((point.x / reach) * 0.745, CAN.shellHeight / 2 + 0.085, (point.z / reach) * 0.745);
+      can.localToWorld(point);
+      // a can's width toward the camera: in front of its own lid, still behind a can that stands nearer
+      glint.position.copy(point).add(aim.copy(this.camera.position).sub(point).normalize().multiplyScalar(1.7 * can.scale.x));
+      glint.scale.setScalar(0.7 * can.scale.x);
+      glint.material.opacity = Math.min(1, strength);
+      glint.visible = true;
+    });
   }
 
   private layoutCans(delta: number, time: number, isMobile: boolean) {
-    if (this.rimGlint) this.rimGlint.visible = false;
     const minX = this.cans.length * -0.5 * this.carousel.spacing;
     const maxX = this.cans.length * 0.5 * this.carousel.spacing;
     let maxHoverInfluence = 0;
@@ -1848,32 +1893,16 @@ export class SceneManager {
         featRotY += (this.pointer.smoothX / 1280) * this.tilt() + this.spinOffset;
         featRotY += this.userTurn.yaw;
         featRotX = featRotX + this.userTurn.pitch;
-        // Between two chapters the can makes one full turn, scrubbed by the scroll (not timed): it swings toward the
-        // camera mid-turn with a little roll, and lands facing exactly as the next pose wants (2π apart). The turn
-        // alternates direction chapter to chapter. Off for reduced motion.
-        let featZ = this.data.canPosZ;
+        // Between two chapters the can goes straight from one pose to the next, as the reference's timeline does (its
+        // can turns from 15° to the benefits panel at 120°, and back: no extra turn). Ours used to add a full 360° turn
+        // and a swing toward the lens, which showed the can's back mid-scroll.
+        const featZ = this.data.canPosZ;
         let featRotZ = this.data.canRotZ;
-        const section = this.sectionPosition;
-        const fromState = SCENE_STATES[SCENE_SEQUENCE[Math.floor(section)]?.state];
-        const toState = SCENE_STATES[SCENE_SEQUENCE[Math.floor(section) + 1]?.state];
-        // only between two single-can poses: out of the hero ring or into the finale row the layout switches branch
-        const singleToSingle = !!fromState && !!toState && fromState.wave === 0 && toState.wave === 0 && fromState.swirl === 0 && toState.swirl === 0;
-        // Between benefit chapters 1 → 2 → 3 → Zamzam the can holds its pose and steps while the lit block slides down
-        // the label (a full turn there spun a dark can through an empty frame). The turn stays for the flavor intro and
-        // the tagline.
-        const betweenBenefits = Math.floor(section) >= 2 && Math.floor(section) <= 4;
-        if (!this.reducedMotion && singleToSingle && !betweenBenefits) {
-          const local = THREE.MathUtils.clamp((section - Math.floor(section) - 0.15) / 0.7, 0, 1);
-          const turn = local * local * (3 - 2 * local);
-          const swing = Math.sin(Math.PI * local);
-          const dir = Math.floor(section) % 2 === 0 ? 1 : -1;
-          featRotY += Math.PI * 2 * turn * dir;
-          featZ += swing * 1.6;
-          featRotZ += swing * 0.12 * dir;
-        }
-        // inertia: the can leans back against a fast scroll and trails it slightly, then settles
-        featRotX -= this.scrollVelocity * 0.07 * handover;
-        featY += this.scrollVelocity * 0.12 * handover;
+        // inertia: the can leans back against a fast scroll and trails it slightly, then settles (pointer devices only:
+        // under a finger the page already follows the touch, and a can that trails it reads as lag)
+        const inertia = this.timelinePhone ? 0 : handover;
+        featRotX -= this.scrollVelocity * 0.07 * inertia;
+        featY += this.scrollVelocity * 0.12 * inertia;
         featRotX += (this.pointer.smoothY / 1280) * this.tilt();
         // A whole-can pose floats: a slow bob and a lazy quarter-sway of the label, so the can feels held in the air.
         // Benefit close-ups (labelDim) stay still so the lit block holds its place on screen.
@@ -1889,7 +1918,6 @@ export class SceneManager {
         can.position.set(featX, featY + fo.posY, featZ + fo.posZ);
         can.rotation.set(featRotX + fo.rotX, featRotY, featRotZ);
         can.scale.setScalar(featScale * fo.scale);
-        this.placeRimGlint(can);
         this.applyCanOverride(can, i);
         return;
       }
@@ -1960,13 +1988,9 @@ export class SceneManager {
       canPosZ += (this.data.canPosZ - canPosZ) * collapseBlend;
       canPosX += (targetSectionPosX - canPosX) * collapseBlend;
 
-      if (isFocusCan) {
-        // Push-through: mid-dive the can swings toward the lens with a roll, then settles into the flavor pose.
-        const swing = this.reducedMotion ? 0 : Math.sin(Math.PI * collapse);
-        canPosZ += swing * 2.4;
-        canRotZ -= swing * 0.24;
-        canRotY += swing * 0.55;
-      } else if (exodus > 0.001) {
+      // (the focused can travels straight to the flavor pose, as in the reference: a swing toward the lens with a roll
+      // and a 33° twist used to be added here)
+      if (!isFocusCan && exodus > 0.001) {
         // The ring opens: each neighbour swings out to its side and rushes past the camera, leaning away.
         const side = x < 0 ? -1 : 1;
         canPosX += side * (2.6 + stepDist * 1.4) * exodus * 2;
@@ -2270,8 +2294,8 @@ export class SceneManager {
     this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored);
     this.moments.forEach((moment) => moment.dispose());
     this.reflections?.dispose();
-    this.rimGlint?.material.map?.dispose();
-    this.rimGlint?.material.dispose();
+    this.rimGlints.forEach((glint) => glint.material.dispose());
+    this.rimGlintMap?.dispose();
     this.pack?.dispose();
     this.stage.dispose();
     this.post?.dispose();

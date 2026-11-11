@@ -2,12 +2,15 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 /**
- * Final look pass, run in display (sRGB) space after tone mapping: a soft vignette, fine
- * animated film grain and ±1 LSB dither (which also removes banding in the dark gradients),
- * and a faint cold lift in the shadows. One pass for all three.
+ * The one final pass, drawn straight to the screen: tone mapping and the sRGB conversion (three's own chunks, with the
+ * renderer's tone mapping and exposure: the pass is the last one, so three compiles them in), then the look in display
+ * space: a light grade, a soft vignette, and ±1 LSB dither (which also removes banding in the dark gradients).
+ *
+ * It used to be two passes (three's OutputPass, then this). The pass in between drew into a second multisampled
+ * half-float target, which had to be resolved again: measured at phone size (750 × 1624) that was 9 ms of a 25 ms
+ * frame, for the same picture.
  */
 const FinishShader = {
   uniforms: {
@@ -15,7 +18,6 @@ const FinishShader = {
     uTime: { value: 0 },
     uGrain: { value: 0 }, // off: animated grain crawled over the dark labels as lighting noise (the 1/255 dither stays)
     uVignette: { value: 0.55 },
-    uAberration: { value: 0.0 }, // off: it softened label edges toward the frame corners
     // A light product grade: inks a touch richer and blacks a touch deeper, so labels pop instead of reading washed out.
     uSaturation: { value: 1.12 },
     uContrast: { value: 1.06 },
@@ -31,7 +33,6 @@ const FinishShader = {
     uniform float uTime;
     uniform float uGrain;
     uniform float uVignette;
-    uniform float uAberration;
     uniform float uSaturation;
     uniform float uContrast;
     varying vec2 vUv;
@@ -43,13 +44,10 @@ const FinishShader = {
     void main() {
       vec2 centre = vUv - 0.5;
       float r2 = dot(centre, centre);
-      // lateral chromatic aberration grows toward the corners
-      vec2 shift = centre * r2 * uAberration * 18.0;
-      vec3 col = vec3(
-        texture2D(tDiffuse, vUv - shift).r,
-        texture2D(tDiffuse, vUv).g,
-        texture2D(tDiffuse, vUv + shift).b
-      );
+      gl_FragColor = vec4(texture2D(tDiffuse, vUv).rgb, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+      vec3 col = gl_FragColor.rgb;
       // grade: saturation around the pixel's own luma, contrast around mid-grey (display space)
       float lumaIn = dot(col, vec3(0.299, 0.587, 0.114));
       col = mix(vec3(lumaIn), col, uSaturation);
@@ -136,7 +134,6 @@ export class PostFx {
       this.setFocusSize(width, height);
     }
     // No bloom: on the polished ends it blew single-pixel highlights up into soft white squares (lighting noise).
-    this.composer.addPass(new OutputPass());
     this.finish = new ShaderPass(FinishShader);
     this.composer.addPass(this.finish);
   }

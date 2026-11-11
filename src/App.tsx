@@ -685,7 +685,7 @@ export const App: React.FC = () => {
           <FullGammeSection isActive={scene === 'lineup'} onShop={() => navigate('/shop')} />
           <HomeReviews />
           <FaqSection isActive={sectionIndex >= 8} />
-          <NewsletterFooter />
+          <NewsletterFooter onNavigate={navigate} />
         </main>
       )}
       <SiteFooter onNavigate={navigate} />
@@ -703,6 +703,12 @@ export const App: React.FC = () => {
       {showDebugHud && <DebugHud />}
       <CookieNotice isReady={isReady} />
       <LimitedTeaser isReady={isReady} isHome={isHome} onNavigate={navigate} />
+      {/* shown by CSS only on a phone held sideways (chrome.css): the home story is staged for an upright screen */}
+      {isHome && (
+        <p className="rotate-notice display" role="status">
+          Turn your phone upright
+        </p>
+      )}
     </>
   );
 };
