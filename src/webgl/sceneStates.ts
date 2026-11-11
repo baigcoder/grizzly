@@ -103,7 +103,9 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
   profile: {
     camera: { posX: 0, posY: 0, posZ: 6, fov: 40, rotX: 0, rotY: 0, rotZ: 0 },
     product: { scale: 1, posX: 0.5, posY: -0.5, posZ: 0, rotX: -37.5 * DEG, rotY: FRONT_YAW + 15 * DEG, rotZ: 22.5 * DEG, spin: 0 },
-    lighting: { ...LIGHT, pointerInfluence: 0.12 },
+    // the can turns toward the pointer: about 11° at the screen edge (at 0.12 it was 6°, too little to notice on a
+    // can this large, so the page felt still under the mouse)
+    lighting: { ...LIGHT, pointerInfluence: 0.2 },
     // no floor: the can floats in its colour field
     stage: { ...STAGE, floorY: -9, reflect: 0, mistFg: 0.2, stars: 0, field: 1 },
     spacing: CAROUSEL_CONFIG.spacing,
@@ -168,9 +170,9 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
 };
 
 /**
- * Flavor intro on phones, as the reference shows it there: the whole can, upright and centred a little above the
+ * Flavor intro on phones and tablets (under 1024 px), as the reference shows it on phones: the whole can, upright and centred a little above the
  * middle (about 42% of the screen height), with the copy below it. The desktop close-up cropped the can at both edges
- * of a narrow screen and put the copy on top of the label. (Phones add 2 to the camera distance: see applyCamera.)
+ * of a narrow screen and put the copy on top of the label. (Phones add 2 to the camera distance, see applyCamera; tablets do not, so the can is a little larger there.)
  */
 export const PROFILE_PHONE: Pick<SceneStateConfig, 'camera' | 'product'> = {
   camera: { posX: 0, posY: 0, posZ: 11.3, fov: 40, rotX: 0, rotY: 0, rotZ: 0 },

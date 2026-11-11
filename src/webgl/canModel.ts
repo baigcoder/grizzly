@@ -269,16 +269,23 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
         }
         #ifdef USE_MAP
           if (uCaustic > 0.001) {
-            // light thrown up from moving water: a thin, bright, shifting web, strongest at the foot and gone by mid-body.
-            // Whole multiples of 2π round the can, so it has no seam.
-            float gzAx = vMapUv.x * 6.2831853;
-            float gzAy = vMapUv.y * 16.0;
-            float gzT = uCausticTime * 0.55;
-            float gzC1 = sin(gzAx * 5.0 + sin(gzAy * 1.7 + gzT) * 1.6 + gzT * 1.3);
-            float gzC2 = sin(gzAx * 7.0 - gzAy * 1.3 + sin(gzAx * 2.0 - gzT) * 1.8 - gzT);
-            float gzWeb = pow(1.0 - abs(gzC1 * gzC2), 9.0);
-            float gzFoot = 1.0 - smoothstep(0.0, 0.55, vMapUv.y);
-            totalEmissiveRadiance += vec3(1.0, 0.66, 0.3) * gzWeb * gzFoot * gzFoot * uCaustic * 0.6;
+            // Light thrown up from moving water, as on the wall of a pool: a net of soft bright cells that drift and
+            // merge (the classic iterated caustic field), strongest at the foot and gone by the shoulder. It tiles
+            // three times round the can, so it has no seam, and it stays off the lit block so its text reads clean.
+            // (It was two crossed sine waves: thin even lines that read as gold wire drawn on the label.)
+            vec2 gzP = mod(vec2(vMapUv.x * 3.0, vMapUv.y * 2.4) * 6.2831853, 6.2831853) - 250.0;
+            vec2 gzI = gzP;
+            float gzC = 1.0;
+            float gzT = uCausticTime * 0.45 + 23.0;
+            for (int n = 0; n < 4; n++) {
+              float tt = gzT * (1.0 - (3.5 / float(n + 1)));
+              gzI = gzP + vec2(cos(tt - gzI.x) + sin(tt + gzI.y), sin(tt - gzI.y) + cos(tt + gzI.x));
+              gzC += 1.0 / length(vec2(gzP.x / (sin(gzI.x + tt) / 0.005), gzP.y / (cos(gzI.y + tt) / 0.005)));
+            }
+            gzC = 1.17 - pow(gzC / 4.0, 1.4);
+            float gzWeb = pow(abs(gzC), 8.0);
+            float gzFoot = 1.0 - smoothstep(0.0, 0.72, vMapUv.y);
+            totalEmissiveRadiance += vec3(1.0, 0.74, 0.4) * gzWeb * gzFoot * (0.2 + 0.8 * gzFoot) * (1.0 - 0.85 * gzSpot) * uCaustic * 0.5;
           }
           if (uGlowStrength > 0.001) {
             // only the white type glows (its weakest channel is high; a bright flavor field's is not), with a faint

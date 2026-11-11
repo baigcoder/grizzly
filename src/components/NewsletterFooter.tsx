@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { BRAND, NEWSLETTER_OFFER, isTodo } from '../data/brand';
+import { PRODUCTS, getProductThumbUrl } from '../data/products';
 import { ButtonLabel } from './ButtonLabel';
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
@@ -7,10 +8,11 @@ type Status = 'idle' | 'submitting' | 'success' | 'error';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Newsletter sign-up. There is no mailing backend yet, so nothing is sent or stored: the form
+ * The page's closing section: the whole range as a fan of cans under a two-line headline (every can links to its
+ * product), then the newsletter sign-up. There is no mailing backend yet, so nothing is sent or stored: the form
  * validates the address and then says so plainly (never claims a subscription that didn't happen).
  */
-export const NewsletterFooter: React.FC = () => {
+export const NewsletterFooter: React.FC<{ onNavigate?: (url: string) => void }> = ({ onNavigate }) => {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
@@ -36,8 +38,29 @@ export const NewsletterFooter: React.FC = () => {
 
   return (
     <section id="newsletter" className="home-section newsletter" aria-labelledby="newsletter-title">
+      <p className="newsletter__eyebrow">{PRODUCTS.length} flavors · One pack</p>
+      <h2 id="newsletter-title" className="newsletter__title display" aria-label="Join the pack">
+        <span className="newsletter__title-outline" aria-hidden="true">Join</span>
+        <span aria-hidden="true">the pack</span>
+      </h2>
+      <ul className="newsletter__fan" aria-label="The range">
+        {PRODUCTS.map((product, index) => (
+          <li key={product.slug} data-accent={product.accentToken} style={{ '--i': index - (PRODUCTS.length - 1) / 2 } as React.CSSProperties}>
+            <a
+              href={`/products/${product.slug}`}
+              aria-label={product.name}
+              onClick={(event) => {
+                if (!onNavigate) return;
+                event.preventDefault();
+                onNavigate(`/products/${product.slug}`);
+              }}
+            >
+              <img src={getProductThumbUrl(product)} alt="" width={187} height={491} loading="lazy" decoding="async" />
+            </a>
+          </li>
+        ))}
+      </ul>
       <div className="newsletter__card">
-        <h2 id="newsletter-title" className="newsletter__title display">Join us</h2>
         <p className="newsletter__intro">
           Join the pack and be the first to hear about Grizzly Energy news and new flavors.
         </p>

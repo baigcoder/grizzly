@@ -507,27 +507,37 @@
   }
 }
 
-/* Phones: centred low; the hero's scroll hint lives in the same spot, so it steps aside while the pill is up */
+/* Phones: centred low */
 @media (max-width: 767px) {
   .limited-teaser {
     left: 50%;
     right: auto;
     translate: -50% 0;
   }
+}
 
+/* Every screen: the FAQ and the closing section fill the bottom of the frame with their own rows and form, so the
+   teaser steps aside there (on desktop the card sat on the email field). */
+.limited-teaser {
+  transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast);
+}
+
+body[data-scene='faq'] .limited-teaser,
+body[data-scene='newsletter'] .limited-teaser {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Phones and tablets: past the hero every chapter puts copy or a button along the bottom, where the pill sits (the
+   flavor and benefit copy, the line-up's "Shop the range", the FAQ rows), so the pill shows in the hero only
+   (useHomeScroll publishes the chapter as body[data-scene]). In the hero the scroll hint shares that spot and steps
+   aside while the pill is up. */
+@media (max-width: 1023px) {
   html[data-teaser] .hero__scroll-hint {
     visibility: hidden;
   }
 
-  /* the single-can chapters put their copy and button in that same spot: the pill steps aside there and comes back
-     in the hero and from the line-up on (useHomeScroll publishes the chapter as body[data-scene]) */
-  .limited-teaser {
-    transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast);
-  }
-
-  body[data-scene='flavor'] .limited-teaser,
-  body[data-scene='benefit'] .limited-teaser,
-  body[data-scene='argument'] .limited-teaser {
+  body[data-scene]:not([data-scene='hero']) .limited-teaser {
     opacity: 0;
     visibility: hidden;
   }
