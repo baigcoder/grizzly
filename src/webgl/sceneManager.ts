@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FLAVORS } from '../data/flavors';
 import { LABEL } from '../data/brand';
 import { audioManager } from '../audio/audioManager';
-import { createCanMesh, disposeCanMaterials, getCanSurface, setCanFocus, setCanAccent, setCanFinish } from './canModel';
+import { SATIN_GLOSS, createCanMesh, disposeCanMaterials, getCanSurface, setCanFocus, setCanAccent, setCanFinish } from './canModel';
 import { disposeCanGeometry } from './canGeometry';
 import { LabelTextures } from './labelTextures';
 import { createMetalEnvironment, createStudioEnvironment } from './studioEnv';
@@ -11,7 +11,7 @@ import { PostFx } from './post';
 import { FloorReflections } from './reflections';
 import { Scene3DData } from '../types';
 import { CAROUSEL_CONFIG } from './sceneManagerConfig';
-import { SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
+import { PROFILE_PHONE, SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
 import type { SceneMoment } from './moments/types';
 import { FlavorLetters } from './moments/flavorLetters';
 import { RoarMoment } from './moments/roar';
@@ -24,6 +24,7 @@ import { CAN } from './canDimensions';
 import { MOTION_RATE, damp } from './motionVocabulary';
 import { CanPhysics } from './canPhysics';
 import { SCENE_COLOR } from './palette';
+import { readDeviceSignals, wantsRichCan } from './devicePower';
 
 export { CAROUSEL_CONFIG };
 export type { SceneMode, SceneStateConfig };
@@ -175,6 +176,8 @@ export class SceneManager {
 
   // State
   public isLowPower = false;
+  /** Weak handhelds only: the can without clear coat or emboss (isLowPower alone is every phone and tablet). */
+  private cheapCan = false;
   public quality: QualityLevel = 'HIGH';
   public contextLost = false;
   public isRunning = true;
@@ -362,6 +365,7 @@ export class SceneManager {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.isLowPower = window.innerWidth < 1024 || /iPad|iPhone|iPod|Android/.test(navigator.userAgent);
+    this.cheapCan = this.isLowPower && !wantsRichCan(readDeviceSignals(false));
     this.measureView();
     const width = this.viewWidth;
     const height = this.viewHeight;
@@ -486,13 +490,13 @@ export class SceneManager {
     this.labels = new LabelTextures(this.renderer);
     // (phones: level 2 is the full-quality 2k, for close-ups only; see LabelTextures.phoneLevels)
     this.labels.maxLod = this.dataSaver ? 1 : 2;
-    this.labels.loadNormals = !this.isLowPower;
+    this.labels.loadNormals = !this.cheapCan;
     this.labels.phoneLevels = this.isLowPower;
     this.labels.onChange = (flavorIndex) => this.applyLabelMaps(flavorIndex);
 
     for (let i = 0; i < CAN_COUNT; i += 1) {
       const maps = this.labels.get(i % FLAVORS.length);
-      const can = createCanMesh(maps.albedo, maps.surface, this.isLowPower, this.isLowPower ? null : maps.normal, this.metalEnv);
+      const can = createCanMesh(maps.albedo, maps.surface, this.cheapCan, this.cheapCan ? null : maps.normal, this.metalEnv);
       setCanAccent(can, FLAVORS[i % FLAVORS.length].theme.secondary);
       setCanFinish(can, FLAVORS[i % FLAVORS.length].id);
       can.visible = false;
@@ -526,7 +530,7 @@ export class SceneManager {
       material.map = maps.albedo;
       material.metalnessMap = maps.surface;
       material.roughnessMap = maps.surface;
-      if (!this.isLowPower) material.normalMap = maps.normal;
+      if (!this.cheapCan) material.normalMap = maps.normal;
       material.needsUpdate = true;
     });
     this.reflections?.setAlbedo(flavorIndex, maps.albedo);
@@ -793,11 +797,11 @@ export class SceneManager {
       this.labels.loadNormals = false;
     }
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    // HIGH renders up to 2x for crisp labels; MEDIUM up to 1.75x on phone-sized screens (375×812 at 2x is fewer pixels
-    // than a laptop at 1.25x, and at 1.25x a 3x phone showed every can soft; 2x cost phones their scroll frame rate once
-    // Lenis drove touch) and 1.5x on larger ones. The frame-rate
-    // governor steps down on slow GPUs.
-    const cap = level === 'LOW' ? 1 : level === 'MEDIUM' ? (window.innerWidth < 768 ? 1.75 : 1.5) : 2;
+    // HIGH renders up to 2x for crisp labels; MEDIUM up to 2x on phone-sized screens, as the reference does (375×812 at
+    // 2x is fewer pixels than a laptop at 1.25x, and at 1.25x a 3x phone showed every can soft) and 1.5x on larger ones.
+    // It was 1.75x on phones: 2x once cost them scroll frame rate when Lenis drove touch. The frame-rate governor steps
+    // down on slow GPUs (phones after one slow second); if phones stutter, this is the first number to lower.
+    const cap = level === 'LOW' ? 1 : level === 'MEDIUM' ? (window.innerWidth < 768 ? 2 : 1.5) : 2;
     this.setPixelRatio(Math.min(dpr, cap));
     this.applyQuality(level);
   }
@@ -858,6 +862,7 @@ export class SceneManager {
    * is centred in the viewport. (A built-in seek replaced GSAP, which only ever drove this timeline:
    * the same windows and power2.inOut ease, ~35 KB gzipped lighter.)
    */
+  private timelinePhone = false;
   private buildMasterTimeline() {
     const stateToData = (state: SceneStateConfig) => ({
       camPosX: state.camera.posX,
@@ -883,7 +888,10 @@ export class SceneManager {
       ...state.stage,
     });
 
-    this.timelineStates = SCENE_SEQUENCE.map(({ state }) => stateToData(SCENE_STATES[state]) as Record<string, number>);
+    this.timelinePhone = window.innerWidth < 768;
+    this.timelineStates = SCENE_SEQUENCE.map(
+      ({ state }) => stateToData(state === 'profile' && this.timelinePhone ? { ...SCENE_STATES.profile, ...PROFILE_PHONE } : SCENE_STATES[state]) as Record<string, number>
+    );
     this.timelineKeys = Object.keys(this.timelineStates[0]);
     this.timelineData = { ...this.data, ...stateToData(SCENE_STATES[SCENE_SEQUENCE[0].state]) };
     Object.assign(this.data, this.timelineData);
@@ -1173,7 +1181,7 @@ export class SceneManager {
     material.map = maps.albedo;
     material.metalnessMap = maps.surface;
     material.roughnessMap = maps.surface;
-    if (!this.isLowPower) material.normalMap = maps.normal;
+    if (!this.cheapCan) material.normalMap = maps.normal;
     setCanAccent(can, FLAVORS[index].theme.secondary);
     setCanFinish(can, FLAVORS[index].id);
     this.previewIndex = index === this.activeProductIndex ? -1 : index;
@@ -1290,6 +1298,11 @@ export class SceneManager {
     this.renderer.setSize(width, height);
     this.post?.setSize(width, height);
     this.stage.resize(width, height);
+    // a phone turned on its side (or a window dragged past the phone width) takes the other flavor-intro pose
+    if (window.innerWidth < 768 !== this.timelinePhone) {
+      this.buildMasterTimeline();
+      this.timelineSeekedAt = -1;
+    }
   };
 
   private onMouseMove = (e: MouseEvent) => {
@@ -1539,7 +1552,7 @@ export class SceneManager {
   /** Plain pages (bag, checkout, story, 404): the night stage only, redrawn at a relaxed pace. */
   private pageFrame = 0;
   private ensurePack() {
-    return (this.pack ??= new PackDisplay(this.scene, FLAVORS.length, this.isLowPower, this.metalEnv));
+    return (this.pack ??= new PackDisplay(this.scene, FLAVORS.length, this.cheapCan, this.metalEnv));
   }
 
   /** Mix your pack: the size (6, 12 or 24) and each slot's flavor slug (null for an empty slot). */
@@ -1687,7 +1700,9 @@ export class SceneManager {
     // fast-scroll blur and cinema bars are gone: the reference keeps the frame open and sharp while scrolling)
     // (the ring's depth blur is light: blurred side cans read as low-resolution labels, the reference keeps them sharp)
     // Benefit close-ups (labelDim) take none: the can fills the frame and its label text must read crisp edge to edge.
-    const lens = (0.12 * this.data.wave + 0.18 * (1 - this.data.wave) * (1 - this.data.swirl)) * (1 - this.data.labelDim);
+    // The single-can chapters take none either: there the can fills the frame, and the blur softened its label text
+    // away from the centre (measured: the small print was visibly crisper with the pass off).
+    const lens = 0.12 * this.data.wave * (1 - this.data.labelDim);
     this.post?.setFocus(this.focusScreen.x, this.focusScreen.y, lens * (1 - 0.8 * this.pickBlend));
     this.renderScene(time);
   }
@@ -1710,7 +1725,49 @@ export class SceneManager {
   }
 
   /** Positions every can for the current timeline state: hero ring, single feature or finale lineup. */
+  /**
+   * The hot highlight on the featured can's top rim, as on the reference (which gets it from bloom; ours has none, it
+   * blew the ends' small highlights into white squares). One additive sprite on the rim point nearest the key light,
+   * in the single-can chapters only. Small and tight: at 1.5 can-widths it read as a ball of fog.
+   */
+  private rimGlint: THREE.Sprite | null = null;
+  private readonly glintPoint = new THREE.Vector3();
+  private readonly glintAim = new THREE.Vector3();
+  private placeRimGlint(can: THREE.Group) {
+    const strength = (1 - this.data.wave) * (1 - this.data.swirl) * (1 - 0.5 * this.data.labelDim);
+    if (strength < 0.02) return;
+    if (!this.rimGlint) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const glow = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+        glow.addColorStop(0, 'rgba(255,255,255,1)');
+        glow.addColorStop(0.1, 'rgba(255,255,255,0.7)');
+        glow.addColorStop(0.3, 'rgba(255,255,255,0.12)');
+        glow.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, 128, 128);
+      }
+      const material = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, depthTest: false });
+      this.rimGlint = new THREE.Sprite(material);
+      this.rimGlint.renderOrder = 10;
+      this.scene.add(this.rimGlint);
+    }
+    can.updateMatrixWorld();
+    // the rim point highest on screen (the camera's up), nudged toward the key light so an upright can still has one
+    const aim = this.glintAim.copy(this.keyLight.position).sub(can.position).normalize().multiplyScalar(0.4);
+    const point = can.worldToLocal(this.glintPoint.set(0, 1, 0).applyQuaternion(this.camera.quaternion).add(aim).add(can.position));
+    const reach = Math.hypot(point.x, point.z) || 1;
+    point.set((point.x / reach) * 0.745, CAN.shellHeight / 2 + 0.085, (point.z / reach) * 0.745);
+    this.rimGlint.position.copy(can.localToWorld(point));
+    this.rimGlint.scale.setScalar(0.7 * can.scale.x);
+    this.rimGlint.material.opacity = 0.8 * strength;
+    this.rimGlint.visible = true;
+  }
+
   private layoutCans(delta: number, time: number, isMobile: boolean) {
+    if (this.rimGlint) this.rimGlint.visible = false;
     const minX = this.cans.length * -0.5 * this.carousel.spacing;
     const maxX = this.cans.length * 0.5 * this.carousel.spacing;
     let maxHoverInfluence = 0;
@@ -1763,6 +1820,7 @@ export class SceneManager {
         );
         const canScale = fromScale * (1 - s) + finalScale * s;
         can.scale.setScalar(canScale);
+        can.userData.gloss = SATIN_GLOSS;
         setCanFocus(can, Math.round(Math.max(0.02, (isFeatured ? 1 - s : 0) + s * 0.95) * 100) / 100);
         this.applyLabelState(can, false);
         this.applyCanOverride(can, i);
@@ -1823,11 +1881,15 @@ export class SceneManager {
         featY += Math.sin(time * 0.0009) * 0.09 * float;
         featRotY += Math.sin(time * 0.00045) * 0.16 * float;
         featRotZ += Math.sin(time * 0.0007 + 1.3) * 0.025 * float;
+        // in the benefit chapters the can mirrors even less of the studio: it falls near-black round the lit block,
+        // as in the reference
+        can.userData.gloss = Math.round(SATIN_GLOSS * (1 - 0.6 * this.data.labelDim) * 50) / 50;
         setCanFocus(can, 1);
         this.applyLabelState(can, true);
         can.position.set(featX, featY + fo.posY, featZ + fo.posZ);
         can.rotation.set(featRotX + fo.rotX, featRotY, featRotZ);
         can.scale.setScalar(featScale * fo.scale);
+        this.placeRimGlint(can);
         this.applyCanOverride(can, i);
         return;
       }
@@ -1929,6 +1991,7 @@ export class SceneManager {
       // chrome ends; the uFocus² falloff in the shader takes 0.34 to about 12% brightness)
       const ringFocus = ((0.3 + 0.08 * Math.max(0, 1 - stepDist / 3)) * edgeFade + 0.72 * heroWeightSmooth) * (1 - 0.55 * exodus);
       const focus = Math.min(1, Math.max(ringFocus, p * collapseBlend));
+      can.userData.gloss = SATIN_GLOSS;
       setCanFocus(can, Math.round(focus * 100) / 100);
       this.applyLabelState(can, p > 0.4);
 
@@ -2207,6 +2270,8 @@ export class SceneManager {
     this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored);
     this.moments.forEach((moment) => moment.dispose());
     this.reflections?.dispose();
+    this.rimGlint?.material.map?.dispose();
+    this.rimGlint?.material.dispose();
     this.pack?.dispose();
     this.stage.dispose();
     this.post?.dispose();

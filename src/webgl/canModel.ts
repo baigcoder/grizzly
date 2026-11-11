@@ -235,7 +235,7 @@ function applyCanSurfaceShader(material: THREE.MeshPhysicalMaterial | THREE.Mesh
           // block (feathered well past its edges), lifting it a little rather than blowing it out. A hard 1.7× box
           // read as a pasted rectangle on the flat colour labels.
           float gzSpot = gzRect(vMapUv, uGlowRect + vec4(-0.012, -0.02, 0.012, 0.02), 0.03) * step(0.001, uGlowStrength);
-          diffuseColor.rgb *= mix(1.0, 0.14, uLabelDim * (1.0 - gzSpot)) * (1.0 + 0.18 * uLabelDim * gzSpot);
+          diffuseColor.rgb *= mix(1.0, 0.07, uLabelDim * (1.0 - gzSpot)) * (1.0 + 0.18 * uLabelDim * gzSpot);
         #endif
         // out-of-focus cans fall to near-black silhouettes; their chrome ends and edges stay lit
         diffuseColor.rgb *= mix(0.07, 1.0, uFocus * uFocus);
@@ -381,11 +381,17 @@ export function getBaseMaterial(aluminum: THREE.Material): THREE.Material {
     // The base faces the dark studio floor: as a plain mirror it reflected nothing and read as a black hole, the can
     // an open tube. Satin aluminium, a fuller reflection and a faint fill of its own keep the dome and stand ring
     // reading as metal (the fill dims with the can's focus, see setCanFocus).
-    metal.roughness = 0.34;
+    // Satin, as on the reference can: a smooth grey dome with one bright stand ring. At roughness 0.34 (0.17 to 0.29
+    // after the ring map) with the full grain bump, the dome mirrored the lightbox as busy, wavy streaks, like glass.
+    metal.roughness = 0.62;
     metal.color.setHex(SCENE_COLOR.baseRim);
     metal.envMapIntensity = 1.15;
     metal.emissive.setHex(SCENE_COLOR.baseFill).multiplyScalar(0.07);
     applyEndDetail(metal);
+    metal.bumpScale = 0.15;
+    // a lighter spun-metal stretch than the lid: enough to pull the lightbox strips onto the stand ring (at 0 the base
+    // went flat dark grey), not enough to streak the dome
+    if ((metal as THREE.MeshPhysicalMaterial).isMeshPhysicalMaterial) (metal as THREE.MeshPhysicalMaterial).anisotropy = 0.2;
     baseMaterials.set(aluminum, base);
   }
   return base;
@@ -411,12 +417,20 @@ export function getTopMaterial(aluminum: THREE.Material): THREE.Material {
   return top;
 }
 
+/** The label's default share of the studio reflection (see setCanFocus). */
+export const SATIN_GLOSS = 0.55;
+
 /** Dims the aluminium ends together with the label so out-of-focus cans go dark. */
 export function setCanFocus(can: THREE.Object3D, focus: number) {
   const boost = (can.userData.rimBoost as number | undefined) ?? 0;
-  if (can.userData.focus === focus && can.userData.appliedBoost === boost) return;
+  // how much of the studio the label mirrors (1 = full). Every can is satin by default: at full strength the broad
+  // softbox washed the ink pale and milky, where the reference can is deep colour with one sheen. The scene lowers it
+  // further on the featured can in the benefit chapters.
+  const gloss = (can.userData.gloss as number | undefined) ?? SATIN_GLOSS;
+  if (can.userData.focus === focus && can.userData.appliedBoost === boost && can.userData.appliedGloss === gloss) return;
   can.userData.focus = focus;
   can.userData.appliedBoost = boost;
+  can.userData.appliedGloss = gloss;
   can.traverse((child) => {
     const mesh = child as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -426,15 +440,19 @@ export function setCanFocus(can: THREE.Object3D, focus: number) {
       surface.uFocus.value = focus;
       // side cans lose their gloss with their light (bright streaks on a dark label read as glass tubes, not cans)
       const lit = focus * focus;
-      material.envMapIntensity = 0.12 + 0.88 * lit;
+      material.envMapIntensity = (0.12 + 0.88 * lit) * gloss;
       // only a whisper of edge separation on dark side cans, none on lit ones (at 0.45 the flavor-coloured fresnel
       // read as a glow round every can in the ring and the line-up)
       surface.uRimStrength.value = 0.1 * (1 - focus) + boost;
       const physical = material as THREE.MeshPhysicalMaterial;
       if (physical.isMeshPhysicalMaterial) {
-        physical.clearcoat = 0.06 + 0.94 * lit; // never 0: avoids a shader recompile
+        // a satin can (gloss below 1), as on the reference: a thinner, softer varnish, so the
+        // studio rolls across it as a quiet sheen and the print keeps its contrast (a glossy coat laid a milky haze
+        // over the small text)
+        const satin = Math.min(1, (1 - gloss) / 0.45);
+        physical.clearcoat = (0.06 + 0.94 * lit) * (1 - 0.55 * satin); // never 0: avoids a shader recompile
         // side cans' varnish goes soft, so the key strip reads as a gentle sheen, not a sharp white line
-        physical.clearcoatRoughness = 0.16 + 0.24 * (1 - focus);
+        physical.clearcoatRoughness = 0.16 + 0.24 * (1 - focus) + 0.26 * satin;
       }
     } else if (material.color) {
       // machined aluminium: dim it with the label, relative to its authored colour and reflectance

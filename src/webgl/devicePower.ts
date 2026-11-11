@@ -47,3 +47,11 @@ export function readDeviceSignals(reducedMotion: boolean): DeviceSignals {
     reducedMotion,
   };
 }
+
+/**
+ * Does a phone or tablet get the full can material (clear coat, embossed logo, physical metal ends)? The cheap material
+ * reads as flat plastic, so only a known weakness takes it: the low tier, or 4 GB of memory or less.
+ */
+export function wantsRichCan(signals: DeviceSignals): boolean {
+  return pickQuality(signals) !== 'LOW' && !(signals.memoryGb !== undefined && signals.memoryGb <= 4);
+}

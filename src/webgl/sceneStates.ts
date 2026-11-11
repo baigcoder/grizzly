@@ -168,6 +168,16 @@ export const SCENE_STATES: Record<string, SceneStateConfig> = {
 };
 
 /**
+ * Flavor intro on phones, as the reference shows it there: the whole can, upright and centred a little above the
+ * middle (about 42% of the screen height), with the copy below it. The desktop close-up cropped the can at both edges
+ * of a narrow screen and put the copy on top of the label. (Phones add 2 to the camera distance: see applyCamera.)
+ */
+export const PROFILE_PHONE: Pick<SceneStateConfig, 'camera' | 'product'> = {
+  camera: { posX: 0, posY: 0, posZ: 11.3, fov: 40, rotX: 0, rotY: 0, rotZ: 0 },
+  product: { scale: 1, posX: 0, posY: 0.48, posZ: 0, rotX: -8 * DEG, rotY: FRONT_YAW + 10 * DEG, rotZ: 4 * DEG, spin: 0 },
+};
+
+/**
  * One source of truth for the home scroll story: each DOM section id maps to a
  * scene state. Waypoint k sits at timeline progress k / (n - 1).
  */

@@ -518,6 +518,19 @@
   html[data-teaser] .hero__scroll-hint {
     visibility: hidden;
   }
+
+  /* the single-can chapters put their copy and button in that same spot: the pill steps aside there and comes back
+     in the hero and from the line-up on (useHomeScroll publishes the chapter as body[data-scene]) */
+  .limited-teaser {
+    transition: opacity var(--motion-fast) var(--ease-out), visibility var(--motion-fast);
+  }
+
+  body[data-scene='flavor'] .limited-teaser,
+  body[data-scene='benefit'] .limited-teaser,
+  body[data-scene='argument'] .limited-teaser {
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 
 /* (transform, not translate: on phones the resting translate centres the pill, and animating it slid the pill in sideways) */
