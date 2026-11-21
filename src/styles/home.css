@@ -700,6 +700,13 @@
   animation: limited-float 5s var(--ease-in-out) calc(var(--i) * 0.35s) infinite alternate;
 }
 
+/* eight cans at the 3.3 rem floor, plus their tilt, were up to 13 px wider than a 320 px screen */
+@media (max-width: 359px) {
+  .newsletter__fan img {
+    width: 2.8rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .newsletter__fan li { transition: none; }
   .newsletter__fan img { animation: none; }

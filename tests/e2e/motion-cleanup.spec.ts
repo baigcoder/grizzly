@@ -43,7 +43,7 @@ test('route cycles leave no extra window/document listeners; plain pages hold no
   await ready(page);
 
   const cycle = async () => {
-    await page.locator('#profile').getByRole('link', { name: /View details and order/ }).click();
+    await page.locator('#profile').getByRole('link', { name: /View product/ }).click();
     await expect(page).toHaveURL(/\/products\//);
     await page.waitForTimeout(1500);
     await page.goBack();
