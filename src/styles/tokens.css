@@ -95,7 +95,7 @@
   --motion-draw: 2.6s;
   --stagger-draw: 0.8s;
   --size-seal: min(34vh, 21.5rem);
-  --size-seal-inline: 5.5rem; /* the Zamzam chapter badge */
+  --size-seal-inline: 6rem; /* the Zamzam chapter badge */
   --stroke-seal: 0.5;
   --size-shop-card: 26rem;
   --size-fact: 17rem;

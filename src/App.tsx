@@ -36,7 +36,7 @@ import { useCart } from './store/cart';
 import { useSmoothScroll, prefersReducedMotion } from './hooks/useSmoothScroll';
 import { useHomeScroll } from './hooks/useHomeScroll';
 import { useCanKeys } from './hooks/useCanKeys';
-import { isLowPowerDevice, pickQuality, readDeviceSignals } from './webgl/devicePower';
+import { isLowPowerDevice, pickQuality, readDeviceSignals, readNetwork } from './webgl/devicePower';
 import { scrollVar } from './hooks/scrollVar';
 import { versioned } from './data/assetVersion';
 
@@ -85,6 +85,12 @@ const afterNextPaint = () =>
   });
 /** A product page only waits for the scene's first frame (its can), not for a cinematic. */
 const PRODUCT_LOADER_MS = 250;
+/**
+ * On a thin link (data saver, 2g, 3g) the loader gives up waiting for the 3D scene after this long and opens the page on
+ * its static stage; the scene fades in when it arrives. Measured on emulated slow 3G the loader otherwise held a black
+ * screen for about 20 s.
+ */
+const THIN_LINK_LOADER_GIVE_UP_MS = 8000;
 
 /**
  * Which loader a hard load of a route gets. Only the home story has the cinematic opening; a product page
@@ -182,6 +188,32 @@ export const App: React.FC = () => {
   // Once the scene has been wanted it stays (it is never torn down on navigation).
   const [sceneWanted, setSceneWanted] = useState(() => typeof window !== 'undefined' && wantsScene(parseCurrentRoute()));
   const [sceneUp, setSceneUp] = useState(false);
+  // The loader gave up waiting for the scene (thin link): the static stage stands in until the scene fades in.
+  const [sceneLate, setSceneLate] = useState(false);
+  // the loader gave up waiting (thin link): a scene created from now on, or already created, is revealed late
+  const gaveUpRef = useRef(false);
+  const revealLateScene = useCallback((sm: SceneManager) => {
+    // replay where the page is now, so the scene opens on the chapter in view rather than the hero
+    window.dispatchEvent(new Event('scroll'));
+    void sm.firstLabelReady().then(() => {
+      if (sceneManagerRef.current === sm) setSceneShown(true);
+    });
+  }, []);
+  // A late scene is revealed only once the can in front has its label (see SceneManager.firstLabelReady): the static
+  // stand-in covers the canvas until then, then fades out and unmounts. The canvas itself is never hidden. Held at
+  // opacity 0 while it kept rendering, its frames piled up unpresented and revealing it froze a software-rendered
+  // browser for 88 s (measured); under an opaque cover it is composited as usual.
+  const [sceneShown, setSceneShown] = useState(false);
+  const [standInGone, setStandInGone] = useState(false);
+  useEffect(() => {
+    if (!sceneShown) return;
+    const timer = window.setTimeout(() => setStandInGone(true), 800);
+    return () => window.clearTimeout(timer);
+  }, [sceneShown]);
+  const showStandIn = sceneLate && !standInGone;
+  const [giveUpAfterMs] = useState<number | undefined>(() =>
+    typeof window !== 'undefined' && loaderMode !== 'none' && readNetwork().thinLink ? THIN_LINK_LOADER_GIVE_UP_MS : undefined
+  );
 
   const { isOpen: isCartOpen, toggleCart } = useCart();
   const isHome = route.type === 'HOME';
@@ -290,7 +322,9 @@ export const App: React.FC = () => {
         sm.setMix(mixRef.current.size, mixRef.current.slots);
         sm.setMixStage(mixStageRef.current);
         // The cans are only held back for the loader's cinematic; a scene created later has no loader to release them.
-        if (initial.type === 'HOME' && loaderMode === 'cinematic') sm.armIntro();
+        // (a scene that arrives after the loader gave up has no loader left to release them either)
+        if (initial.type === 'HOME' && loaderMode === 'cinematic' && !gaveUpRef.current) sm.armIntro();
+        if (gaveUpRef.current) revealLateScene(sm);
         // While the ring travels to a chosen flavor it passes the ones in between: those are not selections, so only
         // the flavor the ring is heading for becomes active (the slider announces the choice at once, not on arrival).
         const unsubscribe = sm.carousel.onChanged(({ index }) => {
@@ -327,7 +361,7 @@ export const App: React.FC = () => {
       window.clearTimeout(readyTimer);
       teardown();
     };
-  }, [sceneWanted, loaderMode]);
+  }, [sceneWanted, loaderMode, revealLateScene]);
 
   // Flavor drives the colour tokens ([data-flavor]) and a shareable hash.
   useEffect(() => {
@@ -558,6 +592,12 @@ export const App: React.FC = () => {
     sceneManagerRef.current?.setMixStage(element);
   }, []);
   const handlePreloaderLeave = useCallback(() => sceneManagerRef.current?.playIntro(), []);
+  const handleLoaderGiveUp = useCallback(() => {
+    gaveUpRef.current = true;
+    setSceneLate(true);
+    // the scene may already be built and only waiting for its first frames
+    if (sceneManagerRef.current) revealLateScene(sceneManagerRef.current);
+  }, [revealLateScene]);
   const handleTilt = useCallback((x: number, y: number) => sceneManagerRef.current?.setDeviceTilt(x, y), []);
   const highlightBenefit = useCallback((index: number) => sceneManagerRef.current?.setBenefitGlow(index), []);
 
@@ -570,10 +610,12 @@ export const App: React.FC = () => {
           onDone={handlePreloaderDone}
           onLeave={handlePreloaderLeave}
           minDurationMs={loaderMode === 'product' ? PRODUCT_LOADER_MS : MIN_LOADER_MS}
+          giveUpAfterMs={giveUpAfterMs}
+          onGiveUp={handleLoaderGiveUp}
         />
       )}
 
-      {(!webGlAvailable || !sceneWanted) && (
+      {(!webGlAvailable || !sceneWanted || showStandIn) && (
         <>
           <StageBackdrop scene={isHome ? scene : route.type === 'PRODUCT' ? 'flavor' : 'faq'} flavorLines={isHome ? [FLAVORS[activeIndex % FLAVORS.length].line1, FLAVORS[activeIndex % FLAVORS.length].line2] : []} />
           <Atmosphere
@@ -594,6 +636,8 @@ export const App: React.FC = () => {
       ) : (
         <FallbackStage activeIndex={activeIndex} showCan={!sceneWanted ? false : true} />
       )}
+      {/* a scene that is still on its way (thin link): the same static stage as the no-WebGL page stands in until it is shown, then fades out */}
+      {webGlAvailable && sceneWanted && showStandIn && <FallbackStage activeIndex={activeIndex} fading={sceneShown} />}
       {/* plain pages: a calm studio backdrop over the canvas (the halal story in dawn gold) */}
       {!isHome && route.type !== 'PRODUCT' && !(route.type === 'MIX' && webGlAvailable && sceneWanted) && (
         <div className="page-backdrop" data-variant={route.type === 'HALAL' ? 'halal' : undefined} aria-hidden="true" />

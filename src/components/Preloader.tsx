@@ -9,6 +9,14 @@ interface PreloaderProps {
   onLeave?: () => void;
   /** Shortest time the loader stays, so the count reads as a moment rather than a flash. */
   minDurationMs: number;
+  /**
+   * Longest the visitor waits (from navigation start) for the scene. On a thin link the 3D chunks can take far longer than anyone will stare at a
+   * black screen: past this the loader finishes anyway, the page opens on its static stage, and the scene joins when it
+   * arrives. Unset (fast links, where the wait is short and ends with the cinematic): wait as long as it takes.
+   */
+  giveUpAfterMs?: number;
+  /** Fires once if the loader left without the scene being ready (see giveUpAfterMs). */
+  onGiveUp?: () => void;
 }
 
 /**
@@ -20,12 +28,15 @@ interface PreloaderProps {
  *   (no attribute) = boot, before this runs  →  loading  →  ready (scene is up, minimum time not yet met)
  *   →  exit (wordmark lifting away)  →  complete (unmounted).  Routes that never get a loader read "none".
  */
-export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, minDurationMs }) => {
+export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, minDurationMs, giveUpAfterMs, onGiveUp }) => {
   const [percent, setPercent] = useState(0);
   const [phase, setPhase] = useState<'loading' | 'leaving' | 'done'>('loading');
   const startedAt = useRef(performance.now());
   const readyRef = useRef(isReady);
   readyRef.current = isReady;
+  const gaveUpRef = useRef(false);
+  const onGiveUpRef = useRef(onGiveUp);
+  onGiveUpRef.current = onGiveUp;
   // Any key press or tap skips the wait (the opening is a moment, never a gate).
   const skipRef = useRef(false);
   useEffect(() => {
@@ -45,7 +56,13 @@ export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, 
     let value = 0;
     const tick = (now: number) => {
       const elapsed = now - startedAt.current;
-      const canFinish = readyRef.current && (elapsed > minDurationMs || skipRef.current);
+      // measured from navigation start (rAF time shares performance.now's origin): the visitor's wait began when they
+      // tapped the link, not when this component finally mounted behind a slow script download
+      if (!gaveUpRef.current && !readyRef.current && giveUpAfterMs !== undefined && now > giveUpAfterMs) {
+        gaveUpRef.current = true;
+        onGiveUpRef.current?.();
+      }
+      const canFinish = (readyRef.current || gaveUpRef.current) && (elapsed > minDurationMs || skipRef.current);
       const target = canFinish ? 100 : Math.min(90, (elapsed / minDurationMs) * 90);
       value += (target - value) * (canFinish ? 0.12 : 0.08);
       const rounded = Math.min(100, Math.round(value + (canFinish && value > 99.4 ? 1 : 0)));
@@ -59,7 +76,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, 
     frame = requestAnimationFrame(tick);
     // Background tabs throttle animation frames: never let the loader outlive its job.
     const fallback = window.setInterval(() => {
-      if (readyRef.current && performance.now() - startedAt.current > minDurationMs * 2) {
+      if ((readyRef.current || gaveUpRef.current) && performance.now() - startedAt.current > minDurationMs * 2) {
         setPercent(100);
         setPhase((current) => (current === 'loading' ? 'leaving' : current));
       }
@@ -68,7 +85,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ isReady, onDone, onLeave, 
       cancelAnimationFrame(frame);
       window.clearInterval(fallback);
     };
-  }, [minDurationMs]);
+  }, [minDurationMs, giveUpAfterMs]);
 
   useEffect(() => {
     if (phase !== 'leaving') return;

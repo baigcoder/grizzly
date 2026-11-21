@@ -28,6 +28,11 @@ const NAV: Array<[string, string]> = [
  */
 export const STATIC_CSS = `
 html,body{background:black}
+.boot{position:fixed;inset:0;z-index:1;display:grid;place-content:center;justify-items:start;gap:5.3rem;background:black;pointer-events:none}
+.boot__mark{display:flex;flex-direction:column;align-items:flex-start;font:italic 900 1rem/.82 'Libre Franklin','Arial Black',Arial,sans-serif;letter-spacing:-.01em;text-transform:uppercase;color:rgba(255,255,255,.08);animation:boot-breathe 2.4s ease-in-out infinite alternate}
+.boot__top{font-size:clamp(3rem,8vw,6.5rem)}.boot__bottom{font-size:clamp(1.5rem,3.6vw,2.9rem);margin-left:.9em}
+@keyframes boot-breathe{from{color:rgba(255,255,255,.08)}to{color:rgba(255,255,255,.24)}}
+@media (prefers-reduced-motion:reduce){.boot__mark{animation:none}}
 .pre{box-sizing:border-box;min-height:100vh;background:black;color:white;font-family:Geist,Arial,sans-serif;font-weight:300;line-height:1.5;padding:2rem 1.25rem 4rem}
 .pre__in{visibility:hidden}
 .pre *{box-sizing:border-box}.pre a{color:inherit}.pre__in{max-width:60rem;margin:0 auto}
@@ -123,7 +128,19 @@ function body(route: SeoRoute): string {
 
 /** The full static markup for a route: the styled shell and its content. */
 export function staticHtml(route: SeoRoute): string {
-  return `<div class="pre" data-prerender><div class="pre__in">${body(route)}</div></div>`;
+  return `${bootScreen(route)}<div class="pre" data-prerender><div class="pre__in">${body(route)}</div></div>`;
+}
+
+/**
+ * The first thing a visitor sees on the routes that open with the loader (home and product pages): the brand mark
+ * the real loader draws, on black, from the moment the HTML arrives. On a slow connection the app's script and
+ * stylesheet take seconds, and a blank screen reads as a broken site. It sits inside #root, so React replaces it
+ * with the live loader (same mark, same place); it needs only the inline styles above.
+ */
+function bootScreen(route: SeoRoute): string {
+  if (route.type !== 'HOME' && route.type !== 'PRODUCT') return '';
+  const [top, bottom] = BRAND.wordmark;
+  return `<div class="boot" aria-hidden="true"><span class="boot__mark"><span class="boot__top">${escapeHtml(top)}</span><span class="boot__bottom">${escapeHtml(bottom)}</span></span></div>`;
 }
 
 export { pageMeta };

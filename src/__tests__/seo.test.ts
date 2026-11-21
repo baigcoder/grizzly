@@ -102,3 +102,27 @@ describe('SEO and AEO output', () => {
     expect(xml.match(/<lastmod>2026-01-02<\/lastmod>/g)).toHaveLength(indexableRoutes().length);
   });
 });
+
+describe('boot screen (first paint on a slow link)', () => {
+  it('paints the brand mark from the HTML alone on the routes that open with the loader', () => {
+    for (const route of [{ type: 'HOME' }, { type: 'PRODUCT', slug: PRODUCTS[0].slug }] as const) {
+      const html = staticHtml(route);
+      expect(html, route.type).toContain('class="boot"');
+      expect(html, route.type).toContain('boot__top">GRIZZLY<');
+      expect(html, route.type).toContain('boot__bottom">ENERGY<');
+    }
+  });
+
+  it('is decoration only: hidden from assistive tech, and the real content still follows it', () => {
+    const html = staticHtml({ type: 'HOME' });
+    expect(html).toMatch(/<div class="boot" aria-hidden="true">/);
+    expect(html.indexOf('class="boot"')).toBeLessThan(html.indexOf('data-prerender'));
+    expect(html).toContain('<h1');
+  });
+
+  it('does not appear on routes that have no loader', () => {
+    for (const type of ['SHOP', 'ABOUT', 'HALAL', 'PRIVACY', 'NOT_FOUND'] as const) {
+      expect(staticHtml({ type }), type).not.toContain('class="boot"');
+    }
+  });
+});

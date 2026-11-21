@@ -972,6 +972,17 @@
   flex: none;
 }
 
+/* At badge size the full-size seal's hairline (0.5 of 120 units, about 0.4 px) vanished against the water, and its
+   inner "HALAL" came out about 3 px tall. A heavier stroke keeps the rings and the calligraphy readable; the caption
+   beside the badge already says the word. */
+.halal-seal--inline {
+  --stroke-seal: 1.15;
+}
+
+.halal-seal--inline .halal-seal__latin {
+  display: none;
+}
+
 .halal-seal--inline .halal-seal__caption {
   max-width: 12ch;
   line-height: var(--line-height-tight);
@@ -1423,7 +1434,7 @@
 .zamzam-script {
   display: block;
   width: max-content;
-  margin: calc(var(--space-sm) * -1) 0 var(--space-xs);
+  margin: calc(var(--space-sm) * -1) 0 var(--space-sm);
   font-family: 'Amiri', 'Traditional Arabic', 'Geeza Pro', serif;
   font-weight: 700;
   font-size: calc(var(--size-hex-emblem) * 2.1);

@@ -379,7 +379,8 @@
 
 /* each can is a flavor choice: the chosen one stands up out of the fan, lit in its own colour */
 .limited-teaser__can {
-  margin-inline: -0.35rem;
+  /* no negative margin: overlapping button boxes fail WCAG 2.2 target size (each flavor choice needs its own space) */
+  margin-inline: 0;
   transform: rotate(calc(var(--i) * 10deg)) translateY(calc(var(--i) * var(--i) * 0.2rem));
   transition: transform var(--motion-fast) var(--ease-out), filter var(--motion-fast) var(--ease-out);
   filter: drop-shadow(0 0.4rem 0.6rem rgb(0 0 0 / 0.5)) brightness(0.72);
