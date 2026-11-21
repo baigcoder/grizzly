@@ -81,4 +81,24 @@ describe('SEO and AEO output', () => {
     );
     expect([...origins]).toEqual([new URL(SITE_URL).origin]);
   });
+
+  it('keeps titles and descriptions inside what search results show', () => {
+    indexableRoutes().forEach((route) => {
+      const meta = pageMeta(route);
+      expect(meta.title.length, `${meta.path} title`).toBeLessThanOrEqual(60);
+      expect(meta.description.length, `${meta.path} description`).toBeLessThanOrEqual(160);
+    });
+  });
+
+  it('points every page at a social preview image under /social/ (the build checks the file exists)', () => {
+    [...indexableRoutes(), { type: 'NOT_FOUND' as const }].forEach((route) => {
+      const { image, path } = pageMeta(route);
+      expect(image.startsWith(`${SITE_URL}/social/`), path).toBe(true);
+    });
+  });
+
+  it('dates every sitemap entry when given a build date', () => {
+    const xml = sitemapXml('2026-01-02');
+    expect(xml.match(/<lastmod>2026-01-02<\/lastmod>/g)).toHaveLength(indexableRoutes().length);
+  });
 });

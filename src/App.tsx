@@ -10,6 +10,7 @@ import { MenuDrawer } from './components/MenuDrawer';
 import { ChapterRail } from './components/ChapterRail';
 import { DebugHud } from './components/DebugHud';
 import { SiteFrame } from './components/SiteFrame';
+import { NOTICE_LAYOUT_EVENT } from './components/noticeLayout';
 import { SCENE_SEQUENCE } from './webgl/sceneStates';
 import { StageBackdrop } from './components/StageBackdrop';
 import { Atmosphere } from './components/Atmosphere';
@@ -435,9 +436,12 @@ export const App: React.FC = () => {
     const observer = new ResizeObserver(update);
     observer.observe(title);
     window.addEventListener('resize', update);
+    // The storage notice lifts the HUD (the title moves without resizing), then drops it again when dismissed.
+    window.addEventListener(NOTICE_LAYOUT_EVENT, update);
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', update);
+      window.removeEventListener(NOTICE_LAYOUT_EVENT, update);
     };
   }, [isHome, isReady]);
 

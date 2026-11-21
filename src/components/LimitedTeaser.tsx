@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { versioned } from '../data/assetVersion';
 import { PRODUCTS, formatPrice } from '../data/products';
 import { useCart } from '../store/cart';
 import { audioManager } from '../audio/audioManager';
+import { NOTICE_LAYOUT_EVENT } from './noticeLayout';
 
 const SEEN_KEY = 'grizzly_limited_teaser_v2';
 const DELAY_MS = 5000;
 /** Every flavor marked as an edition in grizzly.json: a new drop joins the card on its own. */
 const LIMITED = PRODUCTS.filter((product) => product.edition);
+/** Clear space kept between the card and the hero slider, and the narrowest the slider is ever squeezed to. */
+const SLIDER_GAP_PX = 24;
+const SLIDER_MIN_PX = 160;
 
 /**
  * A once-per-visit teaser for the limited editions on the home page, all on sale: a small glass card in the corner
@@ -21,6 +25,7 @@ export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavi
   const [pick, setPick] = useState(0);
   const [added, setAdded] = useState(false);
   const { addItem, toggleCart } = useCart();
+  const cardRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!isReady || !isHome) return;
@@ -66,12 +71,46 @@ export const LimitedTeaser: React.FC<{ isReady: boolean; isHome: boolean; onNavi
     };
   }, [visible]);
 
+  // The card sits bottom-right and the hero slider is centred: on laptop widths they share a row and the card sat on
+  // the slider's right end. When (and only when) they overlap vertically, publish how wide the centred slider may be
+  // so it stops short of the card (--slider-clear-w, used by .flavor-slider in home.css). It is derived from the card's
+  // edge, never from the slider's current width, so squeezing the slider cannot feed back into the measurement.
+  useEffect(() => {
+    if (!visible) return;
+    const root = document.documentElement;
+    const card = cardRef.current;
+    if (!card) return;
+    const update = () => {
+      const slider = document.querySelector<HTMLElement>('.flavor-slider');
+      const cardBox = card.getBoundingClientRect();
+      const sliderBox = slider?.getBoundingClientRect();
+      const shareRow = !!sliderBox && window.innerWidth >= 1024 && sliderBox.top < cardBox.bottom && sliderBox.bottom > cardBox.top;
+      if (!shareRow) {
+        root.style.removeProperty('--slider-clear-w');
+        return;
+      }
+      const room = 2 * (cardBox.left - SLIDER_GAP_PX - window.innerWidth / 2);
+      root.style.setProperty('--slider-clear-w', `${Math.max(SLIDER_MIN_PX, Math.floor(room))}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(card);
+    window.addEventListener('resize', update);
+    window.addEventListener(NOTICE_LAYOUT_EVENT, update); // the notice lifts the card and the HUD together
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener(NOTICE_LAYOUT_EVENT, update);
+      root.style.removeProperty('--slider-clear-w');
+    };
+  }, [visible]);
+
   if (!visible || LIMITED.length === 0) return null;
   const product = LIMITED[Math.min(pick, LIMITED.length - 1)];
   const single = product.packOptions.find((option) => option.count === 1) ?? product.packOptions[0];
   const middle = (LIMITED.length - 1) / 2;
   return (
-    <aside className="limited-teaser" aria-label="Limited editions" data-accent={product.accentToken}>
+    <aside ref={cardRef} className="limited-teaser" aria-label="Limited editions" data-accent={product.accentToken}>
       <span className="limited-teaser__cans" role="group" aria-label="Choose a limited flavor">
         {LIMITED.map((item, index) => (
           <button

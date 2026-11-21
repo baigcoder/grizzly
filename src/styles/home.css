@@ -306,7 +306,8 @@
 .flavor-slider {
   position: relative;
   width: var(--layout-slider-width);
-  max-width: calc(100vw - 2 * var(--space-2xl));
+  /* --slider-clear-w (LimitedTeaser.tsx) is only set while the limited-edition card shares the slider's row */
+  max-width: min(calc(100vw - 2 * var(--space-2xl)), var(--slider-clear-w, 100vw));
   height: var(--control-size);
   cursor: pointer;
   touch-action: none;

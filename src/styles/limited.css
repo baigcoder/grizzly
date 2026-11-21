@@ -365,6 +365,13 @@
   animation: limited-teaser-in 700ms var(--ease-out);
 }
 
+/* Laptop widths: the card tucks into the corner (a 76 px gutter put its edge under the centred title and slider). */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  .limited-teaser {
+    right: var(--space-lg);
+  }
+}
+
 .limited-teaser__cans {
   display: flex;
   align-items: flex-end;

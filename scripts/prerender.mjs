@@ -6,6 +6,7 @@
  * The app still mounts over this markup: React replaces #root, so nothing is hydrated or duplicated.
  */
 import { build } from 'esbuild';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,10 +38,25 @@ const preloads = ['geist-latin-300-normal', 'geist-latin-400-normal', 'libre-fra
   .map((name) => assets.find((file) => file.startsWith(name) && file.endsWith('.woff2')))
   .filter(Boolean)
   .map((file) => `<link rel="preload" href="/assets/${file}" as="font" type="font/woff2" crossorigin />`);
+
+// Routes that build the 3D scene on every device (App.tsx → wantsScene). Their scene chunks are otherwise only
+// requested after the main bundle has run: one extra round trip. Measured on a throttled phone (slow 4G, median of 5):
+// the scene is created ~330 ms sooner for ~50 ms of first paint. The Basis transcoder and the first label texture are
+// deliberately NOT hinted: at default priority they starve these chunks of bandwidth (no gain), at low priority they
+// delay the hero can's own texture by seconds.
+const sceneChunks = ['vendor-three-', 'sceneManager-', 'studioEnv-']
+  .map((prefix) => assets.find((file) => file.startsWith(prefix) && file.endsWith('.js')))
+  .filter(Boolean);
+const sceneRoutes = new Set(['HOME', 'PRODUCT', 'MIX']);
+const scenePreloads = (route) =>
+  sceneRoutes.has(route.type) ? sceneChunks.map((file) => `<link rel="modulepreload" crossorigin href="/assets/${file}" fetchpriority="low" />`) : [];
 const escapeAttr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 function render(route) {
   const meta = seo.pageMeta(route);
+  // A link preview that 404s is silent in the browser; fail the build instead.
+  const imageFile = resolve(dist, meta.image.replace(`${seo.SITE_URL}/`, ''));
+  if (!existsSync(imageFile)) throw new Error(`Missing social image for ${meta.path}: ${meta.image}`);
   const canonical = seo.absoluteUrl(meta.path === '/404' ? '/' : meta.path);
   let html = template
     // drop the dev defaults; the real tags follow
@@ -59,13 +75,16 @@ function render(route) {
     `<meta property="og:description" content="${escapeAttr(meta.description)}" />`,
     `<meta property="og:url" content="${canonical}" />`,
     `<meta property="og:image" content="${meta.image}" />`,
+    `<meta property="og:image:type" content="image/png" />`,
     `<meta property="og:image:width" content="${seo.SOCIAL_IMAGE.width}" />`,
     `<meta property="og:image:height" content="${seo.SOCIAL_IMAGE.height}" />`,
     `<meta property="og:image:alt" content="${escapeAttr(meta.title)}" />`,
     `<meta name="twitter:title" content="${escapeAttr(meta.title)}" />`,
     `<meta name="twitter:description" content="${escapeAttr(meta.description)}" />`,
     `<meta name="twitter:image" content="${meta.image}" />`,
+    `<meta name="twitter:image:alt" content="${escapeAttr(meta.title)}" />`,
     ...preloads,
+    ...scenePreloads(route),
     `<style>${seo.STATIC_CSS}</style>`,
     `<noscript><style>${seo.NOSCRIPT_CSS}</style></noscript>`,
     meta.jsonLd.length ? `<script type="application/ld+json" data-seo="jsonld">${JSON.stringify({ '@context': 'https://schema.org', '@graph': meta.jsonLd })}</script>` : '',
@@ -85,6 +104,6 @@ for (const route of routes) {
 const notFound = render({ type: 'NOT_FOUND' });
 await writeFile(resolve(dist, '404.html'), notFound.html);
 await writeFile(resolve(dist, 'robots.txt'), seo.robotsTxt());
-await writeFile(resolve(dist, 'sitemap.xml'), seo.sitemapXml());
+await writeFile(resolve(dist, 'sitemap.xml'), seo.sitemapXml(new Date().toISOString().slice(0, 10)));
 await writeFile(resolve(dist, 'llms.txt'), seo.llmsTxt());
 console.log(`prerendered ${routes.length} routes + 404, robots.txt, sitemap.xml, llms.txt`);
