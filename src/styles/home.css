@@ -274,7 +274,8 @@
   text-align: center;
 }
 
-/* Wide screens: the flavor name sits on one line so the can can be taller (≈55% of the viewport). */
+/* Wide screens: the flavor name stacks on two lines ("BLUE / RASPBERRY"), as in the reference and on phones; the hero can
+   is fitted to the space that leaves (App.tsx → setHeroSafeBottom). */
 @media (min-width: 768px) {
   /* During the dive the hero title swells toward the viewer and dissolves within the first third, as if the camera
      passed through it, before the flavor chapter's title reveals (a glide toward that title crossed the can). */
@@ -284,18 +285,6 @@
     will-change: transform, opacity;
   }
 
-  .hero__title-wrap {
-    min-height: calc(var(--font-size-3xl) * var(--line-height-display));
-    margin-bottom: var(--space-lg);
-  }
-
-  .hero__title .reveal__line {
-    display: inline-block;
-  }
-
-  .hero__title .reveal__line + .reveal__line {
-    margin-left: 0.28em;
-  }
 }
 
 .hero .reveal__unit {

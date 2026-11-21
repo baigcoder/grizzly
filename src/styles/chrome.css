@@ -735,15 +735,18 @@ body:has(.loader) {
   color: #ffb09c;
 }
 
-/* Header Shop: the one always-visible way to buy (desktop; phones keep the bag and the menu) */
+/* Header Shop: the one always-visible way to buy (desktop; phones keep the bag and the menu). A filled white button with
+   a soft glow, like the reference's header call to action (it was an outlined pill). */
 .header-shop {
   display: none;
   align-items: center;
   min-height: var(--control-size);
   padding: 0 var(--space-md);
-  border: var(--border-hairline) solid color-mix(in oklab, var(--color-accent) 70%, white);
-  border-radius: 999px;
-  color: var(--color-text-primary);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-action-primary);
+  color: var(--color-action-primary-text);
+  box-shadow: var(--shadow-glow);
   font-size: var(--font-size-md);
   letter-spacing: 0.08em;
   text-transform: uppercase;
