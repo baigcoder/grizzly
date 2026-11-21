@@ -1970,9 +1970,8 @@ export class SceneManager {
       canRotY += Math.sin(i * 2.13 + 0.4) * 0.9 * tumble;
       canRotX += Math.sin(i * 1.37 + 1.1) * 0.16 * tumble;
       canRotZ += Math.sin(i * 0.91 + 2.6) * 0.14 * tumble;
-      // scroll-speed feel: the side cans sway against a fast flick (alternating, like hanging cans in a gust), then
-      // settle as the scroll comes to rest
-      canRotZ += this.scrollVelocity * 0.05 * (i % 2 === 0 ? 1 : -0.7) * (1 - heroWeightSmooth);
+      // (scroll used to sway every side can against a fast flick, like hanging cans in a gust. Only the selected can
+      // animates now: the focused can takes the scroll's pitch below, the side cans stay as posed.)
 
       // the focused can collapses onto the timeline's own single-can pose, where the single-can branch takes over
       const targetSectionScale = this.data.canScale;
@@ -1991,17 +1990,8 @@ export class SceneManager {
 
       // (the focused can travels straight to the flavor pose, as in the reference: a swing toward the lens with a roll
       // and a 33° twist used to be added here)
-      if (!isFocusCan && exodus > 0.001) {
-        // The ring opens: each neighbour swings out to its side and rushes past the camera, leaning away.
-        const side = x < 0 ? -1 : 1;
-        canPosX += side * (2.6 + stepDist * 1.4) * exodus * 2;
-        canPosY += (stepDist * 0.35 - 0.4) * exodus;
-        if (!this.reducedMotion) {
-          canPosZ += exodus * (7 - stepDist);
-          canRotZ += side * exodus * 0.45;
-          canRotY += side * exodus * 0.9;
-        }
-      }
+      // (the neighbours used to swing out to their sides and rush past the camera as the ring opened. Only the diving
+      // can moves now: the others keep their ring pose and sink into the dark below, hidden once they are black.)
 
       // Depth falloff: the focused can is fully lit, neighbours step into the dark.
       // neighbours step back into the dark but keep their label colour (it was a near-black silhouette, so the
@@ -2014,7 +2004,7 @@ export class SceneManager {
       // 0.74–0.92 every can was equally bright and the ring read as a flat shelf)
       // (round 4: the reference's side cans are near-black silhouettes, their label colour only a faint tint, with lit
       // chrome ends; the uFocus² falloff in the shader takes 0.34 to about 12% brightness)
-      const ringFocus = ((0.3 + 0.08 * Math.max(0, 1 - stepDist / 3)) * edgeFade + 0.72 * heroWeightSmooth) * (1 - 0.55 * exodus);
+      const ringFocus = ((0.3 + 0.08 * Math.max(0, 1 - stepDist / 3)) * edgeFade + 0.72 * heroWeightSmooth) * (1 - (isFocusCan ? 0.55 : 1) * exodus);
       const focus = Math.min(1, Math.max(ringFocus, p * collapseBlend));
       can.userData.gloss = SATIN_GLOSS;
       setCanFocus(can, Math.round(focus * 100) / 100);
@@ -2081,19 +2071,21 @@ export class SceneManager {
         }
         t[k] = canPosX;
         t[k + 1] = canPosZ;
-        canRotX += this.canPhysics.tiltX(i);
-        canRotZ += this.canPhysics.tiltZ(i);
+        // every can keeps its state running, but only the selected can shows it: its weight on the way, the others stay
+        // as posed (scaled by focus, so the swing hands over smoothly as the selection moves along the ring)
+        canRotX += this.canPhysics.tiltX(i) * heroWeightSmooth;
+        canRotZ += this.canPhysics.tiltZ(i) * heroWeightSmooth;
       } else if (this.canCarrier[i * 5 + 4] !== 0) {
         // hidden or reduced motion: forget the swing so it never reappears stale
         this.canCarrier[i * 5 + 4] = 0;
         this.canPhysics.reset(i);
       }
 
-      // Idle micro-breathing so cans never feel frozen.
+      // Idle micro-breathing so the selected can never feels frozen (the others hold still: only the selected can animates).
       if (can.visible && this.data.wave > 0.3 && !this.reducedMotion) {
         const phase = this.canIdlePhase[i];
-        canPosY += Math.sin(time * 0.0008 + phase) * 0.025;
-        canRotZ += Math.cos(time * 0.00056 + phase) * 0.008;
+        canPosY += Math.sin(time * 0.0008 + phase) * 0.025 * heroWeightSmooth;
+        canRotZ += Math.cos(time * 0.00056 + phase) * 0.008 * heroWeightSmooth;
       }
 
       if (this.introStart > -1e8) {
