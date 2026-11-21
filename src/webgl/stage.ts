@@ -324,22 +324,23 @@ const BACKDROP_FRAGMENT = /* glsl */ `
       float bandY = 0.27 - 0.07 * uv.x;
       float bandD = (uv.y - bandY) / (uv.y > bandY ? 0.2 : 0.18);
       float band = exp(-bandD * bandD) * mix(1.0, 0.45, smoothstep(0.0, 1.0, uv.x));
-      vec3 sCol = vec3(1.0, 0.996, 0.988) * (0.17 * band + 0.006 * smoothstep(0.7, 0.2, uv.y));
+      vec3 sCol = vec3(1.0, 0.996, 0.988) * (0.115 * band + 0.004 * smoothstep(0.7, 0.2, uv.y));
       vec2 sq = (uv - uGlowPos) * vec2(asp, 1.0);
       // A product-shot light rig: a soft overhead spot falling on the focused can (a pale cone that widens toward
-      // the floor and pools there), a flavor-tinted halo right behind it, and a cool haze across the top so the
-      // upper half is a deep studio, not a flat black.
+      // the floor and pools there), and a flavor-tinted halo right behind it.
       float coneW = 0.1 + 0.32 * clamp(1.0 - uv.y, 0.0, 1.0);
       float cone = exp(-pow((uv.x - uGlowPos.x) * asp / coneW, 2.0)) * smoothstep(-0.05, 0.75, uv.y) * smoothstep(1.15, 0.55, uv.y);
       vec2 pq = (uv - vec2(uGlowPos.x, bandY + 0.02)) * vec2(asp * 0.55, 2.4);
       float pool = exp(-dot(pq, pq) * 3.0);
-      sCol += vec3(0.86, 0.9, 1.0) * (0.035 * cone + 0.07 * pool) * uGlow;
+      sCol += vec3(1.0, 0.99, 0.98) * (0.03 * cone + 0.05 * pool) * uGlow;
       // The flavor colour stays off the wall (a broad halo here tinted the whole upper frame): only a tight breath right
       // behind the can, and a coloured pool at the foot of the frame under the title, as in the reference.
       sCol += accent * 0.03 * exp(-dot(sq, sq) * 22.0) * uGlow;
-      vec2 fg = (uv - vec2(0.5, -0.04)) * vec2(asp * 0.85, 3.4);
-      sCol += accent * 0.15 * exp(-dot(fg, fg) * 1.8) * uGlow;
-      sCol += vec3(0.012, 0.016, 0.026) * smoothstep(0.35, 1.0, uv.y);
+      // (a tight pool: the reference's glow is a patch of colour under the title, and the floor stays neutral grey and
+      // the corners dark either side of it; at asp * 0.85 it washed the whole bottom edge)
+      vec2 fg = (uv - vec2(0.5, -0.04)) * vec2(asp * 1.9, 3.4);
+      sCol += accent * 0.3 * exp(-dot(fg, fg) * 1.8) * uGlow;
+      // (no cool haze across the top any more: the reference's upper half is plain black)
       // a gentle vignette keeps the eye on the centre of the wall
       vec2 vq = (uv - 0.5) * vec2(1.0, 1.25);
       sCol *= 1.0 - 0.35 * smoothstep(0.3, 0.85, length(vq));

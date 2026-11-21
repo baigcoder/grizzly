@@ -1965,8 +1965,9 @@ export class SceneManager {
       // Each side can tumbles on its own, as in the reference: some turn their sides or backs to the viewer and they
       // lean and pitch differently (stable per can, so the ring never jitters). The centre can stays as posed.
       const tumble = (1 - heroWeightSmooth) * ringK * (isMobile ? 0.5 : 1);
-      // (a small turn only: at ±1.25 rad several cans showed their nutrition backs and the ring read as busy text)
-      canRotY += Math.sin(i * 2.13 + 0.4) * 0.35 * tumble;
+      // (±0.9 rad: some cans turn a side or their back to the viewer, as in the reference's ring; ±1.25 showed several
+      // nutrition backs at once and read as busy text, ±0.35 left the ring a calm, forward-facing fan)
+      canRotY += Math.sin(i * 2.13 + 0.4) * 0.9 * tumble;
       canRotX += Math.sin(i * 1.37 + 1.1) * 0.16 * tumble;
       canRotZ += Math.sin(i * 0.91 + 2.6) * 0.14 * tumble;
       // scroll-speed feel: the side cans sway against a fast flick (alternating, like hanging cans in a gust), then
