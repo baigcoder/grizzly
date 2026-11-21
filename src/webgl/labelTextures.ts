@@ -3,6 +3,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { FLAVORS } from '../data/flavors';
 import { createFlatNormalTexture, createNeutralSurfaceTexture, createPlaceholderLabel } from './canModel';
 import { versioned } from '../data/assetVersion';
+import { watchStall } from './stallWatch';
 
 /**
  * Label artwork streaming. Each flavor has GPU-compressed (KTX2/Basis) levels of detail:
@@ -15,12 +16,13 @@ import { versioned } from '../data/assetVersion';
  * If a .ktx2 file fails to load, the original WebP/PNG is used instead. The Basis transcoder is Emscripten code that
  * builds functions from strings, so a Content-Security-Policy without 'unsafe-eval' (vercel.json, public/_headers)
  * blocks it in its worker and the load never settles: when string evaluation is blocked here (the worker inherits
- * the page's policy) KTX2 is skipped from the start, and a stalled KTX2 load gives up after a few seconds.
+ * the page's policy) KTX2 is skipped from the start, and a stalled KTX2 load gives up after a few seconds of responsive time.
  */
 export type LabelMaps = { albedo: THREE.Texture; surface: THREE.Texture; normal: THREE.Texture; lod: number; surfaceReady: boolean };
 
 const BASE = '/textures/grizzly';
-const KTX2_TIMEOUT_MS = 6000;
+/** Responsive time without progress after which a KTX2 load counts as stalled (see loadKtx2). */
+const KTX2_STALL_MS = 6000;
 
 /** False when the page's Content-Security-Policy blocks building functions from strings (no 'unsafe-eval'). */
 function canEvaluateStrings() {
@@ -153,24 +155,35 @@ export class LabelTextures {
     return texture;
   }
 
-  /** A KTX2 load that settles: rejects if the transcoder has not answered within KTX2_TIMEOUT_MS. */
+  /**
+   * A KTX2 load that settles: rejects once nothing has happened for KTX2_STALL_MS of responsive time (the case it
+   * guards: a transcoder worker that never answers), see stallWatch.ts. Download progress resets the budget, so a big
+   * file on a slow link is not a stall. Before this, a wall-clock timeout fired on slow phones and in software-rendered
+   * browsers, switched KTX2 off for the whole session and pulled ~6 MB of WebP/PNG fallbacks on top of the
+   * compressed files.
+   */
   private loadKtx2(url: string): Promise<THREE.Texture> {
     return new Promise((resolve, reject) => {
-      let timedOut = false;
-      const timer = window.setTimeout(() => {
-        timedOut = true;
+      let settled = false;
+      const watch = watchStall(() => {
+        settled = true;
         this.ktx2 = false;
-        reject(new Error(`KTX2 timed out: ${url}`));
-      }, KTX2_TIMEOUT_MS);
-      this.loader.loadAsync(url).then(
+        reject(new Error(`KTX2 stalled: ${url}`));
+      }, KTX2_STALL_MS);
+      this.loader.loadAsync(url, () => watch.progress()).then(
         (texture) => {
-          window.clearTimeout(timer);
+          watch.stop();
           // the fallback image has taken its place already
-          if (timedOut) texture.dispose();
-          else resolve(texture);
+          if (settled) texture.dispose();
+          else {
+            settled = true;
+            resolve(texture);
+          }
         },
         (error: unknown) => {
-          window.clearTimeout(timer);
+          watch.stop();
+          if (settled) return;
+          settled = true;
           reject(error);
         }
       );
