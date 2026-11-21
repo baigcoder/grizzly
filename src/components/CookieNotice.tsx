@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { NOTICE_LAYOUT_EVENT } from './noticeLayout';
 
 const NOTICE_KEY = 'grizzly_notice_v1';
 
@@ -44,6 +45,7 @@ export const CookieNotice: React.FC<{ isReady: boolean }> = ({ isReady }) => {
     const measure = () => {
       const rect = node.getBoundingClientRect();
       root.style.setProperty('--notice-h', `${Math.ceil(window.innerHeight - rect.top)}px`);
+      window.dispatchEvent(new Event(NOTICE_LAYOUT_EVENT));
     };
     measure();
     root.dataset.notice = 'true';
@@ -55,6 +57,7 @@ export const CookieNotice: React.FC<{ isReady: boolean }> = ({ isReady }) => {
       window.removeEventListener('resize', measure);
       root.style.removeProperty('--notice-h');
       delete root.dataset.notice;
+      window.dispatchEvent(new Event(NOTICE_LAYOUT_EVENT));
     };
   }, [visible]);
 

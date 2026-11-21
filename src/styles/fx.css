@@ -315,9 +315,8 @@
   }
 }
 
-/* Hero hints would sit right under the bar: they come back once the notice is dismissed. */
-html[data-notice] .hero__scroll-hint,
-/* The end of every page stays reachable above the bar. */
+/* The end of every page stays reachable above the bar. (The hero HUD already rises by --notice-h through its own
+   `bottom`; padding the scroll hint as well counted the bar twice and pushed the title 2× too far up.) */
 html[data-notice] body {
   padding-bottom: var(--notice-h, 0px);
 }
