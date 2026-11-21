@@ -407,6 +407,9 @@ html[data-notice] body {
   aspect-ratio: 1;
   justify-self: center;
   container-type: inline-size;
+  /* the sweep is a square that turns forever: its corners swing past this box (the visible part is masked to a circle
+     well inside it) and widened the page by up to 3 px on phones, intermittently. Clip to the box. */
+  overflow: clip;
 }
 
 .stores__radar::before,

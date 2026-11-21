@@ -991,6 +991,21 @@ html.is-locked {
   pointer-events: none;
 }
 
+/* the stand-in for a scene still downloading on a thin link (App.tsx): it fades out once the scene is ready beneath it */
+.fallback-stage {
+  transition: opacity 600ms var(--ease-out);
+}
+
+.fallback-stage[data-fading] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fallback-stage {
+    transition: none;
+  }
+}
+
 .fallback-stage__night {
   position: absolute;
   inset: 0;
@@ -1131,7 +1146,10 @@ html:has(.pdp-buybar) {
 
 /* Empty checkout: the range fanned out large, then the way back to the shop and the trust points */
 .checkout__cans {
-  margin: var(--space-xl) 0;
+  /* the fan's cans drop below their row as they tilt: the bottom margin (not the shared one it replaced) keeps them
+     clear of the button, and a little side padding keeps the tilted end cans inside the column */
+  margin: var(--space-xl) 0 calc(var(--space-2xl) + 1.5rem);
+  padding-inline: var(--space-xs);
 }
 
 .checkout__cans img {

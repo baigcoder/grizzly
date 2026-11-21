@@ -700,6 +700,13 @@
   animation: limited-float 5s var(--ease-in-out) calc(var(--i) * 0.35s) infinite alternate;
 }
 
+/* eight cans at the 3.3 rem floor, plus their tilt, were up to 13 px wider than a 320 px screen */
+@media (max-width: 359px) {
+  .newsletter__fan img {
+    width: 2.8rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .newsletter__fan li { transition: none; }
   .newsletter__fan img { animation: none; }
@@ -970,6 +977,17 @@
 .halal-seal--inline .halal-seal__art {
   width: var(--size-seal-inline);
   flex: none;
+}
+
+/* At badge size the full-size seal's hairline (0.5 of 120 units, about 0.4 px) vanished against the water, and its
+   inner "HALAL" came out about 3 px tall. A heavier stroke keeps the rings and the calligraphy readable; the caption
+   beside the badge already says the word. */
+.halal-seal--inline {
+  --stroke-seal: 1.15;
+}
+
+.halal-seal--inline .halal-seal__latin {
+  display: none;
 }
 
 .halal-seal--inline .halal-seal__caption {
@@ -1423,7 +1441,7 @@
 .zamzam-script {
   display: block;
   width: max-content;
-  margin: calc(var(--space-sm) * -1) 0 var(--space-xs);
+  margin: calc(var(--space-sm) * -1) 0 var(--space-sm);
   font-family: 'Amiri', 'Traditional Arabic', 'Geeza Pro', serif;
   font-weight: 700;
   font-size: calc(var(--size-hex-emblem) * 2.1);

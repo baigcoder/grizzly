@@ -91,6 +91,15 @@ function render(route) {
   ].join('\n    ');
   html = html.replace('</head>', `    ${head}\n  </head>`);
   html = html.replace('<div id="root"></div>', `<div id="root">${seo.staticHtml(route)}</div>`);
+  // The app stylesheet moves from <head> to just after the static markup. In <head> it blocks the first paint until
+  // it has downloaded (about 5 s on a slow 3G link, behind the fonts and scripts it shares the connection with), so a
+  // visitor saw nothing at all. Here the boot screen above paints from the HTML alone. Deferred module scripts still
+  // wait for a pending stylesheet before they run, so the app never mounts unstyled.
+  const sheet = html.match(/\s*<link rel="stylesheet"[^>]*href="\/assets\/index-[^"]+\.css"[^>]*>/);
+  if (sheet) {
+    html = html.replace(sheet[0], '');
+    html = html.replace(/(<div id="root">[\s\S]*?<\/div>)(\s*<\/body>|\s*<script)/, `$1\n    ${sheet[0].trim()}$2`);
+  }
   return { html, meta };
 }
 

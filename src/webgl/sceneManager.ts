@@ -11,7 +11,7 @@ import { PostFx } from './post';
 import { FloorReflections } from './reflections';
 import { Scene3DData } from '../types';
 import { CAROUSEL_CONFIG } from './sceneManagerConfig';
-import { PROFILE_PHONE, SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
+import { benefitCanShift, PROFILE_PHONE, SCENE_SEQUENCE, SCENE_STATES, SceneMode, SceneStateConfig } from './sceneStates';
 import type { SceneMoment } from './moments/types';
 import { FlavorLetters } from './moments/flavorLetters';
 import { RoarMoment } from './moments/roar';
@@ -24,7 +24,7 @@ import { CAN } from './canDimensions';
 import { MOTION_RATE, damp } from './motionVocabulary';
 import { CanPhysics } from './canPhysics';
 import { SCENE_COLOR } from './palette';
-import { readDeviceSignals, wantsRichCan } from './devicePower';
+import { readDeviceSignals, readNetwork, wantsRichCan } from './devicePower';
 
 export { CAROUSEL_CONFIG };
 export type { SceneMode, SceneStateConfig };
@@ -565,7 +565,11 @@ export class SceneManager {
     } else {
       sharpen();
     }
-    [1, count - 1].forEach((step) => void this.labels.ensureSurface((focusFlavor + step) % count));
+    // (the neighbours' surface maps are ~800 KB together: on a thin link they wait for the visitor's first move, so the
+    // focused can's own label gets the whole connection first)
+    const neighbours = () => [1, count - 1].forEach((step) => void this.labels.ensureSurface((focusFlavor + step) % count));
+    if (this.dataSaver) void this.engaged.then(neighbours);
+    else neighbours();
     if (closeUp && this.wantsDetail4k()) void this.labels.ensureAlbedo(focusFlavor, 2);
     // Phones: the benefit close-ups blow the label up past what the light ETC1S 2k holds (its text turned soft and
     // blocky), so a close-up takes the full-quality 2k.
@@ -606,11 +610,8 @@ export class SceneManager {
     events.forEach((name) => window.addEventListener(name, done, { passive: true }));
   });
 
-  /** Data saver or a 2g connection: stay on the small levels. */
-  private readonly dataSaver = (() => {
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
-    return Boolean(connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType ?? '')));
-  })();
+  /** Data saver, 2g or 3g: stay on the small levels (see classifyNetwork). */
+  private readonly dataSaver = readNetwork().thinLink;
 
   /** 4k only pays off where the label is shown at 1.5+ texels per pixel: capable GPUs on dense screens. */
   private wantsDetail4k() {
@@ -664,6 +665,17 @@ export class SceneManager {
     // only while the hero is in view: a visitor who lands deep in the page must not get the bear over a later chapter
     if (this.sectionPosition > 1) return;
     this.roarMoment.trigger();
+  }
+
+  /**
+   * Resolves once the label of the can in front has arrived (its 1k level). A scene that joins a page late is held
+   * back until then: the placeholder label is black, and a black can reads as a broken scene. Never rejects, and gives
+   * up after `maxWaitMs` so a stuck download cannot hide the scene for good.
+   */
+  public firstLabelReady(maxWaitMs = 20000): Promise<void> {
+    const flavor = this.routeMode === 'PRODUCT' ? this.activeProductIndex : this.carousel.getIndex();
+    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, maxWaitMs));
+    return Promise.race([this.labels.ensureAlbedo(flavor, 0), timeout]);
   }
 
   /** Index (into `cans`) of the can at the centre of the hero ring. */
@@ -890,6 +902,32 @@ export class SceneManager {
    * the same windows and power2.inOut ease, ~35 KB gzipped lighter.)
    */
   private timelinePhone = false;
+
+  /**
+   * Benefit chapters: how far the can slides right (world units) to clear the pinned copy. Measured from the real DOM
+   * (the title can be wider than its box), cached, and re-measured only after a resize or when the display font lands,
+   * never per frame.
+   */
+  private benefitShift = 0;
+  private benefitShiftDirty = true;
+  private measureBenefitShift() {
+    this.benefitShiftDirty = false;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w < 768 || (w < 1200 && h > w)) {
+      this.benefitShift = 0; // phones and portrait tablets stack the copy under the can
+      return;
+    }
+    let copyRight = 0;
+    document.querySelectorAll<HTMLElement>('.benefit .section-copy').forEach((copy) => {
+      const box = copy.getBoundingClientRect();
+      copyRight = Math.max(copyRight, box.right);
+      const title = copy.querySelector<HTMLElement>('.section-copy__title');
+      if (title) copyRight = Math.max(copyRight, title.getBoundingClientRect().left + title.scrollWidth);
+    });
+    const rail = document.querySelector<HTMLElement>('.benefit-rail__list')?.getBoundingClientRect();
+    this.benefitShift = benefitCanShift({ width: w, height: h }, copyRight, rail && rail.width > 0 ? rail.left : w - 136);
+  }
   private buildMasterTimeline() {
     const stateToData = (state: SceneStateConfig) => ({
       camPosX: state.camera.posX,
@@ -1105,6 +1143,10 @@ export class SceneManager {
 
   private bindEvents() {
     window.addEventListener('resize', this.onResize);
+    // the display face changes the title's width: measure the benefit copy again once it has loaded
+    void document.fonts?.ready.then(() => {
+      this.benefitShiftDirty = true;
+    });
     window.addEventListener('mousemove', this.onMouseMove, { passive: true });
     window.addEventListener('wheel', this.onWheel, { passive: false });
     document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -1326,6 +1368,7 @@ export class SceneManager {
     this.renderer.setSize(width, height);
     this.post?.setSize(width, height);
     this.stage.resize(width, height);
+    this.benefitShiftDirty = true;
     // a tablet turned on its side (or a window dragged past 1024 px) takes the other flavor-intro pose
     if (window.innerWidth < 1024 !== this.timelinePhone) {
       this.buildMasterTimeline();
@@ -1409,6 +1452,11 @@ export class SceneManager {
     this.seekTimeline(this.currentTimelineProgress);
 
     Object.assign(this.data, this.timelineData);
+    if (this.data.labelDim > 0.001) {
+      // benefit chapters (labelDim is 1 only there): slide the can clear of the copy, blended with the timeline
+      if (this.benefitShiftDirty) this.measureBenefitShift();
+      this.data.canPosX += this.benefitShift * this.data.labelDim;
+    }
     this.fx.flash = 0;
     this.fx.burst = 0;
     this.fx.water = 0;

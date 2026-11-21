@@ -197,7 +197,12 @@ body:has(.page-backdrop) .fallback-stage {
   }
 }
 
-/* the seal in dawn gold on the halal story (its fine ticks a quieter gold) */
+/* the seal in dawn gold on the halal story (its fine ticks a quieter gold). Slightly heavier than the default hairline,
+   so the calligraphy still reads against the glow behind it. */
+.story--halal .halal-seal {
+  --stroke-seal: 0.8;
+}
+
 .story--halal .halal-seal__line {
   stroke: var(--color-zamzam-gold);
 }
@@ -865,6 +870,10 @@ body:has(.page-backdrop) .fallback-stage {
   margin: var(--space-2xl) 0 var(--space-3xl);
   padding: 0;
   list-style: none;
+  /* the fan's outer cans are rotated and bobbing: whatever still pokes past the column is cut, never a sideways scroll */
+  overflow-x: clip;
+  overflow-y: visible;
+  overflow-clip-margin: 0;
 }
 
 .story__cans li {
@@ -875,7 +884,8 @@ body:has(.page-backdrop) .fallback-stage {
 }
 
 .story__cans img {
-  width: clamp(4.2rem, 10vw, 8rem);
+  /* eight cans at 4.2 rem plus their tilt were 400 px wide on a 390 px phone: the floor is lower so the fan fits */
+  width: clamp(3.1rem, 10vw, 8rem);
   height: auto;
   filter:
     drop-shadow(0 0 1.4rem color-mix(in oklab, var(--color-zamzam-gold) 45%, transparent))

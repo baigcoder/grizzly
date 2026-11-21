@@ -35,15 +35,42 @@ export function pickQuality({ width, cores, memoryGb, dataSaver, reducedMotion }
   return 'HIGH';
 }
 
+export interface ConnectionInfo {
+  saveData?: boolean;
+  effectiveType?: string;
+}
+
+export interface NetworkClass {
+  /** Data saver on, or a 2g link: also takes the cheap render tier (see pickQuality). */
+  dataSaver: boolean;
+  /**
+   * A link too thin for the heavy extras: data saver, 2g or 3g. Stay on the small label textures (no 4k, no full 2k on
+   * phones, no speculative prefetch). Only bytes are affected, never how the scene renders: a fast phone on 3g still
+   * gets the full material.
+   */
+  thinLink: boolean;
+}
+
+/** Pure, so it is unit-tested. An unknown connection (Safari, Firefox) never counts as thin. */
+export function classifyNetwork(connection: ConnectionInfo | undefined | null): NetworkClass {
+  const type = connection?.effectiveType ?? '';
+  const dataSaver = Boolean(connection && (connection.saveData || /(^|-)2g$/.test(type)));
+  return { dataSaver, thinLink: dataSaver || type === '3g' };
+}
+
+/** Reads the real connection (client only). */
+export function readNetwork(): NetworkClass {
+  return classifyNetwork((navigator as Navigator & { connection?: ConnectionInfo }).connection);
+}
+
 /** Reads the real signals (client only). */
 export function readDeviceSignals(reducedMotion: boolean): DeviceSignals {
-  const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean; effectiveType?: string } };
-  const connection = nav.connection;
+  const nav = navigator as Navigator & { deviceMemory?: number };
   return {
     width: window.innerWidth,
     cores: nav.hardwareConcurrency || 0,
     memoryGb: nav.deviceMemory,
-    dataSaver: Boolean(connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType ?? ''))),
+    dataSaver: readNetwork().dataSaver,
     reducedMotion,
   };
 }

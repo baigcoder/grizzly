@@ -15,7 +15,9 @@ test.beforeEach(async ({ page }) => {
 test('hero link opens the product page for the selected flavor', async ({ page }) => {
   await page.goto('/');
   await waitForLoader(page);
-  await page.locator('#profile').getByRole('link', { name: 'View details and order Blue Raspberry' }).click();
+  // the flavor copy is pinned and hidden until its section is active: scroll there first
+  await page.evaluate(() => document.getElementById('profile')?.scrollIntoView({ behavior: 'instant' }));
+  await page.locator('#profile').getByRole('link', { name: /View product: Blue Raspberry/ }).click();
   await expect(page).toHaveURL(/\/products\/blue-raspberry$/);
   await expect(page.getByRole('heading', { level: 1, name: 'BLUE RASPBERRY' })).toBeVisible();
   await expect(page.getByText('Placeholder price')).toBeVisible();

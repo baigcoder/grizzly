@@ -77,6 +77,28 @@ const benefit = (chapter: number): SceneStateConfig => {
   };
 };
 
+/**
+ * Benefit chapters on landscape screens: how far (world units) the can must slide right so it clears the pinned copy.
+ * The copy is laid out in CSS pixels and the can in world units, so a narrower or shorter window pushed the can's left
+ * edge under the title (worst in the Zamzam chapter, whose title is the longest and whose can leans left).
+ *
+ * Measured on the lit label: at the benefit camera (z 12, 20° lens) the can's silhouette reaches about 0.9 world units
+ * left and right of its axis at the height of the copy. The shift is capped so the can never runs into the chapter rail.
+ * Phones and portrait tablets stack the copy under the can and need none.
+ */
+export const BENEFIT_CAN_REACH = 0.9;
+export function benefitCanShift(view: { width: number; height: number }, copyRight: number, railLeft: number, gap = 28): number {
+  if (view.height <= 0 || copyRight <= 0) return 0;
+  const { posZ, fov } = benefit(0).camera;
+  const unitsPerPx = (2 * Math.tan((fov * DEG) / 2) * posZ) / view.height;
+  const reachPx = BENEFIT_CAN_REACH / unitsPerPx;
+  const canLeft = view.width / 2 - reachPx;
+  const need = copyRight + gap - canLeft;
+  if (need <= 0) return 0;
+  const room = railLeft - 16 - (view.width / 2 + reachPx);
+  return Math.max(0, Math.min(need, room)) * unitsPerPx;
+}
+
 export const SCENE_STATES: Record<string, SceneStateConfig> = {
   // Hero: the ring of cans hangs in cold air over a wet floor; the focused can is ~55% of the viewport height.
   hero: {

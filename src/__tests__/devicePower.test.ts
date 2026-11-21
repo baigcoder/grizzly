@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickQuality, wantsRichCan } from '../webgl/devicePower';
+import { classifyNetwork, pickQuality, wantsRichCan } from '../webgl/devicePower';
 
 const base = { width: 1920, cores: 12, memoryGb: 16, dataSaver: false, reducedMotion: false };
 
@@ -42,5 +42,28 @@ describe('can material on phones and tablets', () => {
     expect(wantsRichCan({ ...phone, memoryGb: 4 })).toBe(false);
     expect(wantsRichCan({ ...phone, cores: 2 })).toBe(false);
     expect(wantsRichCan({ ...phone, dataSaver: true })).toBe(false);
+  });
+});
+
+describe('network class', () => {
+  it('never treats an unknown connection as thin (Safari and Firefox expose none)', () => {
+    expect(classifyNetwork(undefined)).toEqual({ dataSaver: false, thinLink: false });
+    expect(classifyNetwork({})).toEqual({ dataSaver: false, thinLink: false });
+  });
+
+  it('data saver and 2g take the cheap tier and the thin-link policy', () => {
+    expect(classifyNetwork({ saveData: true, effectiveType: '4g' })).toEqual({ dataSaver: true, thinLink: true });
+    expect(classifyNetwork({ effectiveType: '2g' })).toEqual({ dataSaver: true, thinLink: true });
+    expect(classifyNetwork({ effectiveType: 'slow-2g' })).toEqual({ dataSaver: true, thinLink: true });
+  });
+
+  it('3g is a thin link for downloads, but does not drop a capable phone to the cheap render tier', () => {
+    const net = classifyNetwork({ effectiveType: '3g' });
+    expect(net).toEqual({ dataSaver: false, thinLink: true });
+    expect(pickQuality({ ...base, width: 390, cores: 8, memoryGb: 8, dataSaver: net.dataSaver })).toBe('MEDIUM');
+  });
+
+  it('4g is not thin', () => {
+    expect(classifyNetwork({ effectiveType: '4g' })).toEqual({ dataSaver: false, thinLink: false });
   });
 });

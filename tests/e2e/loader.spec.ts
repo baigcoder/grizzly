@@ -60,7 +60,9 @@ test('navigating between routes never brings the loader back or doubles the canv
   test.setTimeout(120_000);
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-loader', 'complete', { timeout: 40_000 });
-  await page.locator('#profile').getByRole('link', { name: /View details and order/ }).click();
+  // the flavor copy is pinned and hidden until its section is active: scroll there first
+  await page.evaluate(() => document.getElementById('profile')?.scrollIntoView({ behavior: 'instant' }));
+  await page.locator('#profile').getByRole('link', { name: /View product/ }).click();
   await expect(page).toHaveURL(/\/products\//);
   await expect(page.locator('.loader')).toHaveCount(0);
   await page.goBack();
