@@ -6,6 +6,7 @@
  * The app still mounts over this markup: React replaces #root, so nothing is hydrated or duplicated.
  */
 import { build } from 'esbuild';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -41,6 +42,9 @@ const escapeAttr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;
 
 function render(route) {
   const meta = seo.pageMeta(route);
+  // A link preview that 404s is silent in the browser; fail the build instead.
+  const imageFile = resolve(dist, meta.image.replace(`${seo.SITE_URL}/`, ''));
+  if (!existsSync(imageFile)) throw new Error(`Missing social image for ${meta.path}: ${meta.image}`);
   const canonical = seo.absoluteUrl(meta.path === '/404' ? '/' : meta.path);
   let html = template
     // drop the dev defaults; the real tags follow
@@ -59,12 +63,14 @@ function render(route) {
     `<meta property="og:description" content="${escapeAttr(meta.description)}" />`,
     `<meta property="og:url" content="${canonical}" />`,
     `<meta property="og:image" content="${meta.image}" />`,
+    `<meta property="og:image:type" content="image/png" />`,
     `<meta property="og:image:width" content="${seo.SOCIAL_IMAGE.width}" />`,
     `<meta property="og:image:height" content="${seo.SOCIAL_IMAGE.height}" />`,
     `<meta property="og:image:alt" content="${escapeAttr(meta.title)}" />`,
     `<meta name="twitter:title" content="${escapeAttr(meta.title)}" />`,
     `<meta name="twitter:description" content="${escapeAttr(meta.description)}" />`,
     `<meta name="twitter:image" content="${meta.image}" />`,
+    `<meta name="twitter:image:alt" content="${escapeAttr(meta.title)}" />`,
     ...preloads,
     `<style>${seo.STATIC_CSS}</style>`,
     `<noscript><style>${seo.NOSCRIPT_CSS}</style></noscript>`,
@@ -85,6 +91,6 @@ for (const route of routes) {
 const notFound = render({ type: 'NOT_FOUND' });
 await writeFile(resolve(dist, '404.html'), notFound.html);
 await writeFile(resolve(dist, 'robots.txt'), seo.robotsTxt());
-await writeFile(resolve(dist, 'sitemap.xml'), seo.sitemapXml());
+await writeFile(resolve(dist, 'sitemap.xml'), seo.sitemapXml(new Date().toISOString().slice(0, 10)));
 await writeFile(resolve(dist, 'llms.txt'), seo.llmsTxt());
 console.log(`prerendered ${routes.length} routes + 404, robots.txt, sitemap.xml, llms.txt`);

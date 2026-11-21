@@ -8,8 +8,10 @@ export function robotsTxt(): string {
   return `User-agent: *\nAllow: /\nDisallow: /cart\nDisallow: /checkout\n\nSitemap: ${SITE_URL}/sitemap.xml\n`;
 }
 
-export function sitemapXml(): string {
-  const urls = indexableRoutes().map((route) => `  <url><loc>${absoluteUrl(pageMeta(route).path === '/' ? '/' : pageMeta(route).path)}</loc></url>`);
+/** `lastmod` is the build date (YYYY-MM-DD); omitted when not given, e.g. in tests. */
+export function sitemapXml(lastmod?: string): string {
+  const stamp = lastmod ? `<lastmod>${lastmod}</lastmod>` : '';
+  const urls = indexableRoutes().map((route) => `  <url><loc>${absoluteUrl(pageMeta(route).path)}</loc>${stamp}</url>`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 }
 

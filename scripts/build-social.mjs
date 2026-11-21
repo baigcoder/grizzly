@@ -3,6 +3,8 @@
  * Social preview images (1200×630) and share posters (1080×1350, the "Share poster"
  * button on the product page) per flavor: the label front on its accent
  * background with the wordmark and tagline. Re-run after build-labels.mjs.
+ * A flavor with no flat label artwork yet (grizzly.json → flavors[].front missing) gets a type-only
+ * social card without the can, so link previews never show a placeholder label, and no poster.
  *   node scripts/build-social.mjs
  */
 import { chromium } from 'playwright';
@@ -20,7 +22,8 @@ await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
 for (const flavor of data.flavors) {
-  const front = await readFile(resolve(root, `assets/label-front/${flavor.slug}-front.png`));
+  const hasArt = Boolean(flavor.front);
+  const front = hasArt ? await readFile(resolve(root, `assets/label-front/${flavor.slug}-front.png`)) : null;
   await page.setContent(`<!doctype html><html><head>
   ${fontCss}
   <style>
@@ -28,12 +31,13 @@ for (const flavor of data.flavors) {
       background: radial-gradient(60% 80% at 70% 60%, ${flavor.accent} 0%, ${flavor.accentDeep} 55%, #000 100%); }
     .can { position: absolute; right: 170px; top: 40px; height: 550px; border-radius: 22px; box-shadow: 0 30px 80px #0009; transform: rotate(6deg); }
     .copy { position: absolute; left: 80px; top: 150px; width: 520px; }
+    ${hasArt ? '' : '.copy { left: 0; right: 0; width: auto; text-align: center; top: 130px; } .mark span { margin-left: 0; } .mark { font-size: 120px; } .mark span { font-size: 86px; } .flavor { font-size: 56px; } .tag { font-size: 24px; }'}
     .mark { font: italic 900 92px/0.85 'Libre Franklin'; text-transform: uppercase; }
     .mark span { display: block; color: ${flavor.accent}; margin-left: 40px; font-size: 66px; filter: brightness(1.25); }
     .flavor { margin-top: 36px; font: italic 900 44px/1 'Libre Franklin'; text-transform: uppercase; }
     .tag { margin-top: 14px; font-size: 22px; letter-spacing: 6px; text-transform: uppercase; opacity: .85; }
   </style></head><body>
-  <img class="can" src="data:image/png;base64,${front.toString('base64')}">
+  ${hasArt ? `<img class="can" src="data:image/png;base64,${front.toString('base64')}">` : ''}
   <div class="copy">
     <div class="mark">${data.brand.wordmark[0]}<span>${data.brand.wordmark[1]}</span></div>
     <div class="flavor">${flavor.name}</div>
@@ -45,7 +49,7 @@ for (const flavor of data.flavors) {
 }
 
 const poster = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
-for (const flavor of data.flavors) {
+for (const flavor of data.flavors.filter((item) => item.front)) {
   const front = await readFile(resolve(root, `assets/label-front/${flavor.slug}-front.png`));
   await poster.setContent(`<!doctype html><html><head>
   ${fontCss}

@@ -6,7 +6,7 @@
  * only states what the visible page states: no prices (still placeholders), no caffeine or sugar
  * figures, no reviews, no addresses until they are confirmed.
  */
-import { ABOUT_PAGE, BADGES, BRAND, GRIZZLY_FLAVORS, isTodo } from '../data/brand';
+import { ABOUT_PAGE, BRAND, GRIZZLY_FLAVORS, isTodo } from '../data/brand';
 import { PRIVACY } from '../data/privacy';
 import { FAQ_ITEMS } from '../data/faq';
 import { PRODUCTS, type Product } from '../data/products';
@@ -134,8 +134,8 @@ export function pageMeta(route: SeoRoute): PageMeta {
     case 'HOME':
       return {
         path: '/',
-        title: `${BRAND.name} – ${BRAND.tagline} | Halal energy drink made in Pakistan`,
-        description: `${BRAND.name} is a halal-certified energy drink made in Pakistan, with natural caffeine, B vitamins, electrolytes and added Zamzam water. Eight flavors in ${BRAND.volume} cans.`,
+        title: `${BRAND.name} – Halal energy drink made in Pakistan`,
+        description: `${BRAND.name} is a halal-certified energy drink made in Pakistan, with natural caffeine, B vitamins, electrolytes and added Zamzam water. Eight flavors.`,
         image: imageFor(),
         noindex: false,
         jsonLd: [organization(), website(), faqSchema()],
@@ -144,7 +144,7 @@ export function pageMeta(route: SeoRoute): PageMeta {
       return {
         path: '/shop',
         title: `Shop ${BRAND.name} – all eight flavors`,
-        description: `Shop all eight ${BRAND.name} flavors (${FLAVOR_NAMES.join(', ')}). ${BADGES.join(', ')}. ${BRAND.origin}.`,
+        description: `Shop all eight ${BRAND.name} flavors: ${FLAVOR_NAMES.slice(0, 5).join(', ')} and three limited editions. ${BRAND.origin}.`,
         image: imageFor(),
         noindex: false,
         jsonLd: [
@@ -161,7 +161,7 @@ export function pageMeta(route: SeoRoute): PageMeta {
       return {
         path: `/products/${product.slug}`,
         title: `${product.name} energy drink – ${BRAND.name}`,
-        description: `${product.name}: ${product.tagline} A ${LABEL}, halal certified, with added Zamzam water. ${BRAND.origin}.`,
+        description: `${product.name}: ${product.tagline} A ${LABEL}, halal certified, with Zamzam water. ${BRAND.origin}.`,
         image: imageFor(product.slug),
         noindex: false,
         jsonLd: [
